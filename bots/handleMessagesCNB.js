@@ -231,15 +231,15 @@ async function handleNewMessagesCNB(req, res) {
                     }
                     const carpetTileFilePaths = {
                         '**atria**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FAtria%20Leaflet.pdf?alt=media&token=73303523-9c3c-4935-bd14-1004b45a7f58',
-                        '**mw-moscow**-thepriceper': 'URL_FOR_MW_MOSCOW',
-                        '**palette**-thepriceper': 'URL_FOR_PALETTE',
-                        '**pe-saintpetersburg**-thepriceper': 'URL_FOR_PE_SAINT_PETERSBURG',
+                        '**mw-moscow**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FMoscow%20St%20Petersburg%20Leaflet.pdf?alt=media&token=d5dfa885-1cf1-4232-aaf4-aa0c61aaa4f9',
+                        '**palette**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FPalette%20Leaflet.pdf?alt=media&token=625df591-76ce-4aac-a2f4-cca73f8706f4',
+                        '**pe-saintpetersburg**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FMoscow%20St%20Petersburg%20Leaflet.pdf?alt=media&token=d5dfa885-1cf1-4232-aaf4-aa0c61aaa4f9',
                         '**canvas(new)**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FCanvas%20Leaflet.pdf?alt=media&token=377c77a6-c4d0-4778-9e37-b4a80a88ca0b',
-                        '**spark(new)**-thepriceper': 'URL_FOR_SPARK_NEW',
+                        '**spark(new)**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FSpark%20Leaflet.pdf?alt=media&token=43756f59-08c9-4c10-9030-900acecdf3c4',
                         '**brs**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FBRS%20Leaflet.pdf?alt=media&token=a9259cc5-7c7c-4860-97e3-65aae607c214',
-                        '**vlt**-thepriceper': 'URL_FOR_VLT',
+                        '**vlt**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FVLT%20Leaflet.pdf?alt=media&token=2289c5a0-d4bd-469f-bf27-eedb26d28051',
                         '**bonn**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FBonn%20Leaflet.pdf?alt=media&token=004bdc9a-8d9e-446b-9f02-774d3e9bc1d0',
-                        '**phantomnew**-thepriceper': 'URL_FOR_PHANTOM_NEW',
+                        '**phantom(new)**-thepriceper': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/CNB%2FPDF%2FCarpet%20Tile%2FPhantom%20Leaflet.pdf?alt=media&token=9eadd923-c352-4b90-a5a6-7b523c934721',
                         '**roma**-thepriceper': 'URL_FOR_ROMA',
                         '**rhythm**-thepriceper': 'URL_FOR_RHYTHM',
                         '**proearth**-thepriceper': 'URL_FOR_PRO_EARTH',
@@ -326,7 +326,7 @@ async function handleNewMessagesCNB(req, res) {
                             for (const [key, filePath] of Object.entries(carpetTileFilePaths)) {
                                 if (carpetCheck.includes(key)) {
                                     console.log(`${key} sending file`);
-                                    await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
+                                    await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${extractProductName(key)}.pdf`});
                                 }
                             }
                         }
@@ -393,6 +393,11 @@ async function handleNewMessagesCNB(req, res) {
         res.send(e.message);
     }
 }
+const extractProductName = (str) => {
+    const match = str.match(/\*\*(.*?)\*\*/);
+    return match ? match[1] : null;
+};
+
 async function removeTagBookedGHL(contactID, tag) {
     const options = {
         method: 'DELETE',
