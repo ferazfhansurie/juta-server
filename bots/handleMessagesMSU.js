@@ -115,8 +115,10 @@ async function handleNewMessagesMSU(req, res) {
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();                
                         if (part) {
+                            await sendWhapiRequest('messages/text', { to: sender.to, body: part });
                             if(part.includes('Sit back, relax and enjoy our campus tour!')){
-                                const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FVideo%2FMSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=7ee8ae1e-4731-4516-bac4-377054bb87b6';
+                                console.log('sending vid');
+                                const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=38b4ca14-6483-4504-b69a-9af6be3b2e9b';
                                 // Send the video
                                 await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
                             }    

@@ -107,7 +107,7 @@ async function handleNewMessagesJuta(req, res) {
         const receivedMessages = req.body.messages;
         for (const message of receivedMessages) {
             if (message.from_me) break;
-            console.log(message);
+     
 
             const sender = {
                 to: message.chat_id,
@@ -133,6 +133,8 @@ async function handleNewMessagesJuta(req, res) {
             botStatus = dbData.bot_status;
             const contactPresent = await getContact(extractedNumber);
             const chat = await getChatMetadata(message.chat_id);
+            console.log('chat');
+            console.log(chat);
             const stop = hasStopBotLabel(chat);
             let firebaseTags =[]
             if(contactData){
@@ -169,7 +171,7 @@ async function handleNewMessagesJuta(req, res) {
                 customFields: contactPresent.customFields ?? {},
                 last_message: message,
             };
-            console.log(data);
+     
             await addNotificationToUser('001', message);
             await db.collection('companies').doc('001').collection('contacts').doc(extractedNumber).set(data);
             console.log('set data');
