@@ -716,6 +716,33 @@ async function createChannel(projectId, token, companyID) {
       await companiesCollection.doc(companyID).set({
           whapiToken: whapiToken
       }, { merge: true });
+
+      // Now call the webhook settings API
+      await axios.patch('https://gate.whapi.cloud/settings', {
+        webhooks: [
+          {
+            events: [
+              {
+                type: 'messages',
+                method: 'post'
+              },
+              {
+                type: 'statuses',
+                method: 'post'
+              }
+            ],
+            mode: 'method',
+            url: 'https://buds-359313.et.r.appspot.com/hook'
+          }
+        ],
+        callback_persist: true
+      }, {
+        headers: {
+          Authorization: `Bearer ${whapiToken}`,
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        }
+      });
       return response.data;
   } catch (error) {
       console.error(`Error creating channel for project ID ${projectId}:`, error);
