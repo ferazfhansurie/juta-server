@@ -115,55 +115,16 @@ async function handleNewMessagesMSU(req, res) {
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();                
                         if (part) {
-                            await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            console.log('Part sent:', part);
-                            if(part.includes('ezy orange')){
-                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Ezy%20ORange.jpg?alt=media&token=c9103bac-1b08-418a-967a-fe7325cc4891';
-                                console.log("test")
-                                // Send the image
-                                await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            } else if(part.includes('susu maya')){
-                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Susumaya.png?alt=media&token=c5ed18d6-790f-4992-9659-672b6dcfe6dd';
-                                console.log("test")
-            
-                                // Send the image
-                                await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            } else if(part.includes('kopi sacha')){
-                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Kopi%20Sacha%20Inchi.png?alt=media&token=83fddd0b-f5e4-483e-b248-4bd8cd5b97bc';
-                                console.log("test")
-            
-                                // Send the image
-                                await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            } 
-                            if(part.includes('kopi kunyit hitam')){
-                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Kopi%20Sacha%20Inchi.png?alt=media&token=83fddd0b-f5e4-483e-b248-4bd8cd5b97bc';
-                                console.log("test")
-            
-                                // Send the image
-                                await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            }
-                            if(part.includes('kopi peria katak')){
-                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Kopi%20Sacha%20Inchi.png?alt=media&token=83fddd0b-f5e4-483e-b248-4bd8cd5b97bc';
-                                console.log("test")
-            
-                                // Send the image
-                                await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            }
-                            if(part.includes('bubur dhuda')){
-                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Bubur%20Dhuda.png?alt=media&token=0a094fd5-922f-4c54-81da-d550a4dfea63';
-                                console.log("test")
-            
-                                // Send the image
-                                await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            } else if(part.includes('stevia sacha inchi')){
-                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Shahir.png?alt=media&token=320bdae9-899f-4953-89df-39886252c4b6';
-                                console.log("test")
-            
-                                // Send the image
-                                await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            } else {
-                               
-                            }
+                            if(part.includes('Sit back, relax and enjoy our campus tour!')){
+                                const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FVideo%2FMSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=7ee8ae1e-4731-4516-bac4-377054bb87b6';
+                                // Send the video
+                                await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
+                            }    
+                            if(part.includes('Check out our food video!')){
+                                const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FVideo%2FMSU%20FOOD%208%20small%20size.mp4?alt=media&token=0e0b849d-956e-4dd2-b69b-8311cfade209';
+                                // Send the video
+                                await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
+                            }      
                         }
                     }
                     console.log('Response sent.');
