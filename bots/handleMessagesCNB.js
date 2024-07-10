@@ -326,7 +326,7 @@ async function handleNewMessagesCNB(req, res) {
                             for (const [key, filePath] of Object.entries(carpetTileFilePaths)) {
                                 if (carpetCheck.includes(key)) {
                                     console.log(`${key} sending file`);
-                                    await sendWhapiRequest('messages/document', { to: sender.to, media: filePath });
+                                    await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
                                 }
                             }
                         }
