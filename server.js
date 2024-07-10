@@ -693,11 +693,11 @@ async function fetchProjectId(token) {
   }
 }
 
-async function createChannel(projectId, token, companyName) {
+async function createChannel(projectId, token, companyID) {
   try {
       const response = await axios.put('https://manager.whapi.cloud/channels', {
           projectId: projectId,
-          name: companyName,
+          name: companyID,
       }, {
           headers: {
               Authorization: `Bearer ${token}`,
@@ -710,12 +710,9 @@ async function createChannel(projectId, token, companyName) {
       // Get the companies collection
       const companiesCollection = db.collection('companies');
         
-      // Get the number of documents in the collection
-      const snapshot = await companiesCollection.get();
-      const newDocId = String(snapshot.size + 1).padStart(3, '0');
 
       // Save the whapiToken to a new document
-      await companiesCollection.doc(newDocId).set({
+      await companiesCollection.doc(companyID).set({
           whapiToken: whapiToken
       });
       return response.data;
@@ -725,13 +722,13 @@ async function createChannel(projectId, token, companyName) {
   }
 }
 
-app.post('/api/channel/create/:companyName', async (req, res) => {
-  const { companyName } = req.params;
+app.post('/api/channel/create/:companyID', async (req, res) => {
+  const { companyID } = req.params;
   const token = ""; // Assuming you pass the token in the request headers
 
   try {
       const projectId = await fetchProjectId(token);
-      const channelData = await createChannel(projectId, token, companyName);
+      const channelData = await createChannel(projectId, token, companyID);
       res.json({ message: 'Channel created successfully', channelData });
   } catch (error) {
       res.status(500).json({ error: 'Failed to create channel', details: error.message });
