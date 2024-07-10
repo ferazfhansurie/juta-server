@@ -83,7 +83,7 @@ async function fetchConfigFromDatabase(companyId) {
 async function updateAllTokens() {
 
 
-    const companyIds = Array.from({ length: 22 }, (_, i) => `00${i + 1}`.slice(-3));
+    const companyIds = Array.from({ length: 23 }, (_, i) => `00${i + 1}`.slice(-3));
     for (const companyId of companyIds) {
       console.log(companyId);
         try {
@@ -114,7 +114,6 @@ cron.schedule('0 */12 * * *', async () => {
 
 const { handleNewMessagesGL } = require('./bots/handleMessagesGL.js');
 const { handleNewMessagesArul } = require('./bots/handleMessagesArul.js');
-
 const { handleNewMessages } = require('./bots/handleMessages.js');
 const { handleNewMessagesJuta } = require('./bots/handleMessagesJuta.js');
 const { handleNewMessagesCallabio } = require('./bots/handleMessagesCallabio.js');
@@ -131,6 +130,8 @@ const { handleNewMessagesTasty} = require('./bots/handleMessagesTasty.js');
 const { handleNewMessagesTastyPuga} = require('./bots/handleMessagesPugaTasty.js');
 const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
+const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
+
 
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -159,6 +160,8 @@ app.post('/sunz/hook/messages', handleNewMessagesSunz);
 app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/cnb/hook/messages', handleNewMessagesCNB);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
+app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
+
 
 
 
