@@ -1,6 +1,7 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
+require('dotenv').config();
 const cors = require('cors');
 const app = express();
 const admin = require('./firebase.js');
@@ -678,18 +679,18 @@ app.post('/api/fetch-users', async (req, res) => {
 
 async function fetchProjectId(token) {
   try {
-      const response = await axios.get('https://manager.whapi.cloud/projects', {
-          headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: 'application/json'
-          }
-      });
-      console.log(response.data);
-      const projectid = response.data.projects.id;
-      return projectid;
+    const response = await axios.get('https://manager.whapi.cloud/projects', {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
+      },
+    });
+    console.log(response.data);
+    const projectId = response.data.projects[0].id;
+    return projectId;
   } catch (error) {
-      console.error(`Error fetching project ID:`, error);
-      throw error;
+    console.error(`Error fetching project ID:`, error);
+    throw error;
   }
 }
 
@@ -714,7 +715,7 @@ async function createChannel(projectId, token, companyID) {
       // Save the whapiToken to a new document
       await companiesCollection.doc(companyID).set({
           whapiToken: whapiToken
-      });
+      }, { merge: true });
       return response.data;
   } catch (error) {
       console.error(`Error creating channel for project ID ${projectId}:`, error);
@@ -724,10 +725,11 @@ async function createChannel(projectId, token, companyID) {
 
 app.post('/api/channel/create/:companyID', async (req, res) => {
   const { companyID } = req.params;
-  const token = ""; // Assuming you pass the token in the request headers
+  const token = process.env.WHAPIPARTERTOKEN; // Assuming you pass the token in the request headers
 
   try {
       const projectId = await fetchProjectId(token);
+      console.log(projectId);
       const channelData = await createChannel(projectId, token, companyID);
       res.json({ message: 'Channel created successfully', channelData });
   } catch (error) {
