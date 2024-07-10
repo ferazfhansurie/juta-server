@@ -74,7 +74,7 @@ async function handleNewMessagesCNB(req, res) {
         const receivedMessages = req.body.messages;
 
         for (const message of receivedMessages) {
-        
+            if (message.from_me) break;
 
             if(!message.chat_id.includes("whatsapp")){
                 break;
