@@ -1,0 +1,23 @@
+# Ignore all log files
+*.log
+
+# Ignore node_modules directory
+node_modules/
+
+# Ignore environment files
+.env
+
+# Ignore specific configuration files
+config/secret-config.json
+
+# Ignore all files in the temp directory
+temp/
+
+sa_firebase.json
+jutaCRM.code-workspace
+juta.json
+firestore.rules
+firestore.indexes.json
+firebase.json
+config.json
+config.js

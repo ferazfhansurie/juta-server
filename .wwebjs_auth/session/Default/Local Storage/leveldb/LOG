@@ -1,0 +1,6 @@
+2024/05/31-13:46:36.130 b503 Reusing MANIFEST /Users/firaz/Documents/server 2/.wwebjs_auth/session/Default/Local Storage/leveldb/MANIFEST-000001
+2024/05/31-13:46:36.130 b503 Recovering log #3
+2024/05/31-13:46:36.130 b503 Reusing old log /Users/firaz/Documents/server 2/.wwebjs_auth/session/Default/Local Storage/leveldb/000003.log 
+2024/05/31-14:48:10.454 16703 Level-0 table #5: started
+2024/05/31-14:48:10.462 16703 Level-0 table #5: 18207 bytes OK
+2024/05/31-14:48:10.470 16703 Delete type=0 #3
