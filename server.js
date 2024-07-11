@@ -771,6 +771,26 @@ app.post('/api/channel/create/:companyID', async (req, res) => {
   }
 });
 
+app.post('/api/assistant/create', async (req, res) => {
+  OPENAI_API_KEY = process.env.OPENAIKEY;
+  try {
+      const response = await axios.post('https://api.openai.com/v1/assistants', {
+          display_name: req.body.display_name,
+          description: req.body.description,
+          model: 'gpt-4o', // or any other model you prefer
+      }, {
+          headers: {
+              Authorization: `Bearer ${OPENAI_API_KEY}`,
+          }
+      });
+      console.log(response.data)
+      const assistantId = response.data.data.id;
+      res.json({ assistantId });
+  } catch (error) {
+      console.error('Error creating OpenAI assistant:', error);
+      res.status(500).json({ error: 'Failed to create assistant' });
+  }
+});
 
 
 
