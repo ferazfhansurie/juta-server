@@ -131,6 +131,7 @@ const { handleNewMessagesTastyPuga} = require('./bots/handleMessagesPugaTasty.js
 const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
 const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
+const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js');
 
 
 
@@ -161,6 +162,7 @@ app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/cnb/hook/messages', handleNewMessagesCNB);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
+app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 
 
 
@@ -737,7 +739,7 @@ async function createChannel(projectId, token, companyID) {
               }
             ],
             mode: 'method',
-            url: 'https://buds-359313.et.r.appspot.com/hook'
+            url: `https://buds-359313.et.r.appspot.com/${companyId}/hook`
           }
         ],
         callback_persist: true

@@ -2,7 +2,7 @@
 
 //STEP BY STEP GUIDE
 //1. CHANGE all handleMessagesTemplate to -> handleMessages<YourBotName>
-//2. CHANGE all <change> to firebase collection name
+//2. CHANGE all idSubstring to firebase collection name
 //3. CHANGE all <assistant> to openai assistant id
 //4. CHANGE all Template to your <YourBotName>
 
@@ -23,9 +23,6 @@ const openai = new OpenAI({
 
 const steps = {
     START: 'start',
-    NEW_CONTACT: 'newContact',
-    CREATE_CONTACT: 'createContact',
-    POLL: 'poll',
 };
 const userState = new Map();
 
@@ -76,6 +73,15 @@ async function getChatMetadata(chatId,) {
 }
 
 async function handleNewMessagesTemplate(req, res) {
+    const url=req.originalUrl
+
+    // Find the positions of the '/' characters
+    const firstSlash = url.indexOf('/');
+    const secondSlash = url.indexOf('/', firstSlash + 1);
+
+    // Extract the substring between the first and second '/'
+    const idSubstring = url.substring(firstSlash + 1, secondSlash);
+
     try {
         console.log('Handling new messages from Template...');
 
@@ -106,17 +112,15 @@ async function handleNewMessagesTemplate(req, res) {
             let currentStep;
             const senderTo = sender.to;
             const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-            let contactPresent = await getContact(extractedNumber);
             const chat = await getChatMetadata(message.chat_id);
-            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
+            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             
             
-            if (contactPresent !== null) {
-                const stopTag = contactPresent.tags;
+            if (contactData !== null) {
+                const stopTag = contactData.tags;
                 console.log(stopTag);
                 if (message.from_me){
                     if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
                     }
                     break;
                 }
@@ -124,45 +128,41 @@ async function handleNewMessagesTemplate(req, res) {
                     console.log('Bot stopped for this message');
                     continue;
                 }else {
-                    contactID = contactPresent.id;
-                    contactName = contactPresent.fullNameLowerCase;
-                    const threadIdField = contactPresent.customFields.find(field => field.id === 'DbZw9MHDm1CbViNrx2G1');
+                    contactID = extractedNumber;
+                    contactName = contactData.fullNameLowerCase;
                 
-                    if (threadIdField) {
-                        threadID = threadIdField.value;
+                    if (contactData.threadid) {
+                        threadID = contactData.threadid;
                     } else {
                         const thread = await createThread();
                         threadID = thread.id;
-                        await saveThreadIDGHL(contactID,threadID);
+                        await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                        //await saveThreadIDGHL(contactID,threadID);
                     }
                 }
             }else{
-                await createContact(sender.name,extractedNumber);
                 await customWait(2500);
-                const contactPresent = await getContact(extractedNumber);
-                const stopTag = contactPresent.tags;
+                const stopTag = contactData.tags;
                 if (message.from_me){
                     if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
                     }
                     break;
                 }
                 console.log(stopTag);
 
-                contactID = contactPresent.id;
-                contactName = contactPresent.fullNameLowerCase;
+                contactID = extractedNumber;
+                contactName = chat.name ?? extractedNumber;
 
-                const threadIdField = contactPresent.customFields.find(field => field.id === 'DbZw9MHDm1CbViNrx2G1');
-                if (threadIdField) {
-                    threadID = threadIdField.value;
+                if (contactData.threadid) {
+                    threadID = contactData.threadid;
                 } else {
                     const thread = await createThread();
                     threadID = thread.id;
-                    await saveThreadIDGHL(contactID,threadID);
+                    await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                    //await saveThreadIDGHL(contactID,threadID);
                 }
                 console.log('sent new contact to create new contact');
             }   
-            contactPresent = await getContact(extractedNumber);
             let firebaseTags =[]
             if(contactData){
                 firebaseTags=   contactData.tags??[];
@@ -173,17 +173,16 @@ async function handleNewMessagesTemplate(req, res) {
                 address1: null,
                 assignedTo: null,
                 businessId: null,
-                atriaCheck: contactData.atriaCheck ?? true,
                 phone:extractedNumber,
                 tags:firebaseTags,
                 chat: {
                     chat_pic: chat.chat_pic ?? "",
                     chat_pic_full: chat.chat_pic_full ?? "",
-                    contact_id: contactPresent.id,
+                    contact_id: contactData.id,
                     id: message.chat_id,
-                    name: contactPresent.firstName,
+                    name: contactData.firstName,
                     not_spam: true,
-                    tags: contactPresent.tags??[],
+                    tags: contactData.tags??[],
                     timestamp: message.timestamp,
                     type: 'contact',
                     unreadCount: 0,
@@ -206,8 +205,9 @@ async function handleNewMessagesTemplate(req, res) {
                 city: null,
                 companyName: null,
                 contactName: chat.name??extractedNumber,
-                country: contactPresent.country ?? "",
-                customFields: contactPresent.customFields ?? {},
+                country: contactData.country ?? "",
+                threadid: threadID ?? "",
+                customFields: contactData.customFields ?? {},
                 last_message: {
                     chat_id: chat.id,
                     device_id: message.device_id ?? "",
@@ -222,16 +222,17 @@ async function handleNewMessagesTemplate(req, res) {
                 },
             };
             
-            await addNotificationToUser('<change>', message);
+            await addNotificationToUser(idSubstring, message);
             
             // Add the data to Firestore
-            await db.collection('companies').doc('<change>').collection('contacts').doc(extractedNumber).set(data);    
+            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data);    
             
             //reset bot command
             if (message.text.body.includes('/resetbot')) {
                 const thread = await createThread();
                 threadID = thread.id;
-                await saveThreadIDGHL(contactID,threadID);
+                await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                //await saveThreadIDGHL(contactID,threadID);
                 await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
                 break;
             }
@@ -260,13 +261,12 @@ async function handleNewMessagesTemplate(req, res) {
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();   
                         const check = part.toLowerCase();
-                        const carpetCheck = check.replace(/\s+/g, '');             
                         if (part) {
-                            await addtagbookedGHL(contactID, 'idle');
+                            //await addtagbookedGHL(contactID, 'idle');
                             await sendWhapiRequest('messages/text', { to: sender.to, body: part });
                             
                             if (check.includes('patience')) {
-                                await addtagbookedGHL(contactID, 'stop bot');
+                                //await addtagbookedGHL(contactID, 'stop bot');
                             } 
                             if(check.includes('get back to you as soon as possible')){
                                 console.log('check includes');
@@ -277,43 +277,7 @@ async function handleNewMessagesTemplate(req, res) {
                     }
                     console.log('Response sent.');
                     userState.set(sender.to, steps.START);
-                    break;                
-                case steps.NEW_CONTACT:
-                    await sendWhapiRequest('messages/text', { to: sender.to, body: 'Sebelum kita mula boleh saya dapatkan nama?' });
-                    userState.set(sender.to, steps.START);
                     break;
-                case steps.CREATE_CONTACT:
-                    await createContact(sender.name,extractedNumber);
-                    await customWait(2500);
-                    userState.set(sender.to, steps.POLL);
-                    break;
-                case steps.POLL:
-                    let selectedOption = [];
-                    for (const result of webhook.message.poll.results) {
-                        selectedOption.push (result.id);
-                    }    
-                    if(message.action.votes[0]=== selectedOption[0]){
-                        const contactDetails = await getContact(extractedNumber);
-                        contactID = contactDetails.id;
-                        contactName = contactDetails.fullNameLowerCase;
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        console.log('thread ID generated: ', threadID);
-                        await saveThreadIDGHL(contactID,threadID);
-                        query = `${message.text.body} user_name: ${contactName}`;
-                        answer = await handleOpenAIAssistant(query,threadID);
-                        parts = answer.split(/\s*\|\|\s*/);
-                        for (let i = 0; i < parts.length; i++) {
-                            const part = parts[i].trim();                
-                            if (part) {
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                                console.log('Part sent:', part);
-                            }
-                        }
-                        console.log('Response sent.');
-                        userState.set(sender.to, steps.START);
-                        break;
-                    }
                 default:
                     // Handle unrecognized step
                     console.error('Unrecognized step:', currentStep);
@@ -430,7 +394,7 @@ async function callWebhook(webhook,senderText,thread) {
  return responseData;
 }
 
-async function getContactDataFromDatabaseByPhone(phoneNumber) {
+async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
     try {
         // Check if phoneNumber is defined
         if (!phoneNumber) {
@@ -438,12 +402,12 @@ async function getContactDataFromDatabaseByPhone(phoneNumber) {
         }
 
         // Initial fetch of config
-        await fetchConfigFromDatabase();
+        await fetchConfigFromDatabase(idSubstring);
 
         let threadID;
         let contactName;
         let bot_status;
-        const contactsRef = db.collection('companies').doc('<change>').collection('contacts');
+        const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
         const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
 
         if (querySnapshot.empty) {
@@ -554,6 +518,21 @@ async function saveThreadIDGHL(contactID,threadID){
     }
 }
 
+async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
+    
+    // Construct the Firestore document path
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+
+    try {
+        await db.doc(docPath).set({
+            threadid: threadID
+        }, { merge: true }); // merge: true ensures we don't overwrite the document, just update it
+        console.log(`Thread ID saved to Firestore at ${docPath}`);
+    } catch (error) {
+        console.error('Error saving Thread ID to Firestore:', error);
+    }
+}
+
 async function createContact(name,number){
     const options = {
         method: 'POST',
@@ -603,9 +582,9 @@ async function getContact(number) {
 }
 
 
-async function fetchConfigFromDatabase() {
+async function fetchConfigFromDatabase(idSubstring) {
     try {
-        const docRef = db.collection('companies').doc('<change>');
+        const docRef = db.collection('companies').doc(idSubstring);
         const doc = await docRef.get();
         if (!doc.exists) {
             console.log('No such document!');
