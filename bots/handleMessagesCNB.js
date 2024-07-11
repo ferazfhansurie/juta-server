@@ -85,6 +85,7 @@ async function handleNewMessagesCNB(req, res) {
                 name:message.from_name
             };
 
+            
             let contactID;
             let contactName;
             let threadID;
@@ -98,6 +99,7 @@ async function handleNewMessagesCNB(req, res) {
             let contactPresent = await getContact(extractedNumber);
             const chat = await getChatMetadata(message.chat_id);
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
+            
             
             if (contactPresent !== null) {
                 const stopTag = contactPresent.tags;
@@ -212,13 +214,26 @@ async function handleNewMessagesCNB(req, res) {
             
             await addNotificationToUser('020', message);
             // Add the data to Firestore
-      await db.collection('companies').doc('020').collection('contacts').doc(extractedNumber).set(data);       
+            await db.collection('companies').doc('020').collection('contacts').doc(extractedNumber).set(data);    
+            if (message.text.body.includes('/resetbot')) {
+                const thread = await createThread();
+                threadID = thread.id;
+                await saveThreadIDGHL(contactID,threadID);
+                await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+            }   
             if(firebaseTags !== undefined){
                 if(firebaseTags.includes('stop bot')){
                     console.log('bot stop');
                 break;
                 }
             }
+
+            if (message.text.body.includes('/resetbot')) {
+                                const thread = await createThread();
+                                threadID = thread.id;
+                                await saveThreadIDGHL(contactID,threadID);
+                                await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+                            }
             currentStep = userState.get(sender.to) || steps.START;
             switch (currentStep) {
                 case steps.START:
@@ -313,12 +328,7 @@ async function handleNewMessagesCNB(req, res) {
                         if (part) {
                             await addtagbookedGHL(contactID, 'idle');
                             await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            if (part.includes('/resetbot')) {
-                                const thread = await createThread();
-                                threadID = thread.id;
-                                await saveThreadIDGHL(contactID,threadID);
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-                            }
+                            
                             if (check.includes('patience')) {
                                 await addtagbookedGHL(contactID, 'stop bot');
                             } 
