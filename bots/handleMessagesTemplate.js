@@ -458,7 +458,8 @@ async function runAssistant(assistantID,threadId) {
 }
 
 async function handleOpenAIAssistant(message, threadID) {
-    const assistantId = 'asst_pE0gCfL3QcDMFrKzzrttxAR1';
+    console.log(ghlConfig.assistantId);
+    const assistantId = ghlConfig.assistantId;
     await addMessage(threadID, message);
     const answer = await runAssistant(assistantId,threadID);
     return answer;

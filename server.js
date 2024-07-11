@@ -757,28 +757,14 @@ async function createChannel(projectId, token, companyID) {
   }
 }
 
-app.post('/api/channel/create/:companyID', async (req, res) => {
-  const { companyID } = req.params;
-  const token = process.env.WHAPIPARTERTOKEN; // Assuming you pass the token in the request headers
-
-  try {
-      const projectId = await fetchProjectId(token);
-      console.log(projectId);
-      const channelData = await createChannel(projectId, token, companyID);
-      res.json({ message: 'Channel created successfully', channelData });
-  } catch (error) {
-      res.status(500).json({ error: 'Failed to create channel', details: error.message });
-  }
-});
-
-app.post('/api/assistant/create', async (req, res) => {
+async function createAssistant(companyID) {
   const OPENAI_API_KEY = process.env.OPENAIKEY; // Ensure your environment variable is set
 
   // Debugging: Log the incoming request body
   console.log('Request body:', req.body);
 
   const payload = {
-
+    name: companyID,
     model: 'gpt-4o', // Ensure this model is supported and available
   };
 
@@ -796,11 +782,37 @@ app.post('/api/assistant/create', async (req, res) => {
 
     console.log('OpenAI Response:', response.data);
     const assistantId = response.data.id;
+    const companiesCollection = db.collection('companies');
+        
+
+      // Save the whapiToken to a new document
+      await companiesCollection.doc(companyID).set({
+          assistantId: assistantId
+      }, { merge: true });
     res.json({ assistantId });
+    
   } catch (error) {
     console.error('Error creating OpenAI assistant:', error.response ? error.response.data : error.message);
     res.status(500).json({ error: 'Failed to create assistant' });
   }
+}
+
+app.post('/api/channel/create/:companyID', async (req, res) => {
+  const { companyID } = req.params;
+  const token = process.env.WHAPIPARTERTOKEN; // Assuming you pass the token in the request headers
+
+  try {
+      const projectId = await fetchProjectId(token);
+      console.log(projectId);
+      const channelData = await createChannel(projectId, token, companyID);
+      res.json({ message: 'Channel created successfully', channelData });
+  } catch (error) {
+      res.status(500).json({ error: 'Failed to create channel', details: error.message });
+  }
+});
+
+app.post('/api/assistant/create', async (req, res) => {
+  
 });
 
 
