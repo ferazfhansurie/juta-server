@@ -313,7 +313,11 @@ async function handleNewMessagesCNB(req, res) {
                         if (part) {
                             await addtagbookedGHL(contactID, 'idle');
                             await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            
+                            if (part.includes('/resetbot')) {
+                                const thread = await createThread();
+                                threadID = thread.id;
+                                await saveThreadIDGHL(contactID,threadID);
+                            }
                             if (check.includes('patience')) {
                                 await addtagbookedGHL(contactID, 'stop bot');
                             } 
