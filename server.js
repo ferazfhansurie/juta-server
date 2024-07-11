@@ -694,6 +694,10 @@ async function fetchProjectId(token) {
   }
 }
 
+async function customWait(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
 async function createChannel(projectId, token, companyID) {
   try {
       const response = await axios.put('https://manager.whapi.cloud/channels', {
@@ -716,7 +720,8 @@ async function createChannel(projectId, token, companyID) {
       await companiesCollection.doc(companyID).set({
           whapiToken: whapiToken
       }, { merge: true });
-
+      
+      await customWait(60000);
       // Now call the webhook settings API
       await axios.patch('https://gate.whapi.cloud/settings', {
         webhooks: [
