@@ -772,23 +772,34 @@ app.post('/api/channel/create/:companyID', async (req, res) => {
 });
 
 app.post('/api/assistant/create', async (req, res) => {
-  OPENAI_API_KEY = process.env.OPENAIKEY;
+  const OPENAI_API_KEY = process.env.OPENAIKEY; // Ensure your environment variable is set
+
+  // Debugging: Log the incoming request body
+  console.log('Request body:', req.body);
+
+  const payload = {
+
+    model: 'gpt-4o', // Ensure this model is supported and available
+  };
+
+  // Debugging: Log the payload being sent to OpenAI
+  console.log('Payload to OpenAI:', JSON.stringify(payload));
+
   try {
-      const response = await axios.post('https://api.openai.com/v1/assistants', {
-          display_name: req.body.display_name,
-          description: req.body.description,
-          model: 'gpt-4o', // or any other model you prefer
-      }, {
-          headers: {
-              Authorization: `Bearer ${OPENAI_API_KEY}`,
-          }
-      });
-      console.log(response.data)
-      const assistantId = response.data.data.id;
-      res.json({ assistantId });
+    const response = await axios.post('https://api.openai.com/v1/assistants', payload, {
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta':'assistants=v2'
+      },
+    });
+
+    console.log('OpenAI Response:', response.data);
+    const assistantId = response.data.id;
+    res.json({ assistantId });
   } catch (error) {
-      console.error('Error creating OpenAI assistant:', error);
-      res.status(500).json({ error: 'Failed to create assistant' });
+    console.error('Error creating OpenAI assistant:', error.response ? error.response.data : error.message);
+    res.status(500).json({ error: 'Failed to create assistant' });
   }
 });
 
