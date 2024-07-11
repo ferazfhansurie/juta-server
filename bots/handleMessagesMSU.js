@@ -118,12 +118,12 @@ async function handleNewMessagesMSU(req, res) {
                             await sendWhapiRequest('messages/text', { to: sender.to, body: part });
                             if(part.includes('Sit back, relax and enjoy our campus tour!')){
                                 console.log('sending vid');
-                                const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=38b4ca14-6483-4504-b69a-9af6be3b2e9b';
+                                const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=8a983e24-06ef-47ab-9ba2-60840419f3cd';
                                 // Send the video
                                 await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
                             }    
                             if(part.includes('Check out our food video!')){
-                                const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FVideo%2FMSU%20FOOD%208%20small%20size.mp4?alt=media&token=0e0b849d-956e-4dd2-b69b-8311cfade209';
+                                const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
                                 // Send the video
                                 await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
                             }      

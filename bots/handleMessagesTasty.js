@@ -271,7 +271,7 @@ async function handleNewMessagesTastyPuga(req, res) {
                             if (check.includes('patience')) {
                                 await addtagbookedGHL(contactID, 'stop bot');
                             } 
-                            if(check.includes('get back to you as soon as possible')){
+                            if(check.includes('get back to you')){
                             
                                await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                             }
