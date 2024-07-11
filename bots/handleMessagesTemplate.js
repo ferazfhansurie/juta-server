@@ -86,7 +86,7 @@ async function handleNewMessagesTemplate(req, res) {
         console.log('Handling new messages from Template...');
 
         // Initial fetch of config
-        await fetchConfigFromDatabase();
+        await fetchConfigFromDatabase(idSubstring);
 
         const receivedMessages = req.body.messages;
 
@@ -115,7 +115,7 @@ async function handleNewMessagesTemplate(req, res) {
             const chat = await getChatMetadata(message.chat_id);
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             
-            
+            console.log(contactData);
             if (contactData !== null) {
                 const stopTag = contactData.tags;
                 console.log(stopTag);
@@ -141,33 +141,22 @@ async function handleNewMessagesTemplate(req, res) {
                     }
                 }
             }else{
-                await customWait(2500);
-                const stopTag = contactData.tags;
-                if (message.from_me){
-                    if(stopTag.includes('idle')){
-                    }
-                    break;
-                }
-                console.log(stopTag);
+                await customWait(2500); 
 
                 contactID = extractedNumber;
                 contactName = chat.name ?? extractedNumber;
-
-                if (contactData.threadid) {
-                    threadID = contactData.threadid;
-                } else {
-                    const thread = await createThread();
-                    threadID = thread.id;
-                    await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                    //await saveThreadIDGHL(contactID,threadID);
-                }
+             
+                const thread = await createThread();
+                threadID = thread.id;
+                console.log(threadID);
+                await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 console.log('sent new contact to create new contact');
             }   
-            let firebaseTags =[]
+            let firebaseTags =['']
             if(contactData){
                 firebaseTags=   contactData.tags??[];
             }
-            
+            console.log(chat);
             const data = {
                 additionalEmails: [],
                 address1: null,
@@ -178,11 +167,11 @@ async function handleNewMessagesTemplate(req, res) {
                 chat: {
                     chat_pic: chat.chat_pic ?? "",
                     chat_pic_full: chat.chat_pic_full ?? "",
-                    contact_id: contactData.id,
+                    contact_id: extractedNumber,
                     id: message.chat_id,
-                    name: contactData.firstName,
+                    name: chat.from_name??extractedNumber,
                     not_spam: true,
-                    tags: contactData.tags??[],
+                    tags: firebaseTags,
                     timestamp: message.timestamp,
                     type: 'contact',
                     unreadCount: 0,
@@ -204,10 +193,8 @@ async function handleNewMessagesTemplate(req, res) {
                 chat_pic_full: chat.chat_pic_full ?? "",
                 city: null,
                 companyName: null,
-                contactName: chat.name??extractedNumber,
-                country: contactData.country ?? "",
+                contactName: chat.from_name??extractedNumber,
                 threadid: threadID ?? "",
-                customFields: contactData.customFields ?? {},
                 last_message: {
                     chat_id: chat.id,
                     device_id: message.device_id ?? "",
@@ -221,7 +208,7 @@ async function handleNewMessagesTemplate(req, res) {
                     type: message.type ?? "",
                 },
             };
-            
+      
             await addNotificationToUser(idSubstring, message);
             
             // Add the data to Firestore
@@ -402,7 +389,7 @@ async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
         }
 
         // Initial fetch of config
-        await fetchConfigFromDatabase(idSubstring);
+        //await fetchConfigFromDatabase(idSubstring);
 
         let threadID;
         let contactName;
@@ -471,7 +458,7 @@ async function runAssistant(assistantID,threadId) {
 }
 
 async function handleOpenAIAssistant(message, threadID) {
-    const assistantId = '<assistant>';
+    const assistantId = 'asst_pE0gCfL3QcDMFrKzzrttxAR1';
     await addMessage(threadID, message);
     const answer = await runAssistant(assistantId,threadID);
     return answer;
@@ -591,6 +578,7 @@ async function fetchConfigFromDatabase(idSubstring) {
             return;
         }
         ghlConfig = doc.data();
+        console.log(ghlConfig);
     } catch (error) {
         console.error('Error fetching config:', error);
         throw error;
