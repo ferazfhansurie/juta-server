@@ -712,7 +712,7 @@ async function createChannel(projectId, token, companyID) {
               Accept: 'application/json'
           }
       });
-      console.log(response.data);
+   
       whapiToken = response.data.token
       // Get the companies collection
       const companiesCollection = db.collection('companies');
@@ -739,7 +739,7 @@ async function createChannel(projectId, token, companyID) {
               }
             ],
             mode: 'method',
-            url: `https://buds-359313.et.r.appspot.com/${companyId}/hook`
+            url: `https://48ae-115-135-122-145.ngrok-free.app/${companyID}/template/hook`
           }
         ],
         callback_persist: true
@@ -750,6 +750,7 @@ async function createChannel(projectId, token, companyID) {
           Accept: 'application/json'
         }
       });
+      console.log(response.data);
       return response.data;
   } catch (error) {
       console.error(`Error creating channel for project ID ${projectId}:`, error);
@@ -757,12 +758,24 @@ async function createChannel(projectId, token, companyID) {
   }
 }
 
+app.post('/api/channel/create/:companyID', async (req, res) => {
+  const { companyID } = req.params;
+  const token = process.env.WHAPIPARTERTOKEN; // Assuming you pass the token in the request headers
+
+  try {
+    await createAssistant(companyID);
+      const projectId = await fetchProjectId(token);
+      console.log(projectId);
+      const channelData = await createChannel(projectId, token, companyID);
+      res.json({ message: 'Channel created successfully', channelData });
+  } catch (error) {
+      res.status(500).json({ error: 'Failed to create channel', details: error.message });
+  }
+});
+
 async function createAssistant(companyID) {
   const OPENAI_API_KEY = process.env.OPENAIKEY; // Ensure your environment variable is set
-
-  // Debugging: Log the incoming request body
-  console.log('Request body:', req.body);
-
+console.log('creating ass');
   const payload = {
     name: companyID,
     model: 'gpt-4o', // Ensure this model is supported and available
@@ -789,32 +802,13 @@ async function createAssistant(companyID) {
       await companiesCollection.doc(companyID).set({
           assistantId: assistantId
       }, { merge: true });
-    res.json({ assistantId });
+   return;
     
   } catch (error) {
     console.error('Error creating OpenAI assistant:', error.response ? error.response.data : error.message);
     res.status(500).json({ error: 'Failed to create assistant' });
   }
 }
-
-app.post('/api/channel/create/:companyID', async (req, res) => {
-  const { companyID } = req.params;
-  const token = process.env.WHAPIPARTERTOKEN; // Assuming you pass the token in the request headers
-
-  try {
-      const projectId = await fetchProjectId(token);
-      console.log(projectId);
-      const channelData = await createChannel(projectId, token, companyID);
-      res.json({ message: 'Channel created successfully', channelData });
-  } catch (error) {
-      res.status(500).json({ error: 'Failed to create channel', details: error.message });
-  }
-});
-
-app.post('/api/assistant/create', async (req, res) => {
-  
-});
-
 
 
 
