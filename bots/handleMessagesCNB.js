@@ -220,6 +220,7 @@ async function handleNewMessagesCNB(req, res) {
                 threadID = thread.id;
                 await saveThreadIDGHL(contactID,threadID);
                 await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+                break;
             }   
             if(firebaseTags !== undefined){
                 if(firebaseTags.includes('stop bot')){
@@ -228,12 +229,6 @@ async function handleNewMessagesCNB(req, res) {
                 }
             }
 
-            if (message.text.body.includes('/resetbot')) {
-                                const thread = await createThread();
-                                threadID = thread.id;
-                                await saveThreadIDGHL(contactID,threadID);
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-                            }
             currentStep = userState.get(sender.to) || steps.START;
             switch (currentStep) {
                 case steps.START:
