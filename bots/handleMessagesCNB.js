@@ -317,6 +317,7 @@ async function handleNewMessagesCNB(req, res) {
                                 const thread = await createThread();
                                 threadID = thread.id;
                                 await saveThreadIDGHL(contactID,threadID);
+                                await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
                             }
                             if (check.includes('patience')) {
                                 await addtagbookedGHL(contactID, 'stop bot');
