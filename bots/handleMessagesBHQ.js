@@ -286,7 +286,7 @@ async function handleNewMessagesBHQ(req, res) {
                             // Send the image
                             await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
                         }
-                        if(part.includes('Untuk makluman, kelas mengaji al-quran online untuk anak')){
+                        if(part.includes("- Ibu bapa dapat pantau pembelajaran anak")){
                             const imagePath = 'https://i.postimg.cc/P58THCqY/kelas-mengaji-online.jpg';
                             const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/V005.mp4?alt=media&token=68045ff7-9dec-4820-87c8-52229594e271';
                             // Send the image
@@ -338,8 +338,8 @@ async function handleNewMessagesBHQ(req, res) {
                             // Send the image
                             await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
                         }
-                        if(part.includes('kelas mengaji online untuk anak')){
-                            const imagePath = 'https://i.postimg.cc/yxY7CnJ8/PA007.jpg';
+                        if(part.includes('mereka juga akan ada aktiviti online')){
+                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/BHQ%2FPAKEJ%20ONLINE.jpg?alt=media&token=5d925f85-4df1-43ac-a0c1-bbce566bcd20';
         
                             // Send the image
                             await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
@@ -355,6 +355,10 @@ async function handleNewMessagesBHQ(req, res) {
         
                             // Send the image
                             await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
+                        }
+                        if(part.includes('Terima kasih banyak encik/puan')){
+                            await addtagbookedGHL(contactPresent.id,'stop bot');
+                            break;
                         }
                         
                     }  
