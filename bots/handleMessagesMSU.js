@@ -110,22 +110,37 @@ async function handleNewMessagesMSU(req, res) {
                 case steps.START:
                     
                     query = `${message.text.body} user_name: ${contactName}`;
+                    const brochureFilePaths = {
+                        'Brochure Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUPharmacy.pdf?alt=media&token=a150a54d-d403-4666-b6cd-114da4f44977',
+                        'Brochure Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUBusinessManagement.pdf?alt=media&token=b35904a0-9676-4435-8a8d-154f32f01bf6',
+                        'Brochure Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUEducationandSocialSciences.pdf?alt=media&token=54d6ca91-ea5e-4f60-8d4f-23cf1126009a',
+                        'Brochure Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUInternationalMedicalSchool.pdf?alt=media&token=5b78cb2c-e053-44f4-a38a-3487d523a987',
+                        'Brochure Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUHospitalityandCreativeArts.pdf?alt=media&token=1a1aa0d9-b6ee-4dc1-98f5-f5e7fb3aec3e',
+                        'Brochure Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUInformationSciencesandEngineering.pdf?alt=media&token=d413e833-7d1b-46f5-a772-def75915f123',
+                        'Brochure Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUHealthandLifeSciences.pdf?alt=media&token=6c5c5f6a-1d6c-4d38-9545-13aa3b1254bb',
+                    };
                     answer = await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();                
                         if (part) {
                             await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            if(part.includes('Sit back, relax and enjoy our campus tour!')){
+                            if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
                                 console.log('sending vid');
                                 const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=8a983e24-06ef-47ab-9ba2-60840419f3cd';
                                 // Send the video
                                 await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
                             }    
-                            if(part.includes('Check out our food video!')){
+                            if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
                                 const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
                                 // Send the video
                                 await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
+                            }
+                            for (const [key, filePath] of Object.entries(brochureFilePaths)) {
+                                if (part.includes(key)) {
+                                    console.log(`${key} sending file`);
+                                    await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
+                                }
                             }      
                         }
                     }
