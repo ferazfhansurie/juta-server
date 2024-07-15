@@ -138,7 +138,7 @@ async function handleNewMessagesMSU(req, res) {
                             }
                             for (const [key, filePath] of Object.entries(brochureFilePaths)) {
                                 if (part.includes(key)) {
-                                    console.log(`${key} sending file`);
+                                    console.log(`${key} sending file, ${filePath}`);
                                     await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
                                 }
                             }      
