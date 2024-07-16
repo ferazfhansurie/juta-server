@@ -1,3 +1,2 @@
-2024/07/16-12:34:58.604 8b03 Reusing MANIFEST /Users/firaz/Documents/server 2/.wwebjs_auth/session/Default/Service Worker/Database/MANIFEST-000001
-2024/07/16-12:34:58.604 8b03 Recovering log #3
-2024/07/16-12:34:58.604 8b03 Reusing old log /Users/firaz/Documents/server 2/.wwebjs_auth/session/Default/Service Worker/Database/000003.log 
+2024/07/16-14:34:03.253 6538 Creating DB C:\Users\new asus\Repositories\juta-server\.wwebjs_auth\session\Default\Service Worker\Database since it was missing.
+2024/07/16-14:34:03.261 6538 Reusing MANIFEST C:\Users\new asus\Repositories\juta-server\.wwebjs_auth\session\Default\Service Worker\Database/MANIFEST-000001

@@ -15,7 +15,7 @@
     "qrcode-terminal": "^0.12.0",
     "redis": "^4.6.13",
     "socket.io": "^4.7.5",
-    "whatsapp-web.js": "^1.17.1",
+    "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#webpack-exodus",
     "ws": "^8.17.0"
   },
   "scripts": {

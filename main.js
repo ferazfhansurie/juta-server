@@ -4,8 +4,14 @@ const qrcode = require('qrcode-terminal');
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
-        headless: true, // Set to false if you want to see the browser window
-    }
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        headless: true,
+    },
+    webVersionCache: 
+    {
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1014903589-alpha.html',
+        type: 'remote' 
+    } 
 });
 client.initialize();
 
@@ -17,9 +23,8 @@ client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
 });
 
-
 client.on('ready', () => {
-    console.log('Client is ready!');
+    console.log('WhatsApp Client is ready!');
 });
 
 client.on('authenticated', (session) => {
@@ -29,14 +34,11 @@ client.on('authenticated', (session) => {
 client.on('auth_failure', (msg) => {
     console.error('AUTHENTICATION FAILURE', msg);
 });
-// Listening to all incoming messages
-client.on('message_create', message => {
-	console.log(message.body);
-});
 
 client.on('message', async msg => {
     console.log('MESSAGE RECEIVED', msg);
-
+    let chat = await msg.getChat();
+    console.log('CHAT', chat);
     if (msg.body === '!ping reply') {
         // Send a new message as a reply to the current one
         msg.reply('pong');
