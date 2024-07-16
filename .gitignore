@@ -6,6 +6,8 @@ node_modules/
 
 # Ignore environment files
 .env
+.wwebjs_auth/
+.wwebjs_auth
 
 # Ignore specific configuration files
 config/secret-config.json
