@@ -132,6 +132,23 @@ async function handleNewMessagesMSU(req, res) {
                             {
                                 const cleanedPart = await removeTextInsideDelimiters(part)
                                 await sendWhapiRequest('messages/text', { to: sender.to, body: cleanedPart });
+                                if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
+                                    console.log('sending vid');
+                                    const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
+                                    // Send the video
+                                    await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
+                                }    
+                                if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
+                                    const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
+                                    // Send the video
+                                    await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
+                                }
+                                for (const [key, filePath] of Object.entries(brochureFilePaths)) {
+                                    if (part.includes(key)) {
+                                        console.log(`${key} sending file, ${filePath}`);
+                                        await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
+                                    }
+                                }      
                             }else{
                                 await sendWhapiRequest('messages/text', { to: sender.to, body: part });
                                 if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
