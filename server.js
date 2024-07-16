@@ -11,13 +11,16 @@ const WebSocket = require('ws');
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 const db = admin.firestore();
+const OpenAI = require('openai');
 wss.on('connection', (ws) => {
     console.log('Client connected');
     ws.on('close', () => {
       console.log('Client disconnected');
     });
   });
-  
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAIKEY,
+});
   function sendProgressUpdate(client, progress) {
     if (client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify({ type: 'progress', progress }));
@@ -224,6 +227,131 @@ async function createUserInFirebase(userData) {
     } catch (error) {
       // Handle errors
       console.error('Error creating user:', error);
+      
+      res.status(500).json({ error: error.code});
+    }
+  });
+  async function saveThreadIDFirebase(email, threadID,) {
+    
+    // Construct the Firestore document path
+    const docPath = `user/${email}`;
+
+    try {
+        await db.doc(docPath).set({
+            threadid: threadID
+        }, { merge: true }); // merge: true ensures we don't overwrite the document, just update it
+        console.log(`Thread ID saved to Firestore at ${docPath}`);
+    } catch (error) {
+        console.error('Error saving Thread ID to Firestore:', error);
+    }
+}
+async function getContactDataFromDatabaseByEmail(email) {
+  try {
+      // Check if email is defined
+      if (!email) {
+          throw new Error("Email is undefined or null");
+      }
+
+      // Reference to the user document
+      const userDocRef = db.collection('user').doc(email);
+      const doc = await userDocRef.get();
+
+      if (!doc.exists) {
+          console.log('No matching document.');
+          return null;
+      } else {
+          const userData = doc.data();
+          return { ...userData };
+      }
+  } catch (error) {
+      console.error('Error fetching or updating document:', error);
+      throw error;
+  }
+}
+async function createThread() {
+  console.log('Creating a new thread...');
+  const thread = await openai.beta.threads.create();
+  return thread;
+}
+async function addMessage(threadId, message) {
+  const response = await openai.beta.threads.messages.create(
+      threadId,
+      {
+          role: "user",
+          content: message
+      }
+  );
+  return response;
+}
+async function runAssistant(assistantID,threadId) {
+console.log('Running assistant for thread: ' + threadId);
+const response = await openai.beta.threads.runs.create(
+    threadId,
+    {
+        assistant_id: assistantID
+    }
+);
+
+const runId = response.id;
+
+const answer = await waitForCompletion(threadId, runId);
+return answer;
+}
+async function checkingStatus(threadId, runId) {
+  const runObject = await openai.beta.threads.runs.retrieve(
+      threadId,
+      runId
+  );
+  const status = runObject.status; 
+  if(status == 'completed') {
+      clearInterval(pollingInterval);
+
+      const messagesList = await openai.beta.threads.messages.list(threadId);
+      const latestMessage = messagesList.body.data[0].content;
+      const answer = latestMessage[0].text.value;
+      return answer;
+  }
+}
+async function waitForCompletion(threadId, runId) {
+  return new Promise((resolve, reject) => {
+      pollingInterval = setInterval(async () => {
+          const answer = await checkingStatus(threadId, runId);
+          if (answer) {
+              clearInterval(pollingInterval);
+              resolve(answer);
+          }
+      }, 1000);
+  });
+}
+// Extract user data from URL parameters
+async function handleOpenAIAssistant(message, threadID,assistantid) {
+  const assistantId =assistantid;
+  await addMessage(threadID, message);
+  const answer = await runAssistant(assistantId,threadID);
+  return answer;
+}
+app.get('/api/assistant-test/', async (req, res) => {
+  const message = req.query.message;
+  const email = req.query.email;
+  const assistantid = req.query.assistantid;
+    try {
+      let threadID;
+      const contactData = await getContactDataFromDatabaseByEmail(email);
+      if (contactData.threadid) {
+        threadID = contactData.threadid;
+    } else {
+        const thread = await createThread();
+        threadID = thread.id;
+        await saveThreadIDFirebase(email, threadID,)
+        //await saveThreadIDGHL(contactID,threadID);
+    }
+ 
+    answer = await handleOpenAIAssistant(message,threadID,assistantid);
+      // Send success response
+      res.json({ message: 'Assistant replied success', answer });
+    } catch (error) {
+      // Handle errors
+      console.error('Assistant replied user:', error);
       
       res.status(500).json({ error: error.code});
     }

@@ -161,7 +161,6 @@ async function handleNewMessagesApplyRadar(req, res) {
              address1: null,
              assignedTo: null,
              businessId: null,
-             atriaCheck: contactData.atriaCheck ?? true,
              phone:extractedNumber,
              tags:firebaseTags,
              chat: {
@@ -236,7 +235,7 @@ async function handleNewMessagesApplyRadar(req, res) {
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();   
                         const check = part.toLowerCase();
-                        const carpetCheck = check.replace(/\s+/g, '');             
+                     
                         if (part) {
                             await addtagbookedGHL(contactID, 'idle');
                             await sendWhapiRequest('messages/text', { to: sender.to, body: part });
@@ -249,13 +248,7 @@ async function handleNewMessagesApplyRadar(req, res) {
                             
                                await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                             }
-                            console.log(carpetCheck)
-                            for (const [key, filePath] of Object.entries(carpetTileFilePaths)) {
-                                if (carpetCheck.includes(key)) {
-                                    console.log(`${key} sending file`);
-                                    await sendWhapiRequest('messages/document', { to: sender.to, media: filePath });
-                                }
-                            }
+                      
                         }
                     }
                     console.log('Response sent.');

@@ -118,33 +118,36 @@ async function handleNewMessagesBillert(req, res) {
             const contactPresent = await getContact(extractedNumber);
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
             if (contactPresent !== null) {
-                const stopTag = contactPresent.tags;
-   
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-                    continue;
-                }else {
-                    contactID = contactPresent.id;
-                    const teamNames = teams.flat();
-                    console.log(stopTag);
-                    console.log(teamNames);
-                    const hasTeamTag = stopTag.some(tag => teamNames.includes(tag));
-                    console.log(hasTeamTag);
-                    if (!hasTeamTag) {
-                        await tagContact(contactID,sender);
-                    }
-                  
-                }
+               
             }else{
                 //const savedName = await handleOpenAINameAssistant(sender.name);
                await createContact(extractedNumber);
-               let currentTeamIndex = await getCurrentTeamIndex();
-               // Call the function to add the tag
-               let assigned = teams[currentTeamIndex][0];
-               let number = teams[currentTeamIndex][1];
-               function capitalizeFirstLetter(string) {
-                   return string.charAt(0).toUpperCase() + string.slice(1);
-               }
+               await customWait(30000);
+               const contactPresent3 = await getContact(extractedNumber);
+               console.log(contactPresent3);
+            
+               const contactTags = contactPresent3.tags || [];
+               let assigned = null;
+                let number = null;
+
+                // Match the tag with the team name
+                for (const tag of contactTags) {
+                    if (tag === 'isha' || tag === 'zara') {
+                        assigned = 'zara';
+                        number = teams.find(team => team[0] === 'zara')[1];
+                        break;
+                    } else {
+                        const team = teams.find(team => team[0] === tag);
+                        if (team) {
+                            assigned = team[0];
+                            number = team[1];
+                            break;
+                        }
+                    }
+                }
+                function capitalizeFirstLetter(string) {
+                    return string.charAt(0).toUpperCase() + string.slice(1);
+                }
                // Capitalize the first letter of the assigned name
                assigned = capitalizeFirstLetter(assigned);
                
@@ -192,35 +195,8 @@ async function handleNewMessagesBillert(req, res) {
                    to: agentId, 
                    body: message2 
                });
-               
-               console.log('creating new');
-            
-               const contactPresent = await getContact(extractedNumber);
-               customWait(5000);
-               await addTag(contactPresent.id, assigned);
-           
-               // Update the team index
-               currentTeamIndex = (currentTeamIndex + 1) % teams.length;
-           
-               // Save the current team index to Firestore
-               await updateCurrentTeamIndex(currentTeamIndex);
-          
-    
-                const stopTag = contactPresent.tags;
-        
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-                    continue;
-                }else {
-                    contactID = contactPresent.id;
-                    contactName = contactPresent.fullNameLowerCase;
-            
-                }
                  // Create the data object
-
                 console.log('sent new contact to create new contact');
- 
-            
             }
             const contactPresent2 = await getContact(extractedNumber);
             const firebaseTags = contactData.tags??[];
@@ -234,11 +210,11 @@ async function handleNewMessagesBillert(req, res) {
                 chat: {
                     chat_pic: chat.chat_pic ?? "",
                     chat_pic_full: chat.chat_pic_full ?? "",
-                    contact_id: contactPresent.id,
+                    contact_id: contactPresent2.id,
                     id: message.chat_id,
-                    name: contactPresent.firstName,
+                    name: contactPresent2.firstName,
                     not_spam: true,
-                    tags: contactPresent.tags??[],
+                    tags: contactPresent2.tags??[],
                     timestamp: message.timestamp,
                     type: 'contact',
                     unreadCount: 0,

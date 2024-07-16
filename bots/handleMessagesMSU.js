@@ -111,37 +111,48 @@ async function handleNewMessagesMSU(req, res) {
                     
                     query = `${message.text.body} user_name: ${contactName}`;
                     const brochureFilePaths = {
-                        'Brochure Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUPharmacy.pdf?alt=media&token=a150a54d-d403-4666-b6cd-114da4f44977',
-                        'Brochure Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUBusinessManagement.pdf?alt=media&token=b35904a0-9676-4435-8a8d-154f32f01bf6',
-                        'Brochure Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUEducationandSocialSciences.pdf?alt=media&token=54d6ca91-ea5e-4f60-8d4f-23cf1126009a',
-                        'Brochure Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUInternationalMedicalSchool.pdf?alt=media&token=5b78cb2c-e053-44f4-a38a-3487d523a987',
-                        'Brochure Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUHospitalityandCreativeArts.pdf?alt=media&token=1a1aa0d9-b6ee-4dc1-98f5-f5e7fb3aec3e',
-                        'Brochure Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUInformationSciencesandEngineering.pdf?alt=media&token=d413e833-7d1b-46f5-a772-def75915f123',
-                        'Brochure Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%2FBrochures%2FMSUHealthandLifeSciences.pdf?alt=media&token=6c5c5f6a-1d6c-4d38-9545-13aa3b1254bb',
+                        'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
+                        'Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
+                        'Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+                        'Education Social Sciences【4:18†source】': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+                        'Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+                        'Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
+                        'Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+                        'Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+                        'Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                        'Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+                        'Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                        'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
                     };
                     answer = await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();                
                         if (part) {
-                            await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
-                                console.log('sending vid');
-                                const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=8a983e24-06ef-47ab-9ba2-60840419f3cd';
-                                // Send the video
-                                await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
-                            }    
-                            if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
-                                const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
-                                // Send the video
-                                await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
-                            }
-                            for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-                                if (part.includes(key)) {
-                                    console.log(`${key} sending file, ${filePath}`);
-                                    await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
+                            if(part.includes("【"))
+                            {
+                                const cleanedPart = await removeTextInsideDelimiters(part)
+                                await sendWhapiRequest('messages/text', { to: sender.to, body: cleanedPart });
+                            }else{
+                                await sendWhapiRequest('messages/text', { to: sender.to, body: part });
+                                if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
+                                    console.log('sending vid');
+                                    const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
+                                    // Send the video
+                                    await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
+                                }    
+                                if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
+                                    const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
+                                    // Send the video
+                                    await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
                                 }
-                            }      
+                                for (const [key, filePath] of Object.entries(brochureFilePaths)) {
+                                    if (part.includes(key) && part.includes("Brochure")) {
+                                        console.log(`${key} sending file, ${filePath}`);
+                                        await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
+                                    }
+                                }      
+                            }
                         }
                     }
                     console.log('Response sent.');
@@ -264,6 +275,13 @@ async function addMessage(threadId, message) {
     );
     return response;
 }
+
+async function removeTextInsideDelimiters(text) {
+    // Use a regular expression to find and remove the text inside the delimiters
+    const cleanedText = text.replace(/【.*?】/g, '');
+    return cleanedText;
+}
+
 async function callWebhook(webhook,senderText,senderNumber,senderName) {
     console.log('Calling webhook...');
     const webhookUrl = webhook;

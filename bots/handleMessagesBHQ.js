@@ -121,76 +121,15 @@ async function handleNewMessagesBHQ(req, res) {
                 console.log('name in true :', contactName);
             } else {
                 await createContact(sender.name, extractedNumber);
-                contactName = savedName;
+                contactName = sender.name; // Initialize savedName with sender's name
                 await saveNameToDatabase(extractedNumber, contactName);
                 console.log('name in false :', contactName);
             }
             const contactPresent = await getContact(extractedNumber);
             const chat = await getChatMetadata(message.chat_id);
             const id = message.chat_id.split('@')[0];
-            const firebaseTags = contactData.tags??[];
-           const data = {
-            additionalEmails: [],
-            address1: null,
-            assignedTo: null,
-            businessId: null,
-            phone:extractedNumber,
-            tags:firebaseTags,
-            chat: {
-                chat_pic: chat.chat_pic ?? "",
-                chat_pic_full: chat.chat_pic_full ?? "",
-                contact_id: contactPresent.id,
-                id: message.chat_id,
-                name: contactPresent.firstName,
-                not_spam: true,
-                tags: contactPresent.tags??[],
-                timestamp: message.timestamp,
-                type: 'contact',
-                unreadCount: 0,
-                last_message: {
-                    chat_id: chat.id,
-                    device_id: message.device_id ?? "",
-                    from: message.from ?? "",
-                    from_me: message.from_me ?? false,
-                    id: message.id ?? "",
-                    source: message.source ?? "",
-                    status: "delivered",
-                    text: message.text ?? "",
-                    timestamp: message.timestamp ?? 0,
-                    type: message.type ?? "",
-                },
-            },
-            chat_id: message.chat_id,
-            chat_pic: chat.chat_pic ?? "",
-            chat_pic_full: chat.chat_pic_full ?? "",
-            city: null,
-            companyName: null,
-            contactName: sender.name??extractedNumber,
-            country: contactPresent.country ?? "",
-            customFields: contactPresent.customFields ?? {},
-            last_message: {
-                chat_id: chat.id,
-                device_id: message.device_id ?? "",
-                from: message.from ?? "",
-                from_me: message.from_me ?? false,
-                id: message.id ?? "",
-                source: message.source ?? "",
-                status: "delivered",
-                text: message.text ?? "",
-                timestamp: message.timestamp ?? 0,
-                type: message.type ?? "",
-            },
-        };
         
-        await addNotificationToUser('009', message);
-        // Add the data to Firestore
-  await db.collection('companies').doc('009').collection('contacts').doc(extractedNumber).set(data); 
-            if(firebaseTags !== undefined){
-                if(firebaseTags.includes('stop bot')){
-                    console.log('bot stop');
-                break;
-                }
-            }
+
 
             if (contactPresent !== null) {
                 const stopTag = contactPresent.tags;
@@ -220,9 +159,95 @@ async function handleNewMessagesBHQ(req, res) {
                     }
                 }
             } else {
+                await createContact(sender.name,extractedNumber);
+                await customWait(2500);
+                const contactPresent = await getContact(extractedNumber);
+                const stopTag = contactPresent.tags;
+                if (message.from_me){
+                    if(stopTag.includes('idle')){
+                    removeTagBookedGHL(contactPresent.id,'idle');
+                    }
+                    break;
+                }
+                console.log(stopTag);
+
+                contactID = contactPresent.id;
+                contactName = contactPresent.fullNameLowerCase;
+
+                const threadIdField = contactPresent.customFields.find(field => field.id === 'oeSpka9m9YgEtAdBz1Bc');
+                if (threadIdField) {
+                    threadID = threadIdField.value;
+                } else {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDGHL(contactID,threadID);
+                }
                 console.log('sent new contact to create new contact');
             }
-
+            const contactPresent2 = await getContact(extractedNumber);
+            const data = {
+                additionalEmails: [],
+                address1: null,
+                assignedTo: null,
+                businessId: null,
+                phone:extractedNumber,
+                tags:contactData.tags??[],
+                chat: {
+                    chat_pic: chat.chat_pic ?? "",
+                    chat_pic_full: chat.chat_pic_full ?? "",
+                    contact_id: contactPresent2.id,
+                    id: message.chat_id,
+                    name: contactPresent2.firstName,
+                    not_spam: true,
+                    tags: contactPresent2.tags??[],
+                    timestamp: message.timestamp,
+                    type: 'contact',
+                    unreadCount: 0,
+                    last_message: {
+                        chat_id: chat.id,
+                        device_id: message.device_id ?? "",
+                        from: message.from ?? "",
+                        from_me: message.from_me ?? false,
+                        id: message.id ?? "",
+                        source: message.source ?? "",
+                        status: "delivered",
+                        text: message.text ?? "",
+                        timestamp: message.timestamp ?? 0,
+                        type: message.type ?? "",
+                    },
+                },
+                chat_id: message.chat_id,
+                chat_pic: chat.chat_pic ?? "",
+                chat_pic_full: chat.chat_pic_full ?? "",
+                city: null,
+                companyName: null,
+                contactName: sender.name??extractedNumber,
+                country: contactPresent2.country ?? "",
+                customFields: contactPresent2.customFields ?? {},
+                last_message: {
+                    chat_id: chat.id,
+                    device_id: message.device_id ?? "",
+                    from: message.from ?? "",
+                    from_me: message.from_me ?? false,
+                    id: message.id ?? "",
+                    source: message.source ?? "",
+                    status: "delivered",
+                    text: message.text ?? "",
+                    timestamp: message.timestamp ?? 0,
+                    type: message.type ?? "",
+                },
+            };
+            
+            await addNotificationToUser('009', message);
+            // Add the data to Firestore
+      await db.collection('companies').doc('009').collection('contacts').doc(extractedNumber).set(data); 
+      const firebaseTags = contactData.tags??[];
+                if(firebaseTags !== undefined){
+                    if(firebaseTags.includes('stop bot')){
+                        console.log('bot stop');
+                    break;
+                    }
+                }
             if (message.type === 'text') {
                 contactID = contactPresent.id;
                 const stopTag = contactPresent.tags;

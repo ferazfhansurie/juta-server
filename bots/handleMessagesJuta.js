@@ -134,58 +134,6 @@ async function handleNewMessagesJuta(req, res) {
             const contactPresent = await getContact(extractedNumber);
             const chat = await getChatMetadata(message.chat_id);
             console.log('chat');
-            console.log(chat);
-            const stop = hasStopBotLabel(chat);
-            let firebaseTags =[]
-            if(contactData){
-                firebaseTags=   contactData.tags??[];
-            }
-            
-            const data = {
-                additionalEmails: [],
-                address1: null,
-                assignedTo: null,
-                businessId: null,
-                phone: extractedNumber,
-                tags: firebaseTags,
-                chat: {
-                    chat_pic: chat.chat_pic ?? "",
-                    chat_pic_full: chat.chat_pic_full ?? "",
-                    contact_id: contactPresent.id,
-                    id: message.chat_id,
-                    name: contactPresent.firstName,
-                    not_spam: true,
-                    tags: contactPresent.tags ?? [],
-                    timestamp: message.timestamp,
-                    type: 'contact',
-                    unreadCount: 0,
-                    last_message: message,
-                },
-                chat_id: message.chat_id,
-                chat_pic: chat.chat_pic ?? "",
-                chat_pic_full: chat.chat_pic_full ?? "",
-                city: null,
-                companyName: null,
-                contactName: chat.name,
-                country: contactPresent.country ?? "",
-                customFields: contactPresent.customFields ?? {},
-                last_message: message,
-            };
-     
-            await addNotificationToUser('001', message);
-            await db.collection('companies').doc('001').collection('contacts').doc(extractedNumber).set(data);
-            console.log('set data');
-
-            if (firebaseTags.includes('stop bot')) {
-                console.log('bot stop');
-                break;
-            }
-
-            if (stop) {
-                console.log('bot stop');
-                break;
-            }
-
             if (contactPresent !== null) {
                 const stopTag = contactPresent.tags;
                 if (stopTag.includes('stop bot')) {
@@ -204,7 +152,76 @@ async function handleNewMessagesJuta(req, res) {
                     }
                 }
             } else {
+                await createContact(sender.name,extractedNumber);
+                await customWait(2500);
+                const contactPresent = await getContact(extractedNumber);
+                const stopTag = contactPresent.tags;
+                if (message.from_me){
+                    if(stopTag.includes('idle')){
+                    removeTagBookedGHL(contactPresent.id,'idle');
+                    }
+                    break;
+                }
+                console.log(stopTag);
+
+                contactID = contactPresent.id;
+                contactName = contactPresent.fullNameLowerCase;
+
+                const threadIdField = contactPresent.customFields.find(field => field.id === 'D5nDnjNBMtkzOt8ktHeC');
+                if (threadIdField) {
+                    threadID = threadIdField.value;
+                } else {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDGHL(contactID,threadID);
+                }
+                console.log('sent new contact to create new contact')
                 console.log('sent new contact to create new contact');
+            }
+            const contactPresent2 = await getContact(extractedNumber);
+            let firebaseTags =[]
+            if(contactData){
+                firebaseTags=   contactData.tags??[];
+            }
+            
+            const data = {
+                additionalEmails: [],
+                address1: null,
+                assignedTo: null,
+                businessId: null,
+                phone: extractedNumber,
+                tags: firebaseTags,
+                chat: {
+                    chat_pic: chat.chat_pic ?? "",
+                    chat_pic_full: chat.chat_pic_full ?? "",
+                    contact_id: contactPresent2.id,
+                    id: message.chat_id,
+                    name: contactPresent2.firstName,
+                    not_spam: true,
+                    tags: contactPresent2.tags ?? [],
+                    timestamp: message.timestamp,
+                    type: 'contact',
+                    unreadCount: 0,
+                    last_message: message,
+                },
+                chat_id: message.chat_id,
+                chat_pic: chat.chat_pic ?? "",
+                chat_pic_full: chat.chat_pic_full ?? "",
+                city: null,
+                companyName: null,
+                contactName: chat.name,
+                country: contactPresent2.country ?? "",
+                customFields: contactPresent2.customFields ?? {},
+                last_message: message,
+            };
+     
+            await addNotificationToUser('001', message);
+            await db.collection('companies').doc('001').collection('contacts').doc(extractedNumber).set(data);
+            console.log('set data');
+
+            if (firebaseTags.includes('stop bot')) {
+                console.log('bot stop');
+                break;
             }
 
             if (message.type === 'text') {

@@ -17,8 +17,9 @@ client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
 });
 
+
 client.on('ready', () => {
-    console.log('WhatsApp Client is ready!');
+    console.log('Client is ready!');
 });
 
 client.on('authenticated', (session) => {
@@ -27,6 +28,10 @@ client.on('authenticated', (session) => {
 
 client.on('auth_failure', (msg) => {
     console.error('AUTHENTICATION FAILURE', msg);
+});
+// Listening to all incoming messages
+client.on('message_create', message => {
+	console.log(message.body);
 });
 
 client.on('message', async msg => {
