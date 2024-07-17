@@ -12,11 +12,13 @@
     "html-entities": "^2.5.2",
     "node-cron": "^3.0.3",
     "openai": "^4.41.0",
+    "qrcode": "^1.5.3",
     "qrcode-terminal": "^0.12.0",
     "redis": "^4.6.13",
     "socket.io": "^4.7.5",
     "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#webpack-exodus",
-    "ws": "^8.17.0"
+    "ws": "^8.17.0",
+    "wwebjs-mongo": "^1.1.0"
   },
   "scripts": {
     "start": "node server.js"

@@ -74,7 +74,7 @@ async function getChatMetadata(chatId,) {
     }
 }
 
-async function handleNewMessagesTemplateWweb(client, msg) {
+async function handleNewMessagesTemplateWweb(client, msg, botName) {
     console.log('DEBUG: handleNewMessagesTemplateWweb function called', msg);
 
     //const url=req.originalUrl
@@ -85,7 +85,7 @@ async function handleNewMessagesTemplateWweb(client, msg) {
 
     // Extract the substring between the first and second '/'
     //const idSubstring = url.substring(firstSlash + 1, secondSlash);
-    const idSubstring = "025";
+    const idSubstring = botName;
     try {
         console.log('Handling new messages from Template...');
 
