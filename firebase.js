@@ -28,18 +28,18 @@ class FirebaseWWebJS {
   }
 
   async sessionExists(options) {
-      const docRef = this.db.collection(this.collectionName).doc(config.docName).collection('sessions').;
+      const docRef = this.db.collection(this.collectionName).doc(this.docName).collection('sessions').doc(options.session);
       const doc = await docRef.get();
       return doc.exists;
   }
 
   async save(options) {
       const { session, data } = options;
-      await this.db.collection(this.collectionName).doc(config.docName).collection('sessions').doc(session).set(data);
+      await this.db.collection(this.collectionName).doc(this.docName).collection('sessions').doc(session).set(data);
   }
 
   async extract(options) {
-      const docRef = this.db.collection(this.collectionName).doc(config.docName).collection('sessions').doc(options.session);
+      const docRef = this.db.collection(this.collectionName).doc(this.docName).collection('sessions').doc(options.session);
       const doc = await docRef.get();
       if (!doc.exists) {
           throw new Error('Session not found');
@@ -48,7 +48,7 @@ class FirebaseWWebJS {
   }
 
   async delete(options) {
-      await this.db.collection(this.collectionName).doc(config.docName).collection('sessions').doc(options.session).delete();
+      await this.db.collection(this.collectionName).doc(this.docName).collection('sessions').doc(options.session).delete();
   }
 }
 
