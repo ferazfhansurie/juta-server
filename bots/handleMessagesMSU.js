@@ -149,6 +149,7 @@ async function handleNewMessagesMSU(req, res) {
                                     if (part.includes(key) && part.includes("Brochure")) {
                                         console.log(`${key} sending file, ${filePath}`);
                                         await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
+                                        continue;
                                     }
                                 }      
                             }else{
