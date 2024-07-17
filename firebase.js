@@ -8,6 +8,7 @@ const { config } = require('dotenv');
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
+    storageBucket: "gs://onboarding-a5fcb.appspot.com" // Replace with your actual bucket name
     // Add your databaseURL if necessary
     // databaseURL: "https://your-database-url.firebaseio.com"
   });

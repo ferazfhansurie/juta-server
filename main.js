@@ -28,15 +28,7 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAIKEY,
 });
 
-function sendProgressUpdate(client, progress) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: 'progress', progress }));
-    }
-  }
-
-
 const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb');
-const { handleNewMessagesTemplateWweb2 } = require('./bots/handleMessagesTemplateWweb2');
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());// Middleware
@@ -49,58 +41,6 @@ app.use(cors());
 
 const botMap = new Map();
 
-
-
-async function initializeBot(botName) {
-    console.log(`DEBUG: Initializing bot: ${botName}`);
-    const client = new Client({
-        authStrategy: new LocalAuth({
-            clientId: botName,
-        }),
-        puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-    });
-    botMap.set(botName, { client, status: 'initializing', qrCode: null });
-
-    //botStatusMap.set(botName, { isAuthenticated: false, qrCode: null });
-
-    return new Promise((resolve, reject) => {
-        client.on('qr', async (qr) => {
-            console.log(`${botName} - QR RECEIVED`);
-            try {
-                const qrCodeData = await qrcode.toDataURL(qr);
-                botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
-            } catch (err) {
-                console.error('Error generating QR code:', err);
-            }
-        });
-
-        client.on('authenticated', () => {
-            console.log(`${botName} - AUTHENTICATED`);
-            botMap.set(botName, { client, status: 'authenticated', qrCode: null });
-        });
-
-        client.on('auth_failure', msg => {
-            console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
-            reject(new Error(`Authentication failed for ${botName}: ${msg}`));
-        });
-
-        client.on('ready', () => {
-            console.log(`${botName} - READY`);
-            botMap.set(botName, { client, status: 'ready', qrCode: null });
-            setupMessageHandler(client, botName);
-            resolve(client);
-        });
-
-        client.on('error', (error) => {
-            console.error(`${botName} - CLIENT ERROR:`, error);
-            reject(error);
-        });
-
-        console.log(`DEBUG: Initializing client for ${botName}`);
-        client.initialize().catch(reject);
-    });
-}
-
 function setupMessageHandler(client, botName) {
     client.on('message', async (msg) => {
         console.log(`DEBUG: Message received for bot ${botName}`);
@@ -112,18 +52,44 @@ function setupMessageHandler(client, botName) {
     });
 }
 
+async function saveContactWithRateLimit(botName, contact, retryCount = 0) {
+    const maxRetries = 5;
+    const baseDelay = 1000; // 1 second base delay
+
+    try {
+        const phoneNumber = contact.id.user;
+        const contactData = {
+            name: contact.name || contact.pushname || '',
+            phoneNumber: phoneNumber,
+            // Add any other contact data you want to save
+        };
+
+        await db.collection('companies').doc(botName).collection('contacts').doc('+'+phoneNumber).set(contactData, { merge: true });
+        console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
+        
+        // Delay before next operation
+        await customWait(baseDelay);
+    } catch (error) {
+        console.error(`Error saving contact for bot ${botName}:`, error);
+        
+        if (retryCount < maxRetries) {
+            const retryDelay = baseDelay * Math.pow(2, retryCount);
+            console.log(`Retrying in ${retryDelay}ms...`);
+            await delay(retryDelay);
+            await saveContactWithRateLimit(botName, contact, retryCount + 1);
+        } else {
+            console.error(`Failed to save contact after ${maxRetries} retries`);
+        }
+    }
+}
+
 async function initializeBots(botNames) {
     const initializationPromises = botNames.map(async (botName) => {
         try {
-            const store = new FirebaseWWebJS({
-                docName: botName // optional, defaults to 'whatsapp_sessions'
-            });
             console.log(`DEBUG: Starting initialization for ${botName}`);
             const client = new Client({
-                authStrategy: new RemoteAuth({
+                authStrategy: new LocalAuth({
                     clientId: botName,
-                    store: store,
-                    backupSyncIntervalMs: 300000
                 }),
                 puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
             });
@@ -144,32 +110,43 @@ async function initializeBots(botNames) {
                 botMap.set(botName, { client, status: 'authenticated', qrCode: null });
             });
 
-            client.on('auth_failure', msg => {
-                console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
-                reject(new Error(`Authentication failed for ${botName}: ${msg}`));
-            });
-
-            client.on('ready', () => {
+            client.on('ready', async () => {
                 console.log(`${botName} - READY`);
                 botMap.set(botName, { client, status: 'ready', qrCode: null });
                 setupMessageHandler(client, botName);
+
+                try {
+                    const chats = await client.getChats();
+                    for (const chat of chats) {
+                        if (chat.isGroup) continue;
+                        const contact = await chat.getContact();
+                        await saveContactWithRateLimit(botName, contact);
+                    }
+                    console.log(`Finished saving contacts for bot ${botName}`);
+                } catch (error) {
+                    console.error(`Error processing chats for bot ${botName}:`, error);
+                }
             });
 
-            client.on('error', (error) => {
-                console.error(`${botName} - CLIENT ERROR:`, error);
-                reject(error);
+            client.on('auth_failure', msg => {
+                console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
+                botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
+            });
+
+            client.on('disconnected', (reason) => {
+                console.log(`${botName} - DISCONNECTED:`, reason);
+                botMap.set(botName, { client, status: 'disconnected', qrCode: null });
             });
 
             client.on('remote_session_saved', () => {
                 console.log(`${botName} - REMOTE SESSION SAVED`);
             });
-            
-    
 
             await client.initialize();
             console.log(`DEBUG: Bot ${botName} initialized successfully`);
         } catch (error) {
             console.error(`Error initializing bot ${botName}:`, error);
+            botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
         }
     });
 

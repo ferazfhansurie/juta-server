@@ -14,7 +14,11 @@ if (!admin.apps.length) {
 }
 class FirebaseWWebJS {
   constructor(config) {
+      
+      
+      
       this.db = admin.firestore();
+
       this.collectionName = 'companies';
       this.docName = config.docName;
   }
