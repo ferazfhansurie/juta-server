@@ -1,6 +1,7 @@
 require('dotenv').config();
-const { Client, LocalAuth } = require('whatsapp-web.js');
+const { Client, LocalAuth, RemoteAuth} = require('whatsapp-web.js');
 //const qrcode = require('qrcode-terminal');
+const FirebaseWWebJS = require('./firebaseWweb.js');
 const qrcode = require('qrcode');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -47,6 +48,7 @@ app.get('/', function (req, res) {
 app.use(cors());
 
 const botMap = new Map();
+
 
 
 async function initializeBot(botName) {
@@ -113,10 +115,15 @@ function setupMessageHandler(client, botName) {
 async function initializeBots(botNames) {
     const initializationPromises = botNames.map(async (botName) => {
         try {
+            const store = new FirebaseWWebJS({
+                docName: botName // optional, defaults to 'whatsapp_sessions'
+            });
             console.log(`DEBUG: Starting initialization for ${botName}`);
             const client = new Client({
-                authStrategy: new LocalAuth({
+                authStrategy: new RemoteAuth({
                     clientId: botName,
+                    store: store,
+                    backupSyncIntervalMs: 300000
                 }),
                 puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
             });
@@ -152,6 +159,11 @@ async function initializeBots(botNames) {
                 console.error(`${botName} - CLIENT ERROR:`, error);
                 reject(error);
             });
+
+            client.on('remote_session_saved', () => {
+                console.log(`${botName} - REMOTE SESSION SAVED`);
+            });
+            
     
 
             await client.initialize();

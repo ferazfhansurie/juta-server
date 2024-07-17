@@ -12,44 +12,6 @@ if (!admin.apps.length) {
     // databaseURL: "https://your-database-url.firebaseio.com"
   });
 }
-class FirebaseWWebJS {
-  constructor(config) {
-      if (!config.serviceAccount) {
-          throw new Error('Firestore service account is required');
-      }
-      
-      initializeApp({
-          credential: admin.credential.cert(serviceAccount)
-      });
-      
-      this.db = getFirestore();
-      this.collectionName = 'companies';
-      this.docName = config.docName;
-  }
 
-  async sessionExists(options) {
-      const docRef = this.db.collection(this.collectionName).doc(this.docName).collection('sessions').doc(options.session);
-      const doc = await docRef.get();
-      return doc.exists;
-  }
-
-  async save(options) {
-      const { session, data } = options;
-      await this.db.collection(this.collectionName).doc(this.docName).collection('sessions').doc(session).set(data);
-  }
-
-  async extract(options) {
-      const docRef = this.db.collection(this.collectionName).doc(this.docName).collection('sessions').doc(options.session);
-      const doc = await docRef.get();
-      if (!doc.exists) {
-          throw new Error('Session not found');
-      }
-      return doc.data();
-  }
-
-  async delete(options) {
-      await this.db.collection(this.collectionName).doc(this.docName).collection('sessions').doc(options.session).delete();
-  }
-}
-
-module.exports = admin, FirebaseWWebJS; // Use module.exports to export in CommonJS
+module.exports = admin;
+ // Use module.exports to export in CommonJS
