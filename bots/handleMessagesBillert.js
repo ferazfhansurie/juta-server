@@ -176,12 +176,11 @@ async function handleNewMessagesBillert(req, res) {
                    await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
                }
                function getCurrentDate() {
-                   const date = new Date();
-                   const day = String(date.getDate()).padStart(2, '0');
-                   const month = String(date.getMonth() + 1).padStart(2, '0');
-                   const year = date.getFullYear();
-                   return `${day}/${month}/${year}`;
-               }
+                const date = new Date();
+                const options = { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: '2-digit', year: 'numeric' };
+                const [day, month, year] = date.toLocaleDateString('en-GB', options).split('/');
+                return `${day}/${month}/${year}`;
+            }
                const agentId = number.split('+')[1]+'@s.whatsapp.net';
                const currentDate = getCurrentDate();
                const custNumber = sender.to.split('@')[0];
