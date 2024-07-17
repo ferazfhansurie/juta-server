@@ -102,6 +102,26 @@ async function getChatMetadata(chatId,) {
         throw error;
     }
 }
+async function addTagToFirebase(phoneNumber, tag) {
+    const contactsRef = db.collection('companies').doc('018').collection('contacts');
+    const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+
+    if (querySnapshot.empty) {
+        console.log('No matching documents.');
+        return;
+    } else {
+        const doc = querySnapshot.docs[0];
+        const contactRef = doc.ref;
+        const contactData = doc.data();
+        const tags = contactData.tags || [];
+
+        if (!tags.includes(tag)) {
+            tags.push(tag);
+            await contactRef.update({ tags });
+            console.log(`Tag ${tag} added to contact with phone number: ${phoneNumber}`);
+        }
+    }
+}
 async function handleNewMessagesTastyPuga(req, res) {
     try {
         console.log('Handling new messages from Tasty...');
@@ -269,11 +289,12 @@ async function handleNewMessagesTastyPuga(req, res) {
                             
                             await sendWhapiRequest2('messages/text', { to: sender.to, body: part });
                             if (check.includes('patience')) {
-                                await addtagbookedGHL(contactID, 'stop bot');
+                               // await addtagbookedGHL(contactID, 'stop bot');
+                                await addTagToFirebase(extractedNumber,'stop bot');
                             } 
                             if(check.includes('get back to you')){
                             
-                               await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
+                               await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID,extractedNumber);
                             }
                         }
                     }
@@ -520,15 +541,18 @@ async function handleNewMessagesTasty(req, res) {
                             const part = parts[i].trim();   
                             const check = part.toLowerCase();             
                             if (part) {
+                               // await addtagbookedGHL(contactID, 'stop bot');
+                               //await addTagToFirebase(extractedNumber,'stop bot');
                                 await addtagbookedGHL(contactID, 'idle');
                                 await sendWhapiRequest('messages/text', { to: sender.to, body: part });
                                 if (check.includes('patience')) {
-                                    await addtagbookedGHL(contactID, 'stop bot');
+                                  //  await addtagbookedGHL(contactID, 'stop bot');
+                                  await addTagToFirebase(extractedNumber,'stop bot');
                                 } 
                                 if(check.includes('get back to you as soon as possible')){
                                     console.log('check includes');
                                 
-                                   await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
+                                   await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID,extractedNumber);
                                 }
                             }
                         }
@@ -536,7 +560,8 @@ async function handleNewMessagesTasty(req, res) {
                         await sendWhapiRequest('messages/text', { to: sender.to, body: 'I apologize for the confusion, I am unable to directly access the document you provided.' });
                         await sendWhapiRequest('messages/text', { to: sender.to, body: 'I will contact the team for further assistance' });
                         await sendWhapiRequest('messages/text', { to: sender.to, body: 'Thank you for your patience' });
-                        await addtagbookedGHL(contactID, 'stop bot');
+                       // await addtagbookedGHL(contactID, 'stop bot');
+                       await addTagToFirebase(extractedNumber,'stop bot');
                     }
                 
                     console.log('Response sent.');
@@ -640,6 +665,7 @@ async function getContactById(contactId) {
     }
 }
 async function addtagbookedGHL(contactID, tag) {
+    console.log('adding tag');
     const contact = await getContactById(contactID);
     const previousTags = contact.tags || [];
     const options = {
@@ -696,10 +722,10 @@ async function callNotification(webhook,senderText,name) {
     }
  return responseData;
 }
-async function callWebhook(webhook,senderText,thread) {
+async function callWebhook(webhook,senderText,thread,extractedNumber) {
     console.log('calling webhook')
     const webhookUrl = webhook;
-    const body = JSON.stringify({ senderText,thread}); // Include sender's text in the request body
+    const body = JSON.stringify({ senderText,thread,extractedNumber}); // Include sender's text in the request body
     const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
