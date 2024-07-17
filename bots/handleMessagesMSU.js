@@ -111,17 +111,19 @@ async function handleNewMessagesMSU(req, res) {
                     
                     query = `${message.text.body} user_name: ${contactName}`;
                     const brochureFilePaths = {
-                        'Brochure Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
-                        'Brochure Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
-                        'Brochure Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
-                        'Brochure Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
-                        'Brochure Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
-                        'Brochure Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
-                        'Brochure Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
-                        'Brochure Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                        'Brochure Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
-                        'Brochure Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                        'Brochure Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+                        'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
+                        'Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
+                        'Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+                        'Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+                        'Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
+                        'Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+                        'Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+                        'Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                        'Information Science': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                        'Engineering': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                        'Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+                        'Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                        'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
                     };
                     answer = await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
@@ -144,7 +146,7 @@ async function handleNewMessagesMSU(req, res) {
                                     await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
                                 }
                                 for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-                                    if (part.includes(key)) {
+                                    if (part.includes(key) && part.includes("Brochure")) {
                                         console.log(`${key} sending file, ${filePath}`);
                                         await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
                                     }
@@ -163,7 +165,7 @@ async function handleNewMessagesMSU(req, res) {
                                     await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
                                 }
                                 for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-                                    if (part.includes(key)) {
+                                    if (part.includes(key) && part.includes("Brochure")) {
                                         console.log(`${key} sending file, ${filePath}`);
                                         await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
                                     }
