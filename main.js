@@ -64,6 +64,51 @@ async function saveContactWithRateLimit(botName, contact, retryCount = 0) {
             // Add any other contact data you want to save
         };
 
+        const data = {
+          additionalEmails: [],
+          address1: null,
+          assignedTo: null,
+          businessId: null,
+          phone:phoneNumber,
+          tags:[],
+          chat: {
+              contact_id: phoneNumber,
+              id: msg.from,
+              name: msg.notifyName ?? phoneNumber,
+              not_spam: true,
+              tags: firebaseTags,
+              timestamp: chat.timestamp,
+              type: 'contact',
+              unreadCount: 0,
+              last_message: {
+                  chat_id: msg.from,
+                  from: msg.from ?? "",
+                  from_me: msg.fromMe ?? false,
+                  id: msg._data.id.id ?? "",
+                  source: chat.deviceType ?? "",
+                  status: "delivered",
+                  text: msg.body ?? "",
+                  timestamp: msg.timestamp ?? 0,
+                  type: msg.type ?? "",
+              },
+          },
+          chat_id: msg.from,
+          city: null,
+          companyName: null,
+          contactName: msg.notifyName ?? extractedNumber,
+          threadid: threadID ?? "",
+          last_message: {
+              chat_id: msg.from,
+              from: msg.from ?? "",
+              from_me: msg.fromMe ?? false,
+              id: msg._data.id.id ?? "",
+              source: chat.deviceType ?? "",
+              status: "delivered",
+              text: msg.body ?? "",
+              timestamp: msg.timestamp ?? 0,
+              type: msg.type ?? "",
+          },
+      };
         await db.collection('companies').doc(botName).collection('contacts').doc('+'+phoneNumber).set(contactData, { merge: true });
         console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         

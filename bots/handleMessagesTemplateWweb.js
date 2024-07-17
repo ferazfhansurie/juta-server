@@ -206,7 +206,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             //await addNotificationToUser(idSubstring, msg);
             
             // Add the data to Firestore
-            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data);    
+            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
             
             //reset bot command
             if (msg.body.includes('/resetbot')) {
