@@ -123,8 +123,19 @@ async function initializeBots(botNames) {
 }
 
 async function main(reinitialize = false) {
-    const botNames = Array.from(botMap.keys());
+    const companiesRef = db.collection('companies');
+    const snapshot = await companiesRef.get();
+    
+    const botNames = [];
 
+    snapshot.forEach(doc => {
+        const companyId = doc.id;
+        const data = doc.data();
+        if (data.assistantId) {
+            botNames.push(companyId);
+        }
+    });
+    console.log(botNames);
     if (reinitialize) {
         // Clear existing bot instances
         for (const [botName, botData] of botMap.entries()) {
@@ -220,7 +231,6 @@ async function updateAllTokens() {
 
     const companyIds = Array.from({ length: 23 }, (_, i) => `00${i + 1}`.slice(-3));
     for (const companyId of companyIds) {
-      console.log(companyId);
         try {
             await ghlToken(companyId);
         
