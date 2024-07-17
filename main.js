@@ -111,15 +111,57 @@ function setupMessageHandler(client, botName) {
 }
 
 async function initializeBots(botNames) {
-    for (const botName of botNames) {
+    const initializationPromises = botNames.map(async (botName) => {
         try {
             console.log(`DEBUG: Starting initialization for ${botName}`);
-            await initializeBot(botName);
+            const client = new Client({
+                authStrategy: new LocalAuth({
+                    clientId: botName,
+                }),
+                puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+            });
+            botMap.set(botName, { client, status: 'initializing', qrCode: null });
+
+            client.on('qr', async (qr) => {
+                console.log(`${botName} - QR RECEIVED`);
+                try {
+                    const qrCodeData = await qrcode.toDataURL(qr);
+                    botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
+                } catch (err) {
+                    console.error('Error generating QR code:', err);
+                }
+            });
+
+            client.on('authenticated', () => {
+                console.log(`${botName} - AUTHENTICATED`);
+                botMap.set(botName, { client, status: 'authenticated', qrCode: null });
+            });
+
+            client.on('auth_failure', msg => {
+                console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
+                reject(new Error(`Authentication failed for ${botName}: ${msg}`));
+            });
+
+            client.on('ready', () => {
+                console.log(`${botName} - READY`);
+                botMap.set(botName, { client, status: 'ready', qrCode: null });
+                setupMessageHandler(client, botName);
+            });
+
+            client.on('error', (error) => {
+                console.error(`${botName} - CLIENT ERROR:`, error);
+                reject(error);
+            });
+    
+
+            await client.initialize();
             console.log(`DEBUG: Bot ${botName} initialized successfully`);
         } catch (error) {
             console.error(`Error initializing bot ${botName}:`, error);
         }
-    }
+    });
+
+    await Promise.all(initializationPromises);
 }
 
 async function main(reinitialize = false) {
