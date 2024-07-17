@@ -269,12 +269,13 @@ async function createUserInFirebase(userData) {
   }
 
   // Modify the API route to get the QR code or authentication status
-app.get('/api/bot-status/:botName', (req, res) => {
+  app.get('/api/bot-status/:botName', (req, res) => {
     const { botName } = req.params;
-    const status = botStatusMap.get(botName);
+    const botData = botMap.get(botName);
     
-    if (status) {
-        res.json(status);
+    if (botData) {
+        const { status, qrCode } = botData;
+        res.json({ status, qrCode });
     } else {
         res.status(404).json({ error: 'Bot status not available' });
     }
