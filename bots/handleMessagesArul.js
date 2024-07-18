@@ -5,7 +5,9 @@ const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
 const db = admin.firestore();
 
+
 let ghlConfig = {};
+const timers = {};
 
 // Schedule the task to run every 12 hours
 
@@ -64,12 +66,12 @@ async function handleNewMessagesArul(req, res) {
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
             threadID = dbData.thread_id;
             botStatus = dbData.bot_status;
-            if (botStatus === 'on') {
-                console.log('bot is running for this contact');
-            } else {
-                console.log('bot is turned off for this contact');
-                continue;
-            }
+            // if (botStatus === 'on') {
+            //     console.log('bot is running for this contact');
+            // } else {
+            //     console.log('bot is turned off for this contact');
+            //     continue;
+            // }
             if (dbData.name) {
                 contactName = dbData.name;
 
@@ -195,15 +197,15 @@ async function handleNewMessagesArul(req, res) {
                     }
                 }
                 console.log('Response sent.');
+                await addtagbookedGHL(contactID, ['replied', 'hi ean here blast']);
 
-                start3DayTimer(sender.to, contactID);
+                console.log('added tag replied')
             }
 
             if (message.type === 'image') {
                 continue;
             }
-            // Call handleNewMessageReceived to clear any existing timers
-            await handleNewMessageReceived(message);
+            
         }
         res.send('All messages processed');
     } catch (e) {
@@ -212,28 +214,6 @@ async function handleNewMessagesArul(req, res) {
     }
 }
 
-function start3DayTimer(chatId, contactId) {
-    // Clear any existing timer for this chat
-    if (timers[chatId]) {
-        clearTimeout(timers[chatId]);
-    }
-
-    // Set a new timer for 3 days
-    timers[chatId] = setTimeout(async () => {
-        await sendWhapiRequest('messages/text', { to: chatId, body: "Good morning, have you gotten the chance to take a look at the properties available?" });
-        await addtagbookedGHL(contactId, 'idle');
-        console.log('3-day follow-up message sent and bot stopped.');
-    }, 3 * 24 * 60 * 60 * 1000); // 3 days in milliseconds
-}
-
-async function handleNewMessageReceived(message) {
-    const senderTo = message.chat_id;
-    if (timers[senderTo]) {
-        clearTimeout(timers[senderTo]);
-        delete timers[senderTo];
-        console.log('User replied within 3 days, timer cleared.');
-    }
-}
 
 async function getContactDataFromDatabaseByPhone(phoneNumber) {
     try {
@@ -571,7 +551,7 @@ async function getDataFromDatabase(phoneNumber) {
                 }
                 const stopTag = contactPresent.tags;
                 if (stopTag.includes('stop bot')) {
-                    bot_status = 'off';
+                    bot_status = 'on';
                 } else {
                     bot_status = 'on';
                 }
