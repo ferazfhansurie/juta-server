@@ -129,7 +129,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                     return;
                 }else {
                     contactID = extractedNumber;
-                    contactName = contactData.fullNameLowerCase;
+                    contactName = msg.notifyName ?? extractedNumber;
                 
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
@@ -230,6 +230,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             switch (currentStep) {
                 case steps.START:
                     var context = "";
+                    
                     query = `${msg.body} user_name: ${contactName} `;
                     
                     

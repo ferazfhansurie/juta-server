@@ -1,11 +1,7 @@
-require('dotenv').config();
-const { Client, LocalAuth, RemoteAuth} = require('whatsapp-web.js');
-//const qrcode = require('qrcode-terminal');
-const FirebaseWWebJS = require('./firebaseWweb.js');
-const qrcode = require('qrcode');
 const express = require('express');
 const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
+require('dotenv').config();
 const cors = require('cors');
 const app = express();
 const admin = require('./firebase.js');
@@ -16,9 +12,6 @@ const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 const db = admin.firestore();
 const OpenAI = require('openai');
-
-const botMap = new Map();
-
 wss.on('connection', (ws) => {
     console.log('Client connected');
     ws.on('close', () => {
@@ -142,8 +135,6 @@ const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
 const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
 const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js');
-const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb');
-
 
 
 
@@ -253,188 +244,6 @@ async function createUserInFirebase(userData) {
     } catch (error) {
         console.error('Error saving Thread ID to Firestore:', error);
     }
-}
-
-function setupMessageHandler(client, botName) {
-    client.on('message', async (msg) => {
-        console.log(`DEBUG: Message received for bot ${botName}`);
-        try {
-            await handleNewMessagesTemplateWweb(client, msg, botName);
-        } catch (error) {
-            console.error(`ERROR in message handling for bot ${botName}:`, error);
-        }
-    });
-}
-
-async function saveContactWithRateLimit(botName, contact, chats, retryCount = 0) {
-    const maxRetries = 5;
-    const baseDelay = 1000; // 1 second base delay
-
-    try {
-        const phoneNumber = contact.id.user;
-        const chat = chats.find(c => c.id === contact.id.user + '@c.us') || {};
-        const msg = chat.lastMessage || {};
-
-        const contactData = {
-            additionalEmails: [],
-            address1: null,
-            assignedTo: null,
-            businessId: null,
-            phone: phoneNumber,
-            tags: [],
-            chat: {
-                contact_id: phoneNumber,
-                id: msg.from || contact.id.user + '@c.us',
-                name: contact.name || contact.pushname || phoneNumber,
-                not_spam: true,
-                tags: [], // You might want to populate this with actual tags if available
-                timestamp: chat.timestamp || Date.now(),
-                type: 'contact',
-                unreadCount: chat.unreadCount || 0,
-                last_message: {
-                    chat_id: msg.from || contact.id.user + '@c.us',
-                    from: msg.from || contact.id.user + '@c.us',
-                    from_me: msg.fromMe || false,
-                    id: msg._data?.id?.id || '',
-                    source: chat.deviceType || '',
-                    status: "delivered",
-                    text: msg.body || '',
-                    timestamp: msg.timestamp || Date.now(),
-                    type: msg.type || '',
-                },
-            },
-            chat_id: msg.from || contact.id.user + '@c.us',
-            city: null,
-            companyName: null,
-            contactName: contact.name || contact.pushname || phoneNumber,
-            threadid: '', // You might want to generate or retrieve this
-            last_message: {
-                chat_id: msg.from || contact.id.user + '@c.us',
-                from: msg.from || contact.id.user + '@c.us',
-                from_me: msg.fromMe || false,
-                id: msg._data?.id?.id || '',
-                source: chat.deviceType || '',
-                status: "delivered",
-                text: msg.body || '',
-                timestamp: msg.timestamp || Date.now(),
-                type: msg.type || '',
-            },
-        };
-
-        await db.collection('companies').doc(botName).collection('contacts').doc('+'+phoneNumber).set(contactData, { merge: true });
-        console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
-        
-        // Delay before next operation
-        await customWait(baseDelay);
-    } catch (error) {
-        console.error(`Error saving contact for bot ${botName}:`, error);
-        
-        if (retryCount < maxRetries) {
-            const retryDelay = baseDelay * Math.pow(2, retryCount);
-            console.log(`Retrying in ${retryDelay}ms...`);
-            await delay(retryDelay);
-            await saveContactWithRateLimit(botName, contact, chats, retryCount + 1);
-        } else {
-            console.error(`Failed to save contact after ${maxRetries} retries`);
-        }
-    }
-}
-
-async function initializeBots(botNames) {
-    const initializationPromises = botNames.map(async (botName) => {
-        try {
-            console.log(`DEBUG: Starting initialization for ${botName}`);
-            const client = new Client({
-                authStrategy: new LocalAuth({
-                    clientId: botName,
-                }),
-                puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-            });
-            botMap.set(botName, { client, status: 'initializing', qrCode: null });
-
-            client.on('qr', async (qr) => {
-                console.log(`${botName} - QR RECEIVED`);
-                try {
-                    const qrCodeData = await qrcode.toDataURL(qr);
-                    botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
-                } catch (err) {
-                    console.error('Error generating QR code:', err);
-                }
-            });
-
-            client.on('authenticated', () => {
-                console.log(`${botName} - AUTHENTICATED`);
-                botMap.set(botName, { client, status: 'authenticated', qrCode: null });
-            });
-
-            client.on('ready', async () => {
-                console.log(`${botName} - READY`);
-                botMap.set(botName, { client, status: 'ready', qrCode: null });
-                setupMessageHandler(client, botName);
-
-                try {
-                    const chats = await client.getChats();
-                    for (const chat of chats) {
-                        if (chat.isGroup) continue;
-                        const contact = await chat.getContact();
-                        await saveContactWithRateLimit(botName, contact, chats);
-                    }
-                    console.log(`Finished saving contacts for bot ${botName}`);
-                } catch (error) {
-                    console.error(`Error processing chats for bot ${botName}:`, error);
-                }
-            });
-
-            client.on('auth_failure', msg => {
-                console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
-                botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
-            });
-
-            client.on('disconnected', (reason) => {
-                console.log(`${botName} - DISCONNECTED:`, reason);
-                botMap.set(botName, { client, status: 'disconnected', qrCode: null });
-            });
-
-            client.on('remote_session_saved', () => {
-                console.log(`${botName} - REMOTE SESSION SAVED`);
-            });
-
-            await client.initialize();
-            console.log(`DEBUG: Bot ${botName} initialized successfully`);
-        } catch (error) {
-            console.error(`Error initializing bot ${botName}:`, error);
-            botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
-        }
-    });
-
-    await Promise.all(initializationPromises);
-}
-
-async function main(reinitialize = false) {
-    const companiesRef = db.collection('companies');
-    const snapshot = await companiesRef.get();
-    
-    const botNames = [];
-
-    snapshot.forEach(doc => {
-        const companyId = doc.id;
-        const data = doc.data();
-        if (data.v2) {
-            botNames.push(companyId);
-        }
-    });
-    console.log(botNames);
-    if (reinitialize) {
-        // Clear existing bot instances
-        for (const [botName, botData] of botMap.entries()) {
-            if (botData.client) {
-                await botData.client.destroy();
-            }
-        }
-        botMap.clear();
-    }
-
-    await initializeBots(botNames);
 }
 async function getContactDataFromDatabaseByEmail(email) {
   try {
@@ -1078,22 +887,18 @@ async function createChannel(projectId, token, companyID) {
 }
 
 app.post('/api/channel/create/:companyID', async (req, res) => {
-    const { companyID } = req.params;
+  const { companyID } = req.params;
+  const token = process.env.WHAPIPARTERTOKEN; // Assuming you pass the token in the request headers
 
-    try {
-        await createAssistant(companyID);
-
-        // Add new bot to the map
-        botMap.set(companyID, { client: null, status: 'pending', qrCode: null });
-
-        // Reinitialize all bots including the new one
-        await main(true);
-
-        res.json({ message: 'Channel created successfully and bots reinitialized', newBotId: companyID });
-    } catch (error) {
-        console.error('Error creating channel and reinitializing bots:', error);
-        res.status(500).json({ error: 'Failed to create channel and reinitialize bots', details: error.message });
-    }
+  try {
+    await createAssistant(companyID);
+      const projectId = await fetchProjectId(token);
+      console.log(projectId);
+      const channelData = await createChannel(projectId, token, companyID);
+      res.json({ message: 'Channel created successfully', channelData });
+  } catch (error) {
+      res.status(500).json({ error: 'Failed to create channel', details: error.message });
+  }
 });
 
 async function createAssistant(companyID) {
@@ -1123,8 +928,7 @@ console.log('creating ass');
 
       // Save the whapiToken to a new document
       await companiesCollection.doc(companyID).set({
-          assistantId: assistantId,
-          v2: true
+          assistantId: assistantId
       }, { merge: true });
    return;
     
@@ -1134,6 +938,5 @@ console.log('creating ass');
   }
 }
 
-main();
 
 

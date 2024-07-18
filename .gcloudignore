@@ -12,7 +12,10 @@
 # below:
 .git
 .gitignore
-
+.wwebjs_auth/
+.wwebjs_auth
+.wwebjs_cache/
+.wwebjs_cache
 # Node.js dependencies:
 node_modules/
 
