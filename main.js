@@ -52,63 +52,61 @@ function setupMessageHandler(client, botName) {
     });
 }
 
-async function saveContactWithRateLimit(botName, contact, retryCount = 0) {
+async function saveContactWithRateLimit(botName, contact, chats, retryCount = 0) {
     const maxRetries = 5;
     const baseDelay = 1000; // 1 second base delay
 
     try {
         const phoneNumber = contact.id.user;
+        const chat = chats.find(c => c.id === contact.id.user + '@c.us') || {};
+        const msg = chat.lastMessage || {};
+
         const contactData = {
-            name: contact.name || contact.pushname || '',
-            phoneNumber: phoneNumber,
-            // Add any other contact data you want to save
+            additionalEmails: [],
+            address1: null,
+            assignedTo: null,
+            businessId: null,
+            phone: phoneNumber,
+            tags: [],
+            chat: {
+                contact_id: phoneNumber,
+                id: msg.from || contact.id.user + '@c.us',
+                name: contact.name || contact.pushname || phoneNumber,
+                not_spam: true,
+                tags: [], // You might want to populate this with actual tags if available
+                timestamp: chat.timestamp || Date.now(),
+                type: 'contact',
+                unreadCount: chat.unreadCount || 0,
+                last_message: {
+                    chat_id: msg.from || contact.id.user + '@c.us',
+                    from: msg.from || contact.id.user + '@c.us',
+                    from_me: msg.fromMe || false,
+                    id: msg._data?.id?.id || '',
+                    source: chat.deviceType || '',
+                    status: "delivered",
+                    text: msg.body || '',
+                    timestamp: msg.timestamp || Date.now(),
+                    type: msg.type || '',
+                },
+            },
+            chat_id: msg.from || contact.id.user + '@c.us',
+            city: null,
+            companyName: null,
+            contactName: contact.name || contact.pushname || phoneNumber,
+            threadid: '', // You might want to generate or retrieve this
+            last_message: {
+                chat_id: msg.from || contact.id.user + '@c.us',
+                from: msg.from || contact.id.user + '@c.us',
+                from_me: msg.fromMe || false,
+                id: msg._data?.id?.id || '',
+                source: chat.deviceType || '',
+                status: "delivered",
+                text: msg.body || '',
+                timestamp: msg.timestamp || Date.now(),
+                type: msg.type || '',
+            },
         };
 
-        const data = {
-          additionalEmails: [],
-          address1: null,
-          assignedTo: null,
-          businessId: null,
-          phone:phoneNumber,
-          tags:[],
-          chat: {
-              contact_id: phoneNumber,
-              id: msg.from,
-              name: msg.notifyName ?? phoneNumber,
-              not_spam: true,
-              tags: firebaseTags,
-              timestamp: chat.timestamp,
-              type: 'contact',
-              unreadCount: 0,
-              last_message: {
-                  chat_id: msg.from,
-                  from: msg.from ?? "",
-                  from_me: msg.fromMe ?? false,
-                  id: msg._data.id.id ?? "",
-                  source: chat.deviceType ?? "",
-                  status: "delivered",
-                  text: msg.body ?? "",
-                  timestamp: msg.timestamp ?? 0,
-                  type: msg.type ?? "",
-              },
-          },
-          chat_id: msg.from,
-          city: null,
-          companyName: null,
-          contactName: msg.notifyName ?? extractedNumber,
-          threadid: threadID ?? "",
-          last_message: {
-              chat_id: msg.from,
-              from: msg.from ?? "",
-              from_me: msg.fromMe ?? false,
-              id: msg._data.id.id ?? "",
-              source: chat.deviceType ?? "",
-              status: "delivered",
-              text: msg.body ?? "",
-              timestamp: msg.timestamp ?? 0,
-              type: msg.type ?? "",
-          },
-      };
         await db.collection('companies').doc(botName).collection('contacts').doc('+'+phoneNumber).set(contactData, { merge: true });
         console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
@@ -121,7 +119,7 @@ async function saveContactWithRateLimit(botName, contact, retryCount = 0) {
             const retryDelay = baseDelay * Math.pow(2, retryCount);
             console.log(`Retrying in ${retryDelay}ms...`);
             await delay(retryDelay);
-            await saveContactWithRateLimit(botName, contact, retryCount + 1);
+            await saveContactWithRateLimit(botName, contact, chats, retryCount + 1);
         } else {
             console.error(`Failed to save contact after ${maxRetries} retries`);
         }
@@ -165,7 +163,7 @@ async function initializeBots(botNames) {
                     for (const chat of chats) {
                         if (chat.isGroup) continue;
                         const contact = await chat.getContact();
-                        await saveContactWithRateLimit(botName, contact);
+                        await saveContactWithRateLimit(botName, contact, chats);
                     }
                     console.log(`Finished saving contacts for bot ${botName}`);
                 } catch (error) {
