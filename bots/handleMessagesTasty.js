@@ -123,242 +123,7 @@ async function addTagToFirebase(phoneNumber, tag) {
     }
 }
 async function handleNewMessagesTastyPuga(req, res) {
-    try {
-        console.log('Handling new messages from Tasty...');
-
-        // Initial fetch of config
-        await fetchConfigFromDatabase();
-
-        const receivedMessages = req.body.messages;
-        for (const message of receivedMessages) {
-
-            if(!message.chat_id.includes("whatsapp")){
-                break;
-            }
-
-            const sender = {
-                to: message.chat_id,
-                name:message.from_name
-            };
-
-            let contactID;
-            let contactName;
-            let threadID;
-            let query;
-            let answer;
-            let parts;
-            let pollParams;
-            let currentStep;
-            const senderTo = sender.to;
-            const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-            let contactPresent = await getContact(extractedNumber);
-            const chat = await getChatMetadata(message.chat_id);
-            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
-            let firebaseTags =[]
-            if(contactData){
-                firebaseTags=   contactData.tags??[];
-            }
-            if (contactPresent !== null) {
-                const stopTag = contactPresent.tags;
-                if (message.from_me){
-                    if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
-                    }
-                    break;
-                }
-                            await callNotification('https://hook.us1.make.com/enapl8jjfhdkslqsdop8bcgu11le3mdl',message.text.body,chat.name);
-                    contactID = contactPresent.id;
-                    const threadIdField = contactPresent.customFields.find(field => field.id === 'B9OTkn98Z1XeAwMHj7BY');
-                
-                    if (threadIdField) {
-                        threadID = threadIdField.value;
-                    } else {
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        await saveThreadIDGHL2(contactID,threadID);
-                    }
-            
-            }else{
-               const savedName = await handleOpenAINameAssistant(sender.name);
-                await createContact(savedName,extractedNumber);
-                await customWait(2500);
-                let contactPresent = await getContact(extractedNumber);
-                const stopTag = contactPresent.tags;
-                if (message.from_me){
-                    if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
-                    }
-                    break;
-                }
-                await callNotification('https://hook.us1.make.com/enapl8jjfhdkslqsdop8bcgu11le3mdl',message.text.body,chat.name);
-             
-           
-          
-                    contactID = contactPresent.id;
-                    const threadIdField = contactPresent.customFields.find(field => field.id === 'B9OTkn98Z1XeAwMHj7BY');
-                    if (threadIdField) {
-                        threadID = threadIdField.value;
-                    } else {
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        await saveThreadIDGHL2(contactID,threadID);
-                    }
-           
-                console.log('sent new contact to create new contact');
-            }        
-            contactPresent = await getContact(extractedNumber);    
-            const stopTag = contactPresent.tags;
-            const data = {
-                additionalEmails: [],
-                address1: null,
-                assignedTo: null,
-                businessId: null,
-                phone:extractedNumber,
-                tags:firebaseTags,
-                chat: {
-                    chat_pic: chat.chat_pic ?? "",
-                    chat_pic_full: chat.chat_pic_full ?? "",
-                    contact_id: contactPresent.id,
-                    id: message.chat_id,
-                    name: contactPresent.firstName,
-                    not_spam: true,
-                    tags: contactPresent.tags??[],
-                    timestamp: message.timestamp,
-                    type: 'contact',
-                    unreadCount: 0,
-                    last_message: {
-                        chat_id: chat.id,
-                        device_id: message.device_id ?? "",
-                        from: message.from ?? "",
-                        from_me: message.from_me ?? false,
-                        id: message.id ?? "",
-                        source: message.source ?? "",
-                        status: "delivered",
-                        text: message.text ?? "",
-                        timestamp: message.timestamp ?? 0,
-                        type: message.type ?? "",
-                    },
-                },
-                chat_id: message.chat_id,
-                chat_pic: chat.chat_pic ?? "",
-                chat_pic_full: chat.chat_pic_full ?? "",
-                city: null,
-                companyName: null,
-                contactName: chat.name??extractedNumber,
-                country: contactPresent.country ?? "",
-                customFields: contactPresent.customFields ?? {},
-                last_message: {
-                    chat_id: chat.id,
-                    device_id: message.device_id ?? "",
-                    from: message.from ?? "",
-                    from_me: message.from_me ?? false,
-                    id: message.id ?? "",
-                    source: message.source ?? "",
-                    status: "delivered",
-                    text: message.text ?? "",
-                    timestamp: message.timestamp ?? 0,
-                    type: message.type ?? "",
-                },
-            };
-               
-               await addNotificationToUser('018', message);
-               // Add the data to Firestore
-         await db.collection('companies').doc('018').collection('contacts').doc(extractedNumber).set(data);  
-            if(!stopTag.includes('onboard') || stopTag.includes('stop bot') || contactData.tags.includes('stop bot')){
-                console.log('Bot stopped for this message');
-                continue;
-            }
-            currentStep = userState.get(sender.to) || steps.START;
-            switch (currentStep) {
-                case steps.START:
-                    var context = "";
-                    if (message.context?.quoted_content?.body != null) {
-                        context = message.context.quoted_content.body;
-                        query = `${message.text.body} user_name: ${sender.name} user replied to your previous message: ${context}`;
-                    } else {
-                        query = `${message.text.body} user_name: ${sender.name} `;
-                    }
-                    answer = await handleOpenAIAssistant(query,threadID);
-                    parts = answer.split(/\s*\|\|\s*/);
-                    for (let i = 0; i < parts.length; i++) {
-                        const part = parts[i].trim();   
-                        const check = part.toLowerCase();             
-                        if (part) {
-                            await addtagbookedGHL(contactID, 'idle');
-                         
-                            
-                            await sendWhapiRequest2('messages/text', { to: sender.to, body: part });
-                            if (check.includes('patience')) {
-                               // await addtagbookedGHL(contactID, 'stop bot');
-                                await addTagToFirebase(extractedNumber,'stop bot');
-                            } 
-                            if(check.includes('get back to you')){
-                            
-                               await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID,extractedNumber);
-                            }
-                        }
-                    }
-                    console.log('Response sent.');
-                    userState.set(sender.to, steps.START);
-                    break;                
-                case steps.NEW_CONTACT:
-                    await sendWhapiRequest('messages/text', { to: sender.to, body: 'Sebelum kita mula boleh saya dapatkan nama?' });
-                    userState.set(sender.to, steps.START);
-                    break;
-                case steps.CREATE_CONTACT:
-                    const name = `${message.text.body} default_name: ${sender.name}`;
-                    const savedName = await handleOpenAINameAssistant(name);
-                    await createContact(savedName,extractedNumber);
-                    pollParams = {
-                        to: sender.to,
-                        title: 'Are you dreaming of your next getaway?',
-                        options: ['Yes'],
-                        count: 1,
-                        view_once: true
-                    };
-                    webhook = await sendWhapiRequest('/messages/poll', pollParams);
-                    await customWait(2500);
-                    userState.set(sender.to, steps.POLL);
-                    break;
-                case steps.POLL:
-                    let selectedOption = [];
-                    for (const result of webhook.message.poll.results) {
-                        selectedOption.push (result.id);
-                    }    
-                    if(message.action.votes[0]=== selectedOption[0]){
-                        const contactDetails = await getContact(extractedNumber);
-                        contactID = contactDetails.id;
-                       
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        console.log('thread ID generated: ', threadID);
-                        await saveThreadIDGHL(contactID,threadID);
-                        query = `${message.text.body} user_name: ${sender.name}`;
-                        answer = await handleOpenAIAssistant(query,threadID);
-                        parts = answer.split(/\s*\|\|\s*/);
-                        for (let i = 0; i < parts.length; i++) {
-                            const part = parts[i].trim();                
-                            if (part) {
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                         
-                            }
-                        }
-                        console.log('Response sent.');
-                        userState.set(sender.to, steps.START);
-                        break;
-                    }
-                default:
-                    // Handle unrecognized step
-                    console.error('Unrecognized step:', currentStep);
-                    break;
-            }
-        }
-
-        res.send('All messages processed');
-    } catch (e) {
-        console.error('Error:', e.message);
-        res.send(e.message);
-    }
+  
 }
 async function handleNewMessagesTasty(req, res) {
     try {
@@ -406,12 +171,7 @@ async function handleNewMessagesTasty(req, res) {
            
                 const stopTag = contactPresent.tags;
          
-                if (message.from_me){
-                    if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
-                    }
-                    break;
-                }
+                
                          
              
 
@@ -426,7 +186,16 @@ async function handleNewMessagesTasty(req, res) {
                         threadID = thread.id;
                         await saveThreadIDGHL(contactID,threadID);
                     }
-          
+                    if (message.from_me){
+                        if(firebaseTags.includes('stop bot')){
+                            await handleOpenAIMyMessage(message.text.body,threadID);
+                            }
+                       
+                        if(stopTag.includes('idle')){
+                        removeTagBookedGHL(contactPresent.id,'idle');
+                        }
+                        break;
+                    }
             }else{
              
                 await createContact(sender.name,extractedNumber);
@@ -692,6 +461,16 @@ async function createThread() {
     console.log('Creating a new thread...');
     const thread = await openai.beta.threads.create();
     return thread;
+}async function addMessageAssistant(threadId, message) {
+    const response = await openai.beta.threads.messages.create(
+        threadId,
+        {
+            role: "user",
+            content: message
+        }
+    );
+    console.log(response);
+    return response;
 }
 
 async function addMessage(threadId, message) {
@@ -835,13 +614,27 @@ async function runAssistant(assistantID,threadId) {
     const answer = await waitForCompletion(threadId, runId);
     return answer;
 }
+async function runAssistantMy(assistantID,threadId) {
+    console.log('Running assistant for thread: ' + threadId);
+    const response = await openai.beta.threads.runs.create(
+        threadId,
+        {
+            assistant_id: assistantID,
+            instructions:"MS Rina sent the previous message to the user please remember and dont reply with anything"
+        }
+    );
 
-async function handleOpenAIAssistant(message, threadID) {
-    const assistantId = 'asst_hR92f2R8chS2wPVCPAYjVOuj';
-    await addMessage(threadID, message);
-    const answer = await runAssistant(assistantId,threadID);
+    const runId = response.id;
+
+    const answer = await waitForCompletion(threadId, runId);
     return answer;
 }
+async function handleOpenAIMyMessage(message, threadID) {
+    console.log('messaging manual')
+    query = `Ms Rina sent this to the user: ${message}. Please remember this for the next interaction.`;
+    await addMessageAssistant(threadID, query);
+}
+
 async function handleOpenAIAssistant2(message, threadID) {
     const assistantId = 'asst_ONO6YUxpCKM0PGEcv3ZyObmz';
     await addMessage(threadID, message);
