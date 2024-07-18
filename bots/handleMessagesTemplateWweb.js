@@ -156,7 +156,13 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             if(contactData){
                 firebaseTags=   contactData.tags??[];
             }
-            console.log(chat);
+            let type = '';
+            if(msg.type == 'chat'){
+                type ='text'
+              }else{
+                type = msg.type;
+              }
+              const contact = await chat.getContact();
             const data = {
                 additionalEmails: [],
                 address1: null,
@@ -167,7 +173,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 chat: {
                     contact_id: extractedNumber,
                     id: msg.from,
-                    name: msg.notifyName ?? extractedNumber,
+                    name: contact.name || contact.pushname || extractedNumber,
                     not_spam: true,
                     tags: firebaseTags,
                     timestamp: chat.timestamp,
@@ -180,15 +186,17 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                         id: msg._data.id.id ?? "",
                         source: chat.deviceType ?? "",
                         status: "delivered",
-                        text: msg.body ?? "",
+                        text: {
+                            body:msg.body ?? ""
+                        },
                         timestamp: msg.timestamp ?? 0,
-                        type: msg.type ?? "",
+                        type: type,
                     },
                 },
                 chat_id: msg.from,
                 city: null,
                 companyName: null,
-                contactName: msg.notifyName ?? extractedNumber,
+                contactName: contact.name || contact.pushname ||  extractedNumber,
                 threadid: threadID ?? "",
                 last_message: {
                     chat_id: msg.from,
@@ -197,12 +205,14 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                     id: msg._data.id.id ?? "",
                     source: chat.deviceType ?? "",
                     status: "delivered",
-                    text: msg.body ?? "",
+                    text: {
+                        body:msg.body ?? ""
+                    },
                     timestamp: msg.timestamp ?? 0,
-                    type: msg.type ?? "",
+                    type: type,
                 },
             };
-      
+            console.log(data);
             //await addNotificationToUser(idSubstring, msg);
             
             // Add the data to Firestore
@@ -230,7 +240,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             switch (currentStep) {
                 case steps.START:
                     var context = "";
-                    
+
                     query = `${msg.body} user_name: ${contactName} `;
                     
                     

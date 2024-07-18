@@ -266,15 +266,28 @@ function setupMessageHandler(client, botName) {
     });
 }
 
-async function saveContactWithRateLimit(botName, contact, chats, retryCount = 0) {
+async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) {
     const maxRetries = 5;
     const baseDelay = 1000; // 1 second base delay
 
     try {
         const phoneNumber = contact.id.user;
-        const chat = chats.find(c => c.id === contact.id.user + '@c.us') || {};
         const msg = chat.lastMessage || {};
+if(msg == {}){
+  return;
+}
+        if(phoneNumber == '60123544030'){
+          console.log(chat);
+          console.log(msg);
 
+        }
+        let type = '';
+
+        if(msg.type == 'chat'){
+          type ='text'
+        }else{
+          type = msg.type;
+        }
         const contactData = {
             additionalEmails: [],
             address1: null,
@@ -298,8 +311,10 @@ async function saveContactWithRateLimit(botName, contact, chats, retryCount = 0)
                     id: msg._data?.id?.id || '',
                     source: chat.deviceType || '',
                     status: "delivered",
-                    text: msg.body || '',
-                    timestamp: msg.timestamp || Date.now(),
+                    text: {
+                      body:msg.body || ''
+                    },
+                    timestamp: chat.timestamp || Date.now(),
                     type: msg.type || '',
                 },
             },
@@ -315,14 +330,16 @@ async function saveContactWithRateLimit(botName, contact, chats, retryCount = 0)
                 id: msg._data?.id?.id || '',
                 source: chat.deviceType || '',
                 status: "delivered",
-                text: msg.body || '',
-                timestamp: msg.timestamp || Date.now(),
-                type: msg.type || '',
+                text: {
+                  body:msg.body || ''
+                },
+                timestamp: chat.timestamp || Date.now(),
+                type: type || '',
             },
         };
 
         await db.collection('companies').doc(botName).collection('contacts').doc('+'+phoneNumber).set(contactData, { merge: true });
-        console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
+        //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
         // Delay before next operation
         await customWait(baseDelay);
@@ -377,7 +394,7 @@ async function initializeBots(botNames) {
                     for (const chat of chats) {
                         if (chat.isGroup) continue;
                         const contact = await chat.getContact();
-                        await saveContactWithRateLimit(botName, contact, chats);
+                        await saveContactWithRateLimit(botName, contact, chat);
                     }
                     console.log(`Finished saving contacts for bot ${botName}`);
                 } catch (error) {

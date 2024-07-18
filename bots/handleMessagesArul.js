@@ -62,29 +62,47 @@ async function handleNewMessagesArul(req, res) {
 
             const senderTo = sender.to;
             const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-            const dbData = await getDataFromDatabase(extractedNumber);
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
-            threadID = dbData.thread_id;
-            botStatus = dbData.bot_status;
-            // if (botStatus === 'on') {
-            //     console.log('bot is running for this contact');
-            // } else {
-            //     console.log('bot is turned off for this contact');
-            //     continue;
-            // }
-            if (dbData.name) {
-                contactName = dbData.name;
-
-            } else {
-                await createContact(sender.name, extractedNumber);
-                contactName = sender.name;
-                await saveNameToDatabase(extractedNumber, contactName);
-                
-                console.log('name in false :', contactName);
-            }
             const contactPresent = await getContact(extractedNumber);
             const chat = await getChatMetadata(message.chat_id);
             let  contactName2 = sender.name ?? extractedNumber;
+
+            if (contactPresent !== null) {
+                const stopTag = contactPresent.tags;
+                console.log(stopTag);
+                contactID = contactPresent.id;
+                contactName = contactPresent.fullNameLowerCase;
+                const threadIdField = contactPresent.customFields.find(field => field.id === 'DejFDCZJ74f0Dat1IsDL');
+                if (threadIdField) {
+                    threadID = threadIdField.value;
+                } else {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDGHL(contactID, threadID);
+                }
+            } else {
+                await createContact(sender.name,extractedNumber);
+                await customWait(2500);
+                const contactPresent = await getContact(extractedNumber);
+                const stopTag = contactPresent.tags;
+               
+                console.log(stopTag);
+
+                contactID = contactPresent.id;
+                contactName = contactPresent.fullNameLowerCase;
+
+                const threadIdField = contactPresent.customFields.find(field => field.id === 'DejFDCZJ74f0Dat1IsDL');
+                if (threadIdField) {
+                    threadID = threadIdField.value;
+                } else {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDGHL(contactID,threadID);
+                }
+                console.log('sent new contact to create new contact')
+                console.log('sent new contact to create new contact');
+            }
+            const contactPresent2 = await getContact(extractedNumber);
             let firebaseTags =[]
             if(contactData){
                 firebaseTags=   contactData.tags??[];
@@ -99,11 +117,11 @@ async function handleNewMessagesArul(req, res) {
             chat: {
                 chat_pic: chat.chat_pic ?? "",
                 chat_pic_full: chat.chat_pic_full ?? "",
-                contact_id: contactPresent.id,
+                contact_id: contactPresent2.id,
                 id: message.chat_id,
-                name: contactPresent.firstName,
+                name: contactPresent2.firstName,
                 not_spam: true,
-                tags: contactPresent.tags??[],
+                tags: contactPresent2.tags??[],
                 timestamp: message.timestamp,
                 type: 'contact',
                 unreadCount: 0,
@@ -126,8 +144,8 @@ async function handleNewMessagesArul(req, res) {
             city: null,
             companyName: null,
             contactName: contactName2,
-            country: contactPresent.country ?? "",
-            customFields: contactPresent.customFields ?? {},
+            country: contactPresent2.country ?? "",
+            customFields: contactPresent2.customFields ?? {},
             last_message: {
                 chat_id: chat.id,
                 device_id: message.device_id ?? "",
@@ -151,28 +169,6 @@ async function handleNewMessagesArul(req, res) {
     break;
     }
 }
-            if (contactPresent !== null) {
-                const stopTag = contactPresent.tags;
-                console.log(stopTag);
-                if (stopTag.includes('stop bot')) {
-                    console.log('Bot stopped for this message');
-                    continue;
-                } else {
-                    contactID = contactPresent.id;
-                    contactName = contactPresent.fullNameLowerCase;
-                    const threadIdField = contactPresent.customFields.find(field => field.id === 'DejFDCZJ74f0Dat1IsDL');
-                    if (threadIdField) {
-                        threadID = threadIdField.value;
-                    } else {
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        await saveThreadIDGHL(contactID, threadID);
-                    }
-                }
-            } else {
-                console.log('sent new contact to create new contact');
-            }
-
             if (message.type === 'text') {
                 query = `${message.text.body} user_name: ${contactName}`;
                 answer = await handleOpenAIAssistant(query, threadID);
@@ -228,7 +224,7 @@ async function getContactDataFromDatabaseByPhone(phoneNumber) {
         let threadID;
         let contactName;
         let bot_status;
-        const contactsRef = db.collection('companies').doc('001').collection('contacts');
+        const contactsRef = db.collection('companies').doc('003').collection('contacts');
         const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
 
         if (querySnapshot.empty) {
@@ -549,17 +545,7 @@ async function getDataFromDatabase(phoneNumber) {
                     const thread = await createThread();
                     threadID = thread.id;
                 }
-                const stopTag = contactPresent.tags;
-                if (stopTag.includes('stop bot')) {
-                    bot_status = 'on';
-                } else {
-                    bot_status = 'on';
-                }
-                await docRef.set({
-                    thread_id: threadID,
-                    bot_status: bot_status,
-                    name: contactName
-                });
+             
             } else {
                 const thread = await createThread();
                 threadID = thread.id;

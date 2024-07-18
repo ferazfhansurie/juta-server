@@ -122,15 +122,10 @@ async function handleNewMessagesJuta(req, res) {
             let query;
             let answer;
             let parts;
-
             const senderTo = sender.to;
             const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-            const dbData = await getDataFromDatabase(extractedNumber);
-
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
             console.log('checked firebase');
-            threadID = dbData.thread_id;
-            botStatus = dbData.bot_status;
             const contactPresent = await getContact(extractedNumber);
             const chat = await getChatMetadata(message.chat_id);
             console.log('chat');
