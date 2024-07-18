@@ -221,7 +221,9 @@ async function handleNewMessagesCNB(req, res) {
                 await saveThreadIDGHL(contactID,threadID);
                 await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
                 break;
-            }   
+            }
+            
+            
             if(firebaseTags !== undefined){
                 if(firebaseTags.includes('stop bot')){
                     console.log('bot stop');
@@ -404,8 +406,8 @@ async function handleNewMessagesCNB(req, res) {
     }
 }
 const extractProductName = (str) => {
-    const match = str.match(/\*\*(.*?)\*\*/);
-    return match ? match[1] : null;
+    const match = str.split('-')[0];
+    return match ? match.trim() : null;
 };
 
 async function removeTagBookedGHL(contactID, tag) {

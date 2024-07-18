@@ -195,11 +195,15 @@ async function handleNewMessagesArul(req, res) {
                     }
                 }
                 console.log('Response sent.');
+
+                start3DayTimer(sender.to, contactID);
             }
 
             if (message.type === 'image') {
                 continue;
             }
+            // Call handleNewMessageReceived to clear any existing timers
+            await handleNewMessageReceived(message);
         }
         res.send('All messages processed');
     } catch (e) {
@@ -207,6 +211,30 @@ async function handleNewMessagesArul(req, res) {
         res.status(500).send('Internal Server Error');
     }
 }
+
+function start3DayTimer(chatId, contactId) {
+    // Clear any existing timer for this chat
+    if (timers[chatId]) {
+        clearTimeout(timers[chatId]);
+    }
+
+    // Set a new timer for 3 days
+    timers[chatId] = setTimeout(async () => {
+        await sendWhapiRequest('messages/text', { to: chatId, body: "Good morning, have you gotten the chance to take a look at the properties available?" });
+        await addtagbookedGHL(contactId, 'idle');
+        console.log('3-day follow-up message sent and bot stopped.');
+    }, 3 * 24 * 60 * 60 * 1000); // 3 days in milliseconds
+}
+
+async function handleNewMessageReceived(message) {
+    const senderTo = message.chat_id;
+    if (timers[senderTo]) {
+        clearTimeout(timers[senderTo]);
+        delete timers[senderTo];
+        console.log('User replied within 3 days, timer cleared.');
+    }
+}
+
 async function getContactDataFromDatabaseByPhone(phoneNumber) {
     try {
         // Check if phoneNumber is defined
