@@ -1,5 +1,7 @@
 require('dotenv').config();
-const { Client, LocalAuth, RemoteAuth} = require('whatsapp-web.js');
+const { Client, RemoteAuth} = require('whatsapp-web.js');
+const { MongoStore } = require('wwebjs-mongo');
+const mongoose = require('mongoose');
 //const qrcode = require('qrcode-terminal');
 const FirebaseWWebJS = require('./firebaseWweb.js');
 const qrcode = require('qrcode');
@@ -18,6 +20,15 @@ const db = admin.firestore();
 const OpenAI = require('openai');
 
 const botMap = new Map();
+
+// MongoDB connection
+const MONGODB_URI = process.env.MONGODB_URI; // Make sure to set this in your .env file
+mongoose.connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+});
+
+const store = new MongoStore({ mongoose: mongoose });
 
 wss.on('connection', (ws) => {
     console.log('Client connected');
@@ -337,8 +348,46 @@ if(msg == {}){
                 type: type || '',
             },
         };
+        const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
+        await contactRef.set(contactData, { merge: true });
+        const messages = await chat.fetchMessages({ limit: 100 });
 
-        await db.collection('companies').doc(botName).collection('contacts').doc('+'+phoneNumber).set(contactData, { merge: true });
+        // Save messages
+        if (messages && messages.length > 0) {
+          const messagesRef = contactRef.collection('messages');
+          const batch = db.batch();
+          let count = 0;
+
+          for (const message of messages) {
+              const messageData = {
+                  id: message.id._serialized,
+                  body: message.body,
+                  type: message.type,
+                  timestamp: message.timestamp,
+                  from: message.from,
+                  to: message.to,
+                  fromMe: message.fromMe,
+                  // Add any other relevant message fields
+              };
+
+              const messageDoc = messagesRef.doc(message.id._serialized);
+              batch.set(messageDoc, messageData, { merge: true });
+
+              count++;
+              if (count >= 500) {
+                  // Firestore batches are limited to 500 operations
+                  await batch.commit();
+                  batch = db.batch();
+                  count = 0;
+              }
+          }
+
+          if (count > 0) {
+              await batch.commit();
+          }
+
+          console.log(`Saved ${messages.length} messages for contact ${phoneNumber}`);
+      }
         //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
         // Delay before next operation
@@ -358,16 +407,18 @@ if(msg == {}){
 }
 
 async function initializeBots(botNames) {
-    const initializationPromises = botNames.map(async (botName) => {
-        try {
-            console.log(`DEBUG: Starting initialization for ${botName}`);
-            const client = new Client({
-                authStrategy: new LocalAuth({
-                    clientId: botName,
-                }),
-                puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-            });
-            botMap.set(botName, { client, status: 'initializing', qrCode: null });
+  const initializationPromises = botNames.map(async (botName) => {
+      try {
+          console.log(`DEBUG: Starting initialization for ${botName}`);
+          const client = new Client({
+              authStrategy: new RemoteAuth({
+                  clientId: botName,
+                  store: store,
+                  backupSyncIntervalMs: 300000
+              }),
+              puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+          });
+          botMap.set(botName, { client, status: 'initializing', qrCode: null });
 
             client.on('qr', async (qr) => {
                 console.log(`${botName} - QR RECEIVED`);
