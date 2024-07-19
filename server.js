@@ -348,15 +348,18 @@ if(msg == {}){
           let count = 0;
 
           for (const message of messages) {
-              const messageData = {
-                  id: message.id._serialized,
-                  body: message.body,
+                const messageData = {
+                  chat_id: message.from,
+                  from: message.from ?? "",
+                  from_me: message.fromMe ?? false,
+                  id: message.id._serialized ?? "",
+                  source: chat.deviceType ?? "",
+                  status: "delivered",
+                  text: {
+                      body: message.body ?? ""
+                  },
+                  timestamp: message.timestamp ?? 0,
                   type: message.type,
-                  timestamp: message.timestamp,
-                  from: message.from,
-                  to: message.to,
-                  fromMe: message.fromMe,
-                  // Add any other relevant message fields
               };
 
               const messageDoc = messagesRef.doc(message.id._serialized);
