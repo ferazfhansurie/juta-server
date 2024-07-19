@@ -201,7 +201,7 @@ async function handleNewMessagesTasty(req, res) {
                 await createContact(sender.name,extractedNumber);
                 await customWait(2500);
                 let contactPresent = await getContact(extractedNumber);
-                const stopTag = contactPresent.tags;
+                const stopTag = contactPresent.tags??[];
                 if (message.from_me){
                     if(stopTag.includes('idle')){
                     removeTagBookedGHL(contactPresent.id,'idle');
@@ -244,7 +244,7 @@ async function handleNewMessagesTasty(req, res) {
                     id: message.chat_id,
                     name: contactPresent.firstName,
                     not_spam: true,
-                    tags: contactPresent.tags??[],
+                    tags:firebaseTags,
                     timestamp: message.timestamp,
                     type: 'contact',
                     unreadCount: 0,
@@ -286,8 +286,7 @@ async function handleNewMessagesTasty(req, res) {
                await addNotificationToUser('018', message);
                // Add the data to Firestore
          await db.collection('companies').doc('018').collection('contacts').doc(extractedNumber).set(data);  
-         
-         if(!stopTag.includes('onboard') || stopTag.includes('stop bot') || contactData.tags.includes('stop bot')){
+         if(firebaseTags.includes('stop bot')){
             console.log('Bot stopped for this message');
             continue;
         }

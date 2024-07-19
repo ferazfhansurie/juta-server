@@ -11,6 +11,7 @@
     "firebase-admin": "^12.1.0",
     "html-entities": "^2.5.2",
     "moment-timezone": "^0.5.45",
+    "mongoose": "^8.5.1",
     "node-cron": "^3.0.3",
     "openai": "^4.41.0",
     "qrcode": "^1.5.3",
@@ -19,6 +20,7 @@
     "socket.io": "^4.7.5",
     "whatsapp-web.js": "github:pedroslopez/whatsapp-web.js#webpack-exodus",
     "ws": "^8.17.0",
+    "wwebjs-google-cloud-storage": "^1.0.9",
     "wwebjs-mongo": "^1.1.0"
   },
   "scripts": {
