@@ -346,8 +346,13 @@ if(msg == {}){
           const messagesRef = contactRef.collection('messages');
           const batch = db.batch();
           let count = 0;
-
+          
           for (const message of messages) {
+                if(message.type == 'chat'){
+                  type = 'text';
+                }else{
+                  type = message.type;
+                }
                 const messageData = {
                   chat_id: message.from,
                   from: message.from ?? "",
@@ -359,7 +364,7 @@ if(msg == {}){
                       body: message.body ?? ""
                   },
                   timestamp: message.timestamp ?? 0,
-                  type: message.type,
+                  type: type,
               };
 
               const messageDoc = messagesRef.doc(message.id._serialized);
