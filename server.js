@@ -348,11 +348,14 @@ if(msg == {}){
           let count = 0;
           
           for (const message of messages) {
+                let type2 = ''
                 if(message.type == 'chat'){
-                  type = 'text';
+                  type2 = 'text';
                 }else{
-                  type = message.type;
+                  type2 = message.type;
                 }
+
+                console.log(message)
                 const messageData = {
                   chat_id: message.from,
                   from: message.from ?? "",
@@ -364,7 +367,7 @@ if(msg == {}){
                       body: message.body ?? ""
                   },
                   timestamp: message.timestamp ?? 0,
-                  type: type,
+                  type: type2,
               };
 
               const messageDoc = messagesRef.doc(message.id._serialized);
