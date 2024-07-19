@@ -1,7 +1,5 @@
 require('dotenv').config();
-const { Client, LocalAuth, RemoteAuth} = require('whatsapp-web.js');
-//const qrcode = require('qrcode-terminal');
-const FirebaseWWebJS = require('./firebaseWweb.js');
+const { Client, RemoteAuth, LocalAuth} = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -18,6 +16,8 @@ const db = admin.firestore();
 const OpenAI = require('openai');
 
 const botMap = new Map();
+
+
 
 wss.on('connection', (ws) => {
     console.log('Client connected');
@@ -337,8 +337,46 @@ if(msg == {}){
                 type: type || '',
             },
         };
+        const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
+        await contactRef.set(contactData, { merge: true });
+        const messages = await chat.fetchMessages({ limit: 100 });
 
-        await db.collection('companies').doc(botName).collection('contacts').doc('+'+phoneNumber).set(contactData, { merge: true });
+        // Save messages
+        if (messages && messages.length > 0) {
+          const messagesRef = contactRef.collection('messages');
+          const batch = db.batch();
+          let count = 0;
+
+          for (const message of messages) {
+              const messageData = {
+                  id: message.id._serialized,
+                  body: message.body,
+                  type: message.type,
+                  timestamp: message.timestamp,
+                  from: message.from,
+                  to: message.to,
+                  fromMe: message.fromMe,
+                  // Add any other relevant message fields
+              };
+
+              const messageDoc = messagesRef.doc(message.id._serialized);
+              batch.set(messageDoc, messageData, { merge: true });
+
+              count++;
+              if (count >= 500) {
+                  // Firestore batches are limited to 500 operations
+                  await batch.commit();
+                  batch = db.batch();
+                  count = 0;
+              }
+          }
+
+          if (count > 0) {
+              await batch.commit();
+          }
+
+          console.log(`Saved ${messages.length} messages for contact ${phoneNumber}`);
+      }
         //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
         // Delay before next operation
@@ -358,17 +396,17 @@ if(msg == {}){
 }
 
 async function initializeBots(botNames) {
-    const initializationPromises = botNames.map(async (botName) => {
-        try {
-            console.log(`DEBUG: Starting initialization for ${botName}`);
-            const client = new Client({
-                authStrategy: new LocalAuth({
-                    clientId: botName,
-                }),
-                puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox',] }
-            });
-            botMap.set(botName, { client, status: 'initializing', qrCode: null });
-
+  const initializationPromises = botNames.map(async (botName) => {
+      try {
+          console.log(`DEBUG: Starting initialization for ${botName}`);
+          const client = new Client({
+              authStrategy: new LocalAuth({
+                  clientId: botName,
+              }),
+              puppeteer: { args: ['--no-sandbox'] }
+          });
+          botMap.set(botName, { client, status: 'initializing', qrCode: null });
+console.log(client);
             client.on('qr', async (qr) => {
                 console.log(`${botName} - QR RECEIVED`);
                 try {
@@ -434,7 +472,7 @@ async function main(reinitialize = false) {
     const botNames = [];
 
     snapshot.forEach(doc => {
-        const companyId = doc.id;
+        const companyId = doc.id;    
         const data = doc.data();
         if (data.v2) {
             botNames.push(companyId);
@@ -897,7 +935,7 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
   app.get('/api/bot-status/:botName', (req, res) => {
     const { botName } = req.params;
     const botData = botMap.get(botName);
-    console.log()
+    console.log(botData);
     if (botData) {
         const { status, qrCode } = botData;
         res.json({ status, qrCode });
