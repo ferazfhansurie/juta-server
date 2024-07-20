@@ -325,8 +325,8 @@ async function handleNewMessagesTasty(req, res) {
                             }
                         }
                     }else{
-                        await sendWhapiRequest('messages/text', { to: sender.to, body: 'I apologize for the confusion, I am unable to directly access the document you provided.' });
-                        await sendWhapiRequest('messages/text', { to: sender.to, body: 'I will contact the team for further assistance' });
+                        await sendWhapiRequest('messages/text', { to: sender.to, body: 'Sorry, as a bot, I am unable to directly access the document you provided.' });
+                        await sendWhapiRequest('messages/text', { to: sender.to, body: 'I will get Ms. Rina to assist you with this right away' });
                         await sendWhapiRequest('messages/text', { to: sender.to, body: 'Thank you for your patience' });
                        // await addtagbookedGHL(contactID, 'stop bot');
                        await addTagToFirebase(extractedNumber,'stop bot');

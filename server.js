@@ -14,10 +14,27 @@ const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
 const db = admin.firestore();
 const OpenAI = require('openai');
+const { MessageMedia } = require('whatsapp-web.js');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs').promises;
+const path = require('path');
 
 const botMap = new Map();
 
+// Ensure this directory exists in your project
+const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
+// Function to save media locally
+async function saveMediaLocally(base64Data, mimeType, filename) {
+  const buffer = Buffer.from(base64Data, 'base64');
+  const uniqueFilename = `${uuidv4()}_${filename}`;
+  const filePath = path.join(MEDIA_DIR, uniqueFilename);
+  
+  await fs.writeFile(filePath, buffer);
+
+  // Return the URL path to access this file
+  return `/media/${uniqueFilename}`;
+}
 
 wss.on('connection', (ws) => {
     console.log('Client connected');
@@ -37,6 +54,13 @@ wss.on('connection', (ws) => {
   function broadcastProgress(progress) {
     wss.clients.forEach((client) => {
       sendProgressUpdate(client, progress);
+    });
+  }
+  function broadcastAuthStatus(botName, status) {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({ type: 'auth_status', botName, status }));
+      }
     });
   }
   async function ghlToken(companyId) {
@@ -150,7 +174,7 @@ const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplate
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());// Middleware
 // Serve static files from the 'public' directory
-app.use(express.static('dist'));
+app.use(express.static('public'));
 app.get('/', function (req, res) {
     res.send('Bot is running');
 });
@@ -276,18 +300,9 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
 if(msg == {}){
   return;
 }
-        if(phoneNumber == '60123544030'){
-          console.log(chat);
-          console.log(msg);
+      
+        let type = msg.type === 'chat' ? 'text' : msg.type;
 
-        }
-        let type = '';
-
-        if(msg.type == 'chat'){
-          type ='text'
-        }else{
-          type = msg.type;
-        }
         const contactData = {
             additionalEmails: [],
             address1: null,
@@ -305,7 +320,7 @@ if(msg == {}){
                 type: 'contact',
                 unreadCount: chat.unreadCount || 0,
                 last_message: {
-                    chat_id: msg.from || contact.id.user + '@c.us',
+                    chat_id:contact.id.user + '@c.us' ,
                     from: msg.from || contact.id.user + '@c.us',
                     from_me: msg.fromMe || false,
                     id: msg._data?.id?.id || '',
@@ -315,16 +330,16 @@ if(msg == {}){
                       body:msg.body || ''
                     },
                     timestamp: chat.timestamp || Date.now(),
-                    type: msg.type || '',
+                    type: type || '',
                 },
             },
-            chat_id: msg.from || contact.id.user + '@c.us',
+            chat_id: contact.id.user + '@c.us',
             city: null,
             companyName: null,
             contactName: contact.name || contact.pushname || phoneNumber,
             threadid: '', // You might want to generate or retrieve this
             last_message: {
-                chat_id: msg.from || contact.id.user + '@c.us',
+                chat_id:contact.id.user + '@c.us',
                 from: msg.from || contact.id.user + '@c.us',
                 from_me: msg.fromMe || false,
                 id: msg._data?.id?.id || '',
@@ -343,51 +358,94 @@ if(msg == {}){
 
         // Save messages
         if (messages && messages.length > 0) {
+          // Sort messages by timestamp in ascending order
+          const sortedMessages = messages.sort((a, b) => {
+            const timestampA = a.timestamp ? new Date(a.timestamp * 1000).getTime() : 0;
+            const timestampB = b.timestamp ? new Date(b.timestamp * 1000).getTime() : 0;
+            return timestampA - timestampB;
+          });
+        
           const messagesRef = contactRef.collection('messages');
-          const batch = db.batch();
+          let batch = db.batch();
           let count = 0;
           
-          for (const message of messages) {
-                let type2 = ''
-                if(message.type == 'chat'){
-                  type2 = 'text';
-                }else{
-                  type2 = message.type;
+          for (const message of sortedMessages) {
+            let type2 = message.type === 'chat' ? 'text' : message.type;
+
+            console.log(message);
+            const messageData = {
+              chat_id: message.from,
+              from: message.from ?? "",
+              from_me: message.fromMe ?? false,
+              id: message.id._serialized ?? "",
+              source: message.deviceType ?? "",
+              status: "delivered",
+              timestamp: message.timestamp ?? 0,
+              type: type2,
+              ack: message.ack ?? 0,
+            };
+
+            // Handle different message types
+            switch (type2) {
+              case 'text':
+                messageData.text = { body: message.body ?? "" };
+                break;
+              case 'image':
+              case 'video':
+              case 'document':
+                if (message.hasMedia) {
+                  try {
+                    const media = await message.downloadMedia();
+                    if (media) {
+                      const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${type2}.${media.mimetype.split('/')[1]}`);
+                      messageData[type2] = {
+                        mimetype: media.mimetype,
+                        url: url,
+                        filename: media.filename ?? "",
+                        caption: message.body ?? "",
+                      };
+                      if (type2 === 'image') {
+                        messageData[type2].width = message._data.width;
+                        messageData[type2].height = message._data.height;
+                      }
+                    } else {
+                      console.log(`Failed to download media for message: ${message.id._serialized}`);
+                      messageData.text = { body: "Media not available" };
+                    }
+                  } catch (error) {
+                    console.error(`Error handling media for message ${message.id._serialized}:`, error);
+                    messageData.text = { body: "Error handling media" };
+                  }
+                } else {
+                  messageData.text = { body: "Media not available" };
                 }
+                break;
+              default:
+                messageData.text = { body: message.body ?? "" };
+            }
 
-                console.log(message)
-                const messageData = {
-                  chat_id: message.from,
-                  from: message.from ?? "",
-                  from_me: message.fromMe ?? false,
-                  id: message.id._serialized ?? "",
-                  source: chat.deviceType ?? "",
-                  status: "delivered",
-                  text: {
-                      body: message.body ?? ""
-                  },
-                  timestamp: message.timestamp ?? 0,
-                  type: type2,
-              };
+            const messageDoc = messagesRef.doc(message.id._serialized);
+            batch.set(messageDoc, messageData, { merge: true });
 
-              const messageDoc = messagesRef.doc(message.id._serialized);
-              batch.set(messageDoc, messageData, { merge: true });
-
-              count++;
-              if (count >= 500) {
-                  // Firestore batches are limited to 500 operations
-                  await batch.commit();
-                  batch = db.batch();
-                  count = 0;
-              }
-          }
-
-          if (count > 0) {
+            count++;
+            if (count >= 500) {
+              // Firestore batches are limited to 500 operations
               await batch.commit();
+              batch = db.batch();
+              count = 0;
+            }
           }
-
-          console.log(`Saved ${messages.length} messages for contact ${phoneNumber}`);
-      }
+        
+          if (count > 0) {
+            await batch.commit();
+          }
+          if(phoneNumber == '601121677522'){
+      
+            console.log(sortedMessages);
+  
+          }
+          console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
+        }
         //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
         // Delay before next operation
@@ -414,10 +472,10 @@ async function initializeBots(botNames) {
               authStrategy: new LocalAuth({
                   clientId: botName,
               }),
-              puppeteer: { args: ['--no-sandbox'] }
+              puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox',] }
           });
           botMap.set(botName, { client, status: 'initializing', qrCode: null });
-console.log(client);
+
             client.on('qr', async (qr) => {
                 console.log(`${botName} - QR RECEIVED`);
                 try {
@@ -431,6 +489,7 @@ console.log(client);
             client.on('authenticated', () => {
                 console.log(`${botName} - AUTHENTICATED`);
                 botMap.set(botName, { client, status: 'authenticated', qrCode: null });
+                broadcastAuthStatus(botName, 'authenticated');
             });
 
             client.on('ready', async () => {
