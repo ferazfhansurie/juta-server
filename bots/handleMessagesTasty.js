@@ -330,6 +330,7 @@ async function handleNewMessagesTasty(req, res) {
                         await sendWhapiRequest('messages/text', { to: sender.to, body: 'Thank you for your patience' });
                        // await addtagbookedGHL(contactID, 'stop bot');
                        await addTagToFirebase(extractedNumber,'stop bot');
+                       continue;
                     }
                 
                     console.log('Response sent.');
@@ -630,7 +631,7 @@ async function runAssistantMy(assistantID,threadId) {
 }
 async function handleOpenAIMyMessage(message, threadID) {
     console.log('messaging manual')
-    query = `Ms Rina sent this to the user: ${message}. Please remember this for the next interaction.`;
+    query = `Ms Rina sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`;
     await addMessageAssistant(threadID, query);
 }
 
