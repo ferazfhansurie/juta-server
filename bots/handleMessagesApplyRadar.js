@@ -257,7 +257,7 @@ async function handleNewMessagesApplyRadar(req, res) {
                             }
 
                             for (const [key, filePath] of Object.entries(universityFilePaths)) {
-                                if (check.includes(key)) {
+                                if (check.includes(key) && check.includes('video')) {
                                     console.log(`${key} sending file`);
                                     await sendWhapiRequest('messages/video', { to: sender.to, media: filePath});
                                 }
