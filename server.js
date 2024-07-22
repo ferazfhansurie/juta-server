@@ -462,122 +462,144 @@ if(msg == {}){
     }
 }
 
-async function initializeBots(botNames) {
-  const initializationPromises = botNames.map(async (botName) => {
-      try {
-          console.log(`DEBUG: Starting initialization for ${botName}`);
-          const client = new Client({
-              authStrategy: new LocalAuth({
-                  clientId: botName,
-              }),
-              puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox',] }
-          });
-          botMap.set(botName, { client, status: 'initializing', qrCode: null });
+async function initializeBot(botName) {
+    try {
+        console.log(`DEBUG: Starting initialization for ${botName}`);
+        const client = new Client({
+            authStrategy: new LocalAuth({
+                clientId: botName,
+            }),
+            puppeteer: { 
+                args: ['--no-sandbox', '--disable-setuid-sandbox'],
+                userDataDir: path.join(__dirname, '.wwebjs_auth', `session-${botName}`),
+                handleSIGINT: false,
+            }
+        });
 
-            client.on('qr', async (qr) => {
-                console.log(`${botName} - QR RECEIVED`);
-                try {
-                    const qrCodeData = await qrcode.toDataURL(qr);
-                    botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
-                } catch (err) {
-                    console.error('Error generating QR code:', err);
-                }
-            });
+        botMap.set(botName, { client, status: 'initializing', qrCode: null });
 
-            client.on('authenticated', () => {
-                console.log(`${botName} - AUTHENTICATED`);
-                botMap.set(botName, { client, status: 'authenticated', qrCode: null });
-                broadcastAuthStatus(botName, 'authenticated');
-            });
+        client.on('qr', async (qr) => {
+            console.log(`${botName} - QR RECEIVED`);
+            try {
+                const qrCodeData = await qrcode.toDataURL(qr);
+                botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
+            } catch (err) {
+                console.error('Error generating QR code:', err);
+            }
+        });
 
-            client.on('ready', async () => {
-                console.log(`${botName} - READY`);
-                botMap.set(botName, { client, status: 'ready', qrCode: null });
-                setupMessageHandler(client, botName);
+        client.on('authenticated', () => {
+            console.log(`${botName} - AUTHENTICATED`);
+            botMap.set(botName, { client, status: 'authenticated', qrCode: null });
+            broadcastAuthStatus(botName, 'authenticated');
+        });
 
-                try {
-                    const chats = await client.getChats();
-                    for (const chat of chats) {
-                        if (chat.isGroup) continue;
+        client.on('ready', async () => {
+            console.log(`${botName} - READY`);
+            botMap.set(botName, { client, status: 'ready', qrCode: null });
+            setupMessageHandler(client, botName);
+
+            try {
+                const chats = await client.getChats();
+                for (const chat of chats) {
+                    if (chat.isGroup) continue;
+                    try {
                         const contact = await chat.getContact();
                         await saveContactWithRateLimit(botName, contact, chat);
-                    }
-                    console.log(`Finished saving contacts for bot ${botName}`);
-                } catch (error) {
-                    console.error(`Error processing chats for bot ${botName}:`, error);
-                }
-            });
-
-            client.on('auth_failure', msg => {
-                console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
-                botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
-            });
-
-            client.on('disconnected', async (reason) => {
-                console.log(`${botName} - DISCONNECTED:`, reason);
-                botMap.set(botName, { client, status: 'disconnected', qrCode: null });
-
-                if (reason === 'LOGOUT') {
-                    try {
-                        // Wait for a short period to ensure all processes are complete
-                        await new Promise(resolve => setTimeout(resolve, 5000));
-
-                        // Attempt to destroy the client
-                        await client.destroy();
-                        console.log(`${botName} - Client destroyed successfully`);
-
-                        // Remove the bot from the map
-                        botMap.delete(botName);
-
-                        // Optionally, you can reinitialize the bot here
-                        // await initializeBot(botName);
                     } catch (error) {
-                        console.error(`${botName} - Error during logout cleanup:`, error);
+                        console.error(`Error processing chat for bot ${botName}:`, error);
+                        // Continue with the next chat
                     }
                 }
-            });
+                console.log(`Finished saving contacts for bot ${botName}`);
+            } catch (error) {
+                console.error(`Error processing chats for bot ${botName}:`, error);
+            }
+        });
 
-            client.on('remote_session_saved', () => {
-                console.log(`${botName} - REMOTE SESSION SAVED`);
-            });
+        client.on('auth_failure', msg => {
+            console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
+            botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
+        });
 
-            await client.initialize();
-            console.log(`DEBUG: Bot ${botName} initialized successfully`);
-        } catch (error) {
-            console.error(`Error initializing bot ${botName}:`, error);
-            botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
-        }
-    });
+        client.on('disconnected', async (reason) => {
+            console.log(`${botName} - DISCONNECTED:`, reason);
+            botMap.set(botName, { client, status: 'disconnected', qrCode: null });
 
-    await Promise.all(initializationPromises);
+            if (reason === 'LOGOUT') {
+                try {
+                    await new Promise(resolve => setTimeout(resolve, 5000));
+                    await client.destroy();
+                    console.log(`${botName} - Client destroyed successfully`);
+                    botMap.delete(botName);
+                } catch (error) {
+                    console.error(`${botName} - Error during logout cleanup:`, error);
+                }
+            }
+        });
+
+        client.on('remote_session_saved', () => {
+            console.log(`${botName} - REMOTE SESSION SAVED`);
+        });
+
+        await client.initialize();
+        console.log(`DEBUG: Bot ${botName} initialized successfully`);
+    } catch (error) {
+        console.error(`Error initializing bot ${botName}:`, error);
+        botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
+    }
 }
 
 async function main(reinitialize = false) {
-    const companiesRef = db.collection('companies');
-    const snapshot = await companiesRef.get();
-    
-    const botNames = [];
+    try {
+        const companiesRef = db.collection('companies');
+        const snapshot = await companiesRef.get();
+        
+        const botNames = [];
 
-    snapshot.forEach(doc => {
-        const companyId = doc.id;    
-        const data = doc.data();
-        if (data.v2) {
-            botNames.push(companyId);
-        }
-    });
-    console.log(botNames);
-    if (reinitialize) {
-        // Clear existing bot instances
-        for (const [botName, botData] of botMap.entries()) {
-            if (botData.client) {
-                await botData.client.destroy();
+        snapshot.forEach(doc => {
+            const companyId = doc.id;    
+            const data = doc.data();
+            if (data.v2) {
+                botNames.push(companyId);
             }
+        });
+        console.log(botNames);
+        if (reinitialize) {
+            // Clear existing bot instances
+            for (const [botName, botData] of botMap.entries()) {
+                if (botData.client) {
+                    await botData.client.destroy();
+                }
+            }
+            botMap.clear();
         }
-        botMap.clear();
-    }
 
-    await initializeBots(botNames);
+        const initializationPromises = botNames.map(botName => initializeBot(botName));
+        await Promise.all(initializationPromises);
+    } catch (error) {
+        console.error('Error in main function:', error);
+        // Optionally, you can implement a recovery strategy here
+    }
 }
+
+// Wrap the initial call in a try-catch block
+try {
+    main();
+} catch (error) {
+    console.error('Unhandled error in main execution:', error);
+}
+
+process.on('uncaughtException', (error) => {
+    console.error('Uncaught Exception:', error);
+    // Optionally, implement a recovery strategy or graceful shutdown
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    // Optionally, implement a recovery strategy or graceful shutdown
+});
+
 async function getContactDataFromDatabaseByEmail(email) {
   try {
       // Check if email is defined
