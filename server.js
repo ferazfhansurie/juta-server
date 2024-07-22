@@ -371,8 +371,6 @@ if(msg == {}){
           
           for (const message of sortedMessages) {
             let type2 = message.type === 'chat' ? 'text' : message.type;
-
-            console.log(message);
             const messageData = {
               chat_id: message.from,
               from: message.from ?? "",
@@ -441,7 +439,7 @@ if(msg == {}){
           }
           if(phoneNumber == '601121677522'){
       
-            console.log(sortedMessages);
+          
   
           }
           console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
@@ -515,9 +513,28 @@ async function initializeBots(botNames) {
                 botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
             });
 
-            client.on('disconnected', (reason) => {
+            client.on('disconnected', async (reason) => {
                 console.log(`${botName} - DISCONNECTED:`, reason);
                 botMap.set(botName, { client, status: 'disconnected', qrCode: null });
+
+                if (reason === 'LOGOUT') {
+                    try {
+                        // Wait for a short period to ensure all processes are complete
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+
+                        // Attempt to destroy the client
+                        await client.destroy();
+                        console.log(`${botName} - Client destroyed successfully`);
+
+                        // Remove the bot from the map
+                        botMap.delete(botName);
+
+                        // Optionally, you can reinitialize the bot here
+                        // await initializeBot(botName);
+                    } catch (error) {
+                        console.error(`${botName} - Error during logout cleanup:`, error);
+                    }
+                }
             });
 
             client.on('remote_session_saved', () => {
@@ -1234,7 +1251,6 @@ app.post('/api/channel/create/:companyID', async (req, res) => {
 
 async function createAssistant(companyID) {
   const OPENAI_API_KEY = process.env.OPENAIKEY; // Ensure your environment variable is set
-console.log('creating ass');
   const payload = {
     name: companyID,
     model: 'gpt-4o', // Ensure this model is supported and available

@@ -125,6 +125,33 @@ async function addTagToFirebase(phoneNumber, tag) {
 async function handleNewMessagesTastyPuga(req, res) {
   
 }
+// ... existing code ...
+
+async function removeTagFromFirebase(phoneNumber, tagToRemove) {
+    const contactsRef = db.collection('companies').doc('018').collection('contacts');
+    const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+
+    if (querySnapshot.empty) {
+        console.log('No matching documents.');
+        return;
+    } else {
+        const doc = querySnapshot.docs[0];
+        const contactRef = doc.ref;
+        const contactData = doc.data();
+        const tags = contactData.tags || [];
+
+        const updatedTags = tags.filter(tag => tag !== tagToRemove);
+
+        if (tags.length !== updatedTags.length) {
+            await contactRef.update({ tags: updatedTags });
+            console.log(`Tag ${tagToRemove} removed from contact with phone number: ${phoneNumber}`);
+        } else {
+            console.log(`Tag ${tagToRemove} not found for contact with phone number: ${phoneNumber}`);
+        }
+    }
+}
+
+
 async function handleNewMessagesTasty(req, res) {
     try {
         console.log('Handling new messages from Tasty...');
@@ -181,9 +208,20 @@ async function handleNewMessagesTasty(req, res) {
                 
                     if (threadIdField) {
                         threadID = threadIdField.value;
+                        if(!threadID){
+                            console.log('creating thread');
+                            const thread = await createThread();
+                            threadID = thread.id;
+                            console.log(threadID);
+                            await saveThreadIDGHL(contactID,threadID);
+                        }
+                        console.log(threadID);
+                        await saveThreadIDGHL(contactID,threadID);
                     } else {
+                        console.log('creating thread');
                         const thread = await createThread();
                         threadID = thread.id;
+                        console.log(threadID);
                         await saveThreadIDGHL(contactID,threadID);
                     }
                     if (message.from_me){
@@ -217,11 +255,23 @@ async function handleNewMessagesTasty(req, res) {
                     contactID = contactPresent.id;
                     contactName = contactPresent.fullNameLowerCase;
                     const threadIdField = contactPresent.customFields.find(field => field.id === 'lJqA7LbiNKXcHiK2iK5f');
+                    console.log(threadIdField);
                     if (threadIdField) {
                         threadID = threadIdField.value;
+                        if(!threadID){
+                            console.log('creating thread');
+                            const thread = await createThread();
+                            threadID = thread.id;
+                            console.log(threadID);
+                            await saveThreadIDGHL(contactID,threadID);
+                        }
+                        console.log(threadID);
+                        await saveThreadIDGHL(contactID,threadID);
                     } else {
+                        console.log('creating thread');
                         const thread = await createThread();
                         threadID = thread.id;
+                        console.log(threadID);
                         await saveThreadIDGHL(contactID,threadID);
                     }
            
@@ -286,6 +336,15 @@ async function handleNewMessagesTasty(req, res) {
                await addNotificationToUser('018', message);
                // Add the data to Firestore
          await db.collection('companies').doc('018').collection('contacts').doc(extractedNumber).set(data);  
+         if (message.text.body.includes('/resetbot')) {
+            removeTagFromFirebase(extractedNumber,'stop bot')
+            const thread = await createThread();
+            threadID = thread.id;
+            const res =await saveThreadIDGHL(contactID,threadID);
+            console.log(res);
+            await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+            break;
+        }
          if(firebaseTags.includes('stop bot')){
             console.log('Bot stopped for this message');
             continue;
@@ -671,7 +730,22 @@ async function sendWhapiRequest2(endpoint, params = {}, method = 'POST') {
     const jsonResponse = await response.json();
     return jsonResponse;
 }
+async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
+    
+    // Construct the Firestore document path
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+
+    try {
+        await db.doc(docPath).set({
+            threadid: threadID
+        }, { merge: true }); // merge: true ensures we don't overwrite the document, just update it
+        console.log(`Thread ID saved to Firestore at ${docPath}`);
+    } catch (error) {
+        console.error('Error saving Thread ID to Firestore:', error);
+    }
+}
 async function saveThreadIDGHL(contactID,threadID){
+    console.log('saving thread');
     const options = {
         method: 'PUT',
         url: `https://services.leadconnectorhq.com/contacts/${contactID}`,
