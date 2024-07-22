@@ -520,10 +520,7 @@ function setupClient(botName, retryCount = 0) {
               }
           });
           console.log(`${botName} - DISCONNECTED:`, reason);
-        
-      }
-
-        if (retryCount < maxRetries) {
+          if (retryCount < maxRetries) {
             console.log(`Attempting to reconnect ${botName} (Attempt ${retryCount + 1}/${maxRetries})`);
             setTimeout(() => {
                 setupClient(botName, retryCount + 1);
@@ -532,6 +529,9 @@ function setupClient(botName, retryCount = 0) {
             console.log(`Max retries reached for ${botName}. Manual restart required.`);
             botMap.set(botName, { client: null, status: 'max_retries_reached', qrCode: null });
         }
+      }
+
+       
     });
 
     client.initialize().catch((error) => {
