@@ -10,6 +10,8 @@ node_modules/
 .wwebjs_auth
 .wwebjs_cache/
 .wwebjs_cache
+public/
+public
 # Ignore specific configuration files
 config/secret-config.json
 
