@@ -493,27 +493,33 @@ async function initializeBot(botName) {
             botMap.set(botName, { client, status: 'authenticated', qrCode: null });
             broadcastAuthStatus(botName, 'authenticated');
         });
-
+        async function processChat(client, chat, retries = 3) {
+          try {
+            if (chat.isGroup) return;
+            const contact = await chat.getContact();
+            await saveContactWithRateLimit(botName, contact, chat);
+          } catch (error) {
+            if (retries > 0 && error.message.includes('Session closed')) {
+              console.log(`Retrying chat processing. Attempts left: ${retries - 1}`);
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              return processChat(client, chat, retries - 1);
+            }
+            console.error(`Error processing chat:`, error);
+          }
+        }
         client.on('ready', async () => {
             console.log(`${botName} - READY`);
             botMap.set(botName, { client, status: 'ready', qrCode: null });
             setupMessageHandler(client, botName);
 
             try {
-                const chats = await client.getChats();
-                for (const chat of chats) {
-                    if (chat.isGroup) continue;
-                    try {
-                        const contact = await chat.getContact();
-                        await saveContactWithRateLimit(botName, contact, chat);
-                    } catch (error) {
-                        console.error(`Error processing chat for bot ${botName}:`, error);
-                        // Continue with the next chat
-                    }
-                }
-                console.log(`Finished saving contacts for bot ${botName}`);
+              const chats = await client.getChats();
+              for (const chat of chats) {
+                await processChat(client, chat);
+              }
+              console.log(`Finished saving contacts for bot ${botName}`);
             } catch (error) {
-                console.error(`Error processing chats for bot ${botName}:`, error);
+              console.error(`Error processing chats for bot ${botName}:`, error);
             }
         });
 
