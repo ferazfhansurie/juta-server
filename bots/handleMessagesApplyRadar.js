@@ -229,6 +229,13 @@ async function handleNewMessagesApplyRadar(req, res) {
                         query = `${message.text.body} user_name: ${contactName} `;
                     }
                     
+                    const universityFilePaths = {
+                        'mmu': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2FMMU%20%20Campus%20Tour.mp4?alt=media&token=e97749d4-a2a2-43d8-8926-904f2e693906',
+                        'multimedia': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2FMMU%20%20Campus%20Tour.mp4?alt=media&token=e97749d4-a2a2-43d8-8926-904f2e693906',
+                        'tenaga nasional': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2FUNITEN%20Campus%20Tour.mp4?alt=media&token=7aa4dff3-53e2-46c7-989a-b8af0b008287',
+                        'uniten': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2FUNITEN%20Campus%20Tour.mp4?alt=media&token=7aa4dff3-53e2-46c7-989a-b8af0b008287',
+                        'segi': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2FSEGi%20Campus%20Tour.mp4?alt=media&token=ed72c7bb-d7ef-43e8-9fc5-1b26375e79a1',
+                    };
                     answer= await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
                     
@@ -247,6 +254,13 @@ async function handleNewMessagesApplyRadar(req, res) {
                                 console.log('check includes');
                             
                                await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
+                            }
+
+                            for (const [key, filePath] of Object.entries(universityFilePaths)) {
+                                if (check.includes(key)) {
+                                    console.log(`${key} sending file`);
+                                    await sendWhapiRequest('messages/video', { to: sender.to, media: filePath});
+                                }
                             }
                       
                         }
