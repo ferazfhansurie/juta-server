@@ -32,7 +32,7 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
   
   await fs.writeFile(filePath, buffer);
 
-  // Return the URL path to access this file
+  // Return the URL path to access this filez
   return `/media/${uniqueFilename}`;
 }
 
@@ -464,87 +464,68 @@ if(msg == {}){
     }
 }
 
-function setupClient(botName, retryCount = 0) {
-    const maxRetries = 5;
-    const client = new Client({
-        authStrategy: new LocalAuth({
-            clientId: botName,
-        }),
-        puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-    });
-
-    client.on('qr', async (qr) => {
-        console.log(`${botName} - QR RECEIVED`);
-        try {
-            const qrCodeData = await qrcode.toDataURL(qr);
-            botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
-        } catch (err) {
-            console.error('Error generating QR code:', err);
-        }
-    });
-
-    client.on('authenticated', () => {
-        console.log(`${botName} - AUTHENTICATED`);
-        botMap.set(botName, { client, status: 'authenticated', qrCode: null });
-        broadcastAuthStatus(botName, 'authenticated');
-    });
-
-    client.on('ready', async () => {
-        console.log(`${botName} - READY`);
-        botMap.set(botName, { client, status: 'ready', qrCode: null });
-        setupMessageHandler(client, botName);
-
-        try {
-            const chats = await client.getChats();
-            for (const chat of chats) {
-                if (chat.isGroup) continue;
-                const contact = await chat.getContact();
-                await saveContactWithRateLimit(botName, contact, chat);
-            }
-            console.log(`Finished saving contacts for bot ${botName}`);
-        } catch (error) {
-            console.error(`Error processing chats for bot ${botName}:`, error);
-        }
-    });
-
-    client.on("disconnected", async (reason) => {
-      await client.destroy();
-      if (reason == 'NAVIGATION' || reason == 'LOGOUT') {
-          const folderPath = path.join(__dirname, `.wwebjs_auth/session-${botName}`);
-          fs.rm(folderPath, { recursive: true, force: true }, (err) => {
-              if (err) {
-                  console.log(`Error deleting folder: ${err.message}`);
-              } else {
-                  console.log('Folder deleted successfully');
-                  
-              }
-          });
-          console.log(`${botName} - DISCONNECTED:`, reason);
-          if (retryCount < maxRetries) {
-            console.log(`Attempting to reconnect ${botName} (Attempt ${retryCount + 1}/${maxRetries})`);
-            setTimeout(() => {
-                setupClient(botName, retryCount + 1);
-            }, 5000 * Math.pow(2, retryCount)); // Exponential backoff
-        } else {
-            console.log(`Max retries reached for ${botName}. Manual restart required.`);
-            botMap.set(botName, { client: null, status: 'max_retries_reached', qrCode: null });
-        }
-      }
-
-       
-    });
-
-    client.initialize().catch((error) => {
-        console.error(`Error initializing bot ${botName}:`, error);
-        botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
-    });
-}
-
 async function initializeBots(botNames) {
-    const initializationPromises = botNames.map(async (botName) => {
-        try {
-            console.log(`DEBUG: Starting initialization for ${botName}`);
-            setupClient(botName);
+  const initializationPromises = botNames.map(async (botName) => {
+      try {
+          console.log(`DEBUG: Starting initialization for ${botName}`);
+          const client = new Client({
+              authStrategy: new LocalAuth({
+                  clientId: botName,
+              }),
+              puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox',] }
+          });
+          botMap.set(botName, { client, status: 'initializing', qrCode: null });
+
+            client.on('qr', async (qr) => {
+                console.log(`${botName} - QR RECEIVED`);
+                try {
+                    const qrCodeData = await qrcode.toDataURL(qr);
+                    botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
+                } catch (err) {
+                    console.error('Error generating QR code:', err);
+                }
+            });
+
+            client.on('authenticated', () => {
+                console.log(`${botName} - AUTHENTICATED`);
+                botMap.set(botName, { client, status: 'authenticated', qrCode: null });
+                broadcastAuthStatus(botName, 'authenticated');
+            });
+
+            client.on('ready', async () => {
+                console.log(`${botName} - READY`);
+                botMap.set(botName, { client, status: 'ready', qrCode: null });
+                setupMessageHandler(client, botName);
+
+                try {
+                    const chats = await client.getChats();
+                    for (const chat of chats) {
+                        if (chat.isGroup) continue;
+                        const contact = await chat.getContact();
+                        await saveContactWithRateLimit(botName, contact, chat);
+                    }
+                    console.log(`Finished saving contacts for bot ${botName}`);
+                } catch (error) {
+                    console.error(`Error processing chats for bot ${botName}:`, error);
+                }
+            });
+
+            client.on('auth_failure', msg => {
+                console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
+                botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
+            });
+
+            client.on('disconnected', (reason) => {
+                console.log(`${botName} - DISCONNECTED:`, reason);
+                botMap.set(botName, { client, status: 'disconnected', qrCode: null });
+            });
+
+            client.on('remote_session_saved', () => {
+                console.log(`${botName} - REMOTE SESSION SAVED`);
+            });
+
+            await client.initialize();
+            console.log(`DEBUG: Bot ${botName} initialized successfully`);
         } catch (error) {
             console.error(`Error initializing bot ${botName}:`, error);
             botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
@@ -1032,6 +1013,61 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
         res.status(404).json({ error: 'Bot status not available' });
     }
 });
+
+app.post('/api/messages/text/:companyId/:chatId', async (req, res) => {
+  console.log('send message');
+  const companyId = req.params.companyId;
+  const chatId = req.params.chatId;
+  const { message, quotedMessageId } = req.body;
+  console.log(req.body);
+
+  try {
+    // 1. Get the client for this company from botMap
+    const botData = botMap.get(companyId);
+    if (!botData || !botData.client) {
+      return res.status(404).send('WhatsApp client not found for this company');
+    }
+    const client = botData.client;
+
+    // 2. Use wwebjs to send the message
+    let sentMessage;
+    if (quotedMessageId) {
+      const chat = await client.getChatById(chatId);
+      const quotedMessage = await chat.fetchMessages({limit: 1, id: quotedMessageId});
+      sentMessage = await chat.sendMessage(message, { quotedMessageId: quotedMessage[0].id._serialized });
+    } else {
+      sentMessage = await client.sendMessage(chatId, message);
+    }
+    let phoneNumber = '+'+(chatId).split('@')[0];
+    let type2 = sentMessage.type === 'chat' ? 'text' : sentMessage.type;
+    // 3. Save the message to Firebase
+
+    const messageData = {
+      chat_id: sentMessage.from,
+      from: sentMessage.from ?? "",
+      from_me: true,
+      id: sentMessage.id._serialized ?? "",
+      source: sentMessage.deviceType ?? "",
+      status: "delivered",
+      timestamp: sentMessage.timestamp ?? 0,
+      type: type2,
+      ack: sentMessage.ack ?? 0,
+    };
+    
+    const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
+    await contactRef.set(contactData, { merge: true });
+    const messagesRef = contactRef.collection('messages');
+
+    const messageDoc = messagesRef.doc(message.id._serialized);
+    batch.set(messageDoc, messageData, { merge: true });
+
+    res.json({ success: true, messageId: sentMessage.id._serialized });
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 app.post('/api/messages/text/:chatId/:token', async (req, res) => {
   console.log('send message');
   const chatId = req.params.chatId;
@@ -1290,4 +1326,5 @@ console.log('creating ass');
 }
 
 main();
+
 
