@@ -1107,6 +1107,60 @@ app.post('/api/messages/text/:chatId/:token', async (req, res) => {
     res.status(500).send('Internal Server Error');
   }
 });
+
+app.post('/api/messages/image/:companyId/:chatId', async (req, res) => {
+  console.log('send image message');
+  const companyId = req.params.companyId;
+  const chatId = req.params.chatId;
+  const { imageUrl, caption } = req.body;
+  console.log(req.body);
+
+  try {
+    // 1. Get the client for this company from botMap
+    const botData = botMap.get(companyId);
+    if (!botData || !botData.client) {
+      return res.status(404).send('WhatsApp client not found for this company');
+    }
+    const client = botData.client;
+
+    // 2. Use wwebjs to send the image message
+    const media = await MessageMedia.fromUrl(imageUrl);
+    const sentMessage = await client.sendMessage(chatId, media, { caption });
+
+    console.log(sentMessage);
+    let phoneNumber = '+'+(chatId).split('@')[0];
+
+    // 3. Save the message to Firebase
+    const messageData = {
+      chat_id: sentMessage.from,
+      from: sentMessage.from ?? "",
+      from_me: true,
+      id: sentMessage.id._serialized ?? "",
+      source: sentMessage.deviceType ?? "",
+      status: "delivered",
+      image: {
+        mimetype: media.mimetype,
+        url: imageUrl,
+        caption: caption ?? "",
+      },
+      timestamp: sentMessage.timestamp ?? 0,
+      type: 'image',
+      ack: sentMessage.ack ?? 0,
+    };
+    
+    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
+    const messagesRef = contactRef.collection('messages');
+
+    const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+
+    res.json({ success: true, messageId: sentMessage.id._serialized });
+  } catch (error) {
+    console.error('Error sending image message:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 app.post('/api/messages/image/:token', async (req, res) => {
     const { chatId, imageUrl, caption } = req.body;
     const token = req.params.token;
@@ -1126,6 +1180,61 @@ app.post('/api/messages/image/:token', async (req, res) => {
         res.status(500).send('Internal Server Error');
     }
 });
+
+app.post('/api/messages/document/:companyId/:chatId', async (req, res) => {
+  console.log('send document message');
+  const companyId = req.params.companyId;
+  const chatId = req.params.chatId;
+  const { documentUrl, filename, caption } = req.body;
+  console.log(req.body);
+
+  try {
+    // 1. Get the client for this company from botMap
+    const botData = botMap.get(companyId);
+    if (!botData || !botData.client) {
+      return res.status(404).send('WhatsApp client not found for this company');
+    }
+    const client = botData.client;
+
+    // 2. Use wwebjs to send the document message
+    const media = await MessageMedia.fromUrl(documentUrl, { unsafeMime: true, filename: filename });
+    const sentMessage = await client.sendMessage(chatId, media, { caption });
+
+    console.log(sentMessage);
+    let phoneNumber = '+'+(chatId).split('@')[0];
+
+    // 3. Save the message to Firebase
+    const messageData = {
+      chat_id: sentMessage.from,
+      from: sentMessage.from ?? "",
+      from_me: true,
+      id: sentMessage.id._serialized ?? "",
+      source: sentMessage.deviceType ?? "",
+      status: "delivered",
+      document: {
+        mimetype: media.mimetype,
+        url: documentUrl,
+        filename: filename,
+        caption: caption ?? "",
+      },
+      timestamp: sentMessage.timestamp ?? 0,
+      type: 'document',
+      ack: sentMessage.ack ?? 0,
+    };
+    
+    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
+    const messagesRef = contactRef.collection('messages');
+
+    const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+
+    res.json({ success: true, messageId: sentMessage.id._serialized });
+  } catch (error) {
+    console.error('Error sending document message:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 app.post('/api/messages/document/:token', async (req, res) => {
     const { chatId, imageUrl, caption ,mimeType,fileName  } = req.body;
     const token = req.params.token;

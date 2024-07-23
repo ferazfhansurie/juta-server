@@ -260,6 +260,7 @@ async function handleNewMessagesApplyRadar(req, res) {
                                 if (check.includes(key) && check.includes('video')) {
                                     console.log(`${key} sending file`);
                                     await sendWhapiRequest('messages/video', { to: sender.to, media: filePath});
+                                    continue;
                                 }
                             }
                       
