@@ -372,7 +372,7 @@ if(msg == {}){
           for (const message of sortedMessages) {
             let type2 = message.type === 'chat' ? 'text' : message.type;
 
-            console.log(message);
+            //console.log(message);
             const messageData = {
               chat_id: message.from,
               from: message.from ?? "",
@@ -441,10 +441,10 @@ if(msg == {}){
           }
           if(phoneNumber == '601121677522'){
       
-            console.log(sortedMessages);
+            //console.log(sortedMessages);
   
           }
-          console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
+          //console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
         }
         //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
@@ -548,7 +548,7 @@ async function main(reinitialize = false) {
             botNames.push(companyId);
         }
     });
-    console.log(botNames);
+    //console.log(botNames);
     if (reinitialize) {
         // Clear existing bot instances
         for (const [botName, botData] of botMap.entries()) {
@@ -786,7 +786,7 @@ app.get('/api/assistant-test/', async (req, res) => {
       
 
       const metaTotal = response.data.meta.total;
-      console.log(metaTotal);
+     // console.log(metaTotal);
       if (metaTotal < maxContacts) {
           maxContacts = metaTotal;
       }
@@ -899,7 +899,7 @@ app.get('/api/assistant-test/', async (req, res) => {
   
       // Filter contacts by user role if necessary
       let filteredContacts = contactsData;
-      console.log(filteredContacts.length);
+      //console.log(filteredContacts.length);
       if (userRole === '2') {
         filteredContacts = contactsData.filter(contact => contact.tags.some(tag => typeof tag === 'string' && tag.toLowerCase().includes(userName.toLowerCase())));
         const groupChats = contactsData.filter(contact => contact.chat_id && contact.chat_id.includes('@g.us'));
@@ -915,7 +915,7 @@ app.get('/api/assistant-test/', async (req, res) => {
         }
         return unique;
       }, []);
-      console.log(filteredContacts.length);
+     // console.log(filteredContacts.length);
       res.json({ contacts: filteredContacts, totalChats });
     } catch (error) {
       console.error(error);
@@ -985,11 +985,11 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
         firestoreMessagesSnapshot.forEach(doc => {
             firestoreMessages[doc.id] = doc.data();
         });
-        console.log(firestoreMessages);
+       // console.log(firestoreMessages);
         const whapiMessages = whapiMessagesData.messages.map(whapiMsg => {
           const firestoreMessage = firestoreMessages[whapiMsg.id];
           if (firestoreMessage) {
-            console.log('found');
+           // console.log('found');
               whapiMsg.name = firestoreMessage.from;
           }
           return whapiMsg;
@@ -1005,7 +1005,7 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
   app.get('/api/bot-status/:botName', (req, res) => {
     const { botName } = req.params;
     const botData = botMap.get(botName);
-    console.log(botData);
+    //console.log(botData);
     if (botData) {
         const { status, qrCode } = botData;
         res.json({ status, qrCode });
@@ -1020,7 +1020,7 @@ app.post('/api/messages/text/:companyId/:chatId', async (req, res) => {
   const chatId = req.params.chatId;
   const { message, quotedMessageId } = req.body;
   console.log(req.body);
-
+  console.log(message)
   try {
     // 1. Get the client for this company from botMap
     const botData = botMap.get(companyId);
@@ -1038,6 +1038,7 @@ app.post('/api/messages/text/:companyId/:chatId', async (req, res) => {
     } else {
       sentMessage = await client.sendMessage(chatId, message);
     }
+    console.log(sentMessage)
     let phoneNumber = '+'+(chatId).split('@')[0];
     let type2 = sentMessage.type === 'chat' ? 'text' : sentMessage.type;
     // 3. Save the message to Firebase
@@ -1049,17 +1050,20 @@ app.post('/api/messages/text/:companyId/:chatId', async (req, res) => {
       id: sentMessage.id._serialized ?? "",
       source: sentMessage.deviceType ?? "",
       status: "delivered",
+      text:{
+        body:message
+      },
       timestamp: sentMessage.timestamp ?? 0,
       type: type2,
       ack: sentMessage.ack ?? 0,
     };
     
-    const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
-    await contactRef.set(contactData, { merge: true });
+    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
+    //await contactRef.set(contactData, { merge: true });
     const messagesRef = contactRef.collection('messages');
 
-    const messageDoc = messagesRef.doc(message.id._serialized);
-    batch.set(messageDoc, messageData, { merge: true });
+    const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
 
     res.json({ success: true, messageId: sentMessage.id._serialized });
   } catch (error) {
@@ -1095,7 +1099,7 @@ app.post('/api/messages/text/:chatId/:token', async (req, res) => {
       },
       body: JSON.stringify(requestBody)
     });
-    console.log(response);
+    //console.log(response);
     const data = await response.json();
     res.json(data);
   } catch (error) {
@@ -1197,7 +1201,7 @@ async function fetchProjectId(token) {
         Accept: 'application/json',
       },
     });
-    console.log(response.data);
+    //console.log(response.data);
     const projectId = response.data.projects[0].id;
     return projectId;
   } catch (error) {
@@ -1260,7 +1264,7 @@ async function createChannel(projectId, token, companyID) {
           Accept: 'application/json'
         }
       });
-      console.log(response.data);
+      //console.log(response.data);
       return response.data;
   } catch (error) {
       console.error(`Error creating channel for project ID ${projectId}:`, error);
