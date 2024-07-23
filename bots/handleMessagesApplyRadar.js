@@ -118,6 +118,13 @@ async function handleNewMessagesApplyRadar(req, res) {
                 
                     if (threadIdField) {
                         threadID = threadIdField.value;
+                        if(threadID){
+                            threadID = threadIdField.value;
+                        } else {
+                            const thread = await createThread();
+                            threadID = thread.id;
+                            await saveThreadIDGHL(contactID,threadID);
+                        }
                     } else {
                         const thread = await createThread();
                         threadID = thread.id;
@@ -125,30 +132,30 @@ async function handleNewMessagesApplyRadar(req, res) {
                     }
                 }
             }else{
-                await createContact(sender.name,extractedNumber);
-                await customWait(2500);
-                const contactPresent = await getContact(extractedNumber);
-                const stopTag = contactPresent.tags;
-                if (message.from_me){
-                    if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
-                    }
-                    break;
-                }
-                console.log(stopTag);
+                // await createContact(sender.name,extractedNumber);
+                // await customWait(2500);
+                // const contactPresent = await getContact(extractedNumber);
+                // const stopTag = contactPresent.tags;
+                // if (message.from_me){
+                //     if(stopTag.includes('idle')){
+                //     removeTagBookedGHL(contactPresent.id,'idle');
+                //     }
+                //     break;
+                // }
+                // console.log(stopTag);
 
-                contactID = contactPresent.id;
-                contactName = contactPresent.fullNameLowerCase;
+                // contactID = contactPresent.id;
+                // contactName = contactPresent.fullNameLowerCase;
 
-                const threadIdField = contactPresent.customFields.find(field => field.id === 'iXKFr1fQXsjAsrqLmjDD');
-                if (threadIdField) {
-                    threadID = threadIdField.value;
-                } else {
-                    const thread = await createThread();
-                    threadID = thread.id;
-                    await saveThreadIDGHL(contactID,threadID);
-                }
-                console.log('sent new contact to create new contact');
+                // const threadIdField = contactPresent.customFields.find(field => field.id === 'iXKFr1fQXsjAsrqLmjDD');
+                // if (threadIdField) {
+                //     threadID = threadIdField.value;
+                // } else {
+                //     const thread = await createThread();
+                //     threadID = thread.id;
+                //     await saveThreadIDGHL(contactID,threadID);
+                // }
+                // console.log('sent new contact to create new contact');
             }   
           contactPresent = await getContact(extractedNumber);
             let firebaseTags =[]
