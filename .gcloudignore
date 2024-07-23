@@ -16,6 +16,7 @@
 .wwebjs_auth
 .wwebjs_cache/
 .wwebjs_cache
+public/
 # Node.js dependencies:
 node_modules/
 
