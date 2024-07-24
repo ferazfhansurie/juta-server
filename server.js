@@ -1414,7 +1414,7 @@ async function createChannel(projectId, token, companyID) {
 
 app.post('/api/channel/create/:companyID', async (req, res) => {
     const { companyID } = req.params;
-
+//
     try {
         // Create the assistant
         await createAssistant(companyID);
