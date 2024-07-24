@@ -56,10 +56,16 @@ wss.on('connection', (ws) => {
       sendProgressUpdate(client, progress);
     });
   }
-  function broadcastAuthStatus(botName, status) {
+  function broadcastAuthStatus(botName, status, qrCode = null) {
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({ type: 'auth_status', botName, status }));
+        console.log('sent to clinet');
+        client.send(JSON.stringify({ 
+          type: 'auth_status', 
+          botName, 
+          status,
+          qrCode: status === 'qr' ? qrCode : null // Include qrCode only when status is 'qr'
+        }));
       }
     });
   }
@@ -481,6 +487,7 @@ async function initializeBots(botNames) {
                 try {
                     const qrCodeData = await qrcode.toDataURL(qr);
                     botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
+                    broadcastAuthStatus(botName, 'qr', qrCodeData); // Pass qrCodeData to broadcastAuthStatus
                 } catch (err) {
                     console.error('Error generating QR code:', err);
                 }
@@ -1385,20 +1392,86 @@ app.post('/api/channel/create/:companyID', async (req, res) => {
     const { companyID } = req.params;
 
     try {
+        // Create the assistant
         await createAssistant(companyID);
 
-        // Add new bot to the map
-        botMap.set(companyID, { client: null, status: 'pending', qrCode: null });
+        // Initialize only the new bot
+        await initializeBot(companyID);
 
-        // Reinitialize all bots including the new one
-        await main(true);
-
-        res.json({ message: 'Channel created successfully and bots reinitialized', newBotId: companyID });
+        res.json({ message: 'Channel created successfully and new bot initialized', newBotId: companyID });
     } catch (error) {
-        console.error('Error creating channel and reinitializing bots:', error);
-        res.status(500).json({ error: 'Failed to create channel and reinitialize bots', details: error.message });
+        console.error('Error creating channel and initializing new bot:', error);
+        res.status(500).json({ error: 'Failed to create channel and initialize new bot', details: error.message });
     }
 });
+
+async function initializeBot(botName) {
+    try {
+        console.log(`DEBUG: Starting initialization for ${botName}`);
+        const client = new Client({
+            authStrategy: new LocalAuth({
+                clientId: botName,
+            }),
+            puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
+        });
+        botMap.set(botName, { client, status: 'initializing', qrCode: null });
+
+        client.on('qr', async (qr) => {
+            console.log(`${botName} - QR RECEIVED`);
+            try {
+                const qrCodeData = await qrcode.toDataURL(qr);
+                botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
+                broadcastAuthStatus(botName, 'qr', qrCodeData); // Pass qrCodeData to broadcastAuthStatus
+            } catch (err) {
+                console.error('Error generating QR code:', err);
+            }
+        });
+
+        client.on('authenticated', () => {
+            console.log(`${botName} - AUTHENTICATED`);
+            botMap.set(botName, { client, status: 'authenticated', qrCode: null });
+            broadcastAuthStatus(botName, 'authenticated');
+        });
+
+        client.on('ready', async () => {
+            console.log(`${botName} - READY`);
+            botMap.set(botName, { client, status: 'ready', qrCode: null });
+            setupMessageHandler(client, botName);
+
+            try {
+                const chats = await client.getChats();
+                for (const chat of chats) {
+                    if (chat.isGroup) continue;
+                    const contact = await chat.getContact();
+                    await saveContactWithRateLimit(botName, contact, chat);
+                }
+                console.log(`Finished saving contacts for bot ${botName}`);
+            } catch (error) {
+                console.error(`Error processing chats for bot ${botName}:`, error);
+            }
+        });
+
+        client.on('auth_failure', msg => {
+            console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
+            botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
+        });
+
+        client.on('disconnected', (reason) => {
+            console.log(`${botName} - DISCONNECTED:`, reason);
+            botMap.set(botName, { client, status: 'disconnected', qrCode: null });
+        });
+
+        client.on('remote_session_saved', () => {
+            console.log(`${botName} - REMOTE SESSION SAVED`);
+        });
+
+        await client.initialize();
+        console.log(`DEBUG: Bot ${botName} initialized successfully`);
+    } catch (error) {
+        console.error(`Error initializing bot ${botName}:`, error);
+        botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
+    }
+}
 
 async function createAssistant(companyID) {
   const OPENAI_API_KEY = process.env.OPENAIKEY; // Ensure your environment variable is set
