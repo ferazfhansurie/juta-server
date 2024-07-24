@@ -54,7 +54,10 @@ async function handleNewMessagesMSU(req, res) {
             const senderTo = sender.to;
             const extractedNumber = '+' + senderTo.match(/\d+/)[0];
             const contactPresent = await getContact(extractedNumber);
-
+            const idleTag = contactPresent.tags
+            if (idleTag && idleTag.includes('idle')) {
+                await removeTagBookedGHL(contactPresent.id,'idle');
+            }
             if (contactPresent !== null) {
                 const stopTag = contactPresent.tags;
                 console.log(stopTag);
@@ -165,6 +168,23 @@ async function handleNewMessagesMSU(req, res) {
                                     // Send the video
                                     await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
                                 }
+                                if(part.includes('enjoy reading about the exciting')){
+                                    // Add 'idle' tag to GHL
+                                    await addtagbookedGHL(contactID, 'idle');
+                                    
+                                    // Start a timer for 1 hour
+                                    setTimeout(async () => {
+                                        // Check if the 'idle' tag is still present after 1 hour
+                                        const contactPresent = await getContact(extractedNumber);
+                                        const idleTags = contactPresent.tags
+                                        if (idleTags && idleTags.includes('idle')) {
+                                            // If 'idle' tag is still present, you can perform additional actions here
+                                            console.log(`User ${contactID} has been idle for 1 hour`);
+                                            await sendWhapiRequest('messages/text', { to: sender.to, body: "Would you like to check out our cool campus tour? It's got top-notch facilities and amazing student life." });
+
+                                        }
+                                    }, 60 * 60 * 1000); // 1 hour in milliseconds
+                                }
                                 for (const [key, filePath] of Object.entries(brochureFilePaths)) {
                                     if (part.includes(key) && part.includes("Brochure")) {
                                         console.log(`${key} sending file, ${filePath}`);
@@ -176,6 +196,8 @@ async function handleNewMessagesMSU(req, res) {
                         }
                     }
                     console.log('Response sent.');
+                    await addtagbookedGHL(contactID, 'replied');
+
                     userState.set(sender.to, steps.START);
                     break;                
                 case steps.NEW_CONTACT:
@@ -254,6 +276,28 @@ async function getContactById(contactId) {
         console.error(error);
     }
 }
+async function removeTagBookedGHL(contactID, tag) {
+    const options = {
+        method: 'DELETE',
+        url: `https://services.leadconnectorhq.com/contacts/${contactID}/tags`,
+        headers: {
+            Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
+            Version: '2021-07-28',
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+        },
+        data: {
+            tags: [tag],
+        }
+    };
+
+    try {
+        const response = await axios.request(options);
+    } catch (error) {
+        console.error('Error removing tag from contact:', error);
+    }
+}
+
 async function addtagbookedGHL(contactID, tag) {
     const contact = await getContactById(contactID);
     const previousTags = contact.tags || [];
