@@ -67,15 +67,11 @@ async function getChatMetadata(chatId,) {
 async function handleNewMessagesApplyRadar(req, res) {
     try {
         console.log('Handling new messages from ApplyRadar...');
-
         // Initial fetch of config
-        await fetchConfigFromDatabase();
-
         const receivedMessages = req.body.messages;
-
         for (const message of receivedMessages) {
             if (message.from_me) break;
-
+            await fetchConfigFromDatabase();
             if(!message.chat_id.includes("whatsapp")){
                 break;
             }

@@ -73,13 +73,13 @@ async function handleNewMessagesBillert(req, res) {
         console.log('Handling new messages from Billert...');
 
         // Initial fetch of config
-        await fetchConfigFromDatabase();
+
 
         const receivedMessages = req.body.messages;
         for (const message of receivedMessages) {
         
             if (message.from_me) break;
-
+            await fetchConfigFromDatabase();
          const chat = await getChatMetadata(message.chat_id);
 
             const sender = {
@@ -151,9 +151,9 @@ async function handleNewMessagesBillert(req, res) {
                // Capitalize the first letter of the assigned name
                assigned = capitalizeFirstLetter(assigned);
                
-               const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Farah.\n\n` +
-               `Team Farah akan bantu Tuan/Puan/Encik/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
-               `Sebentar lagi team Farah nama dia ${assigned} akan WhatsApp cik, atau cik boleh terus WhatsApp ${assigned} dengan segera di nombor ${number}`;
+               const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Farah. 😃\n\n` +
+               `Team farah akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
+               `Sebentar lagi team farah nama dia _*${assigned.toUpperCase()}*_ akan whatsapp cik, atau cik boleh terus whatsapp ${assigned} dengan segera di nombor *${number}* 👩🏻‍💼`;
                
                await sendWhapiRequest('messages/text', { 
                    to: sender.to, 
@@ -170,7 +170,7 @@ async function handleNewMessagesBillert(req, res) {
                    // Send the image
                    await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
                }else if(assigned == 'Zara'){
-                   const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Zara%20Intro%20Picture.png?alt=media&token=7fbe7906-bf7c-446f-976a-51186d08f2c2';
+                   const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Zara%20Intro%20Picture%20(2).png?alt=media&token=c1539439-539e-4e2f-8503-e5dea2b7cb1b';
                    console.log("test")
                    // Send the image
                    await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
@@ -627,7 +627,7 @@ async function getContact(number) {
 const teams = [
     ["hilmi","+60146531563"],
     [ "stanie","+60177527459"],
-    ["zara","+60149704722"],
+    ["zara","+60143407573"],
 
    
 ];

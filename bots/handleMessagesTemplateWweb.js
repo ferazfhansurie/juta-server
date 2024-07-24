@@ -213,7 +213,28 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 },
             };
             console.log(data);
-            //await addNotificationToUser(idSubstring, msg);
+            const messageData = {
+                chat_id: msg.from,
+                from: msg.from ?? "",
+                from_me: msg.fromMe ?? false,
+                id: msg.id._serialized ?? "",
+                source: chat.deviceType ?? "",
+                status: "delivered",
+                text: {
+                    body:msg.body ?? ""
+                },
+                timestamp: msg.timestamp ?? 0,
+                type: type,
+              };
+              
+              const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+              //await contactRef.set(contactData, { merge: true });
+              const messagesRef = contactRef.collection('messages');
+          
+              const messageDoc = messagesRef.doc(msg.id._serialized);
+              await messageDoc.set(messageData, { merge: true });
+              console.log(msg);
+           await addNotificationToUser(idSubstring, messageData);
             
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    

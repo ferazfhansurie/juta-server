@@ -224,6 +224,7 @@ async function handleNewMessagesJuta(req, res) {
                 const stopTag = contactPresent.tags;
                 if (!stopTag.includes('team')) {
                     answer = await handleOpenAIAssistant(query, threadID);
+                    console.log(answer);
                 } else {
                     console.log('team');
                     query = `${message.text.body} `;
