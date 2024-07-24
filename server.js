@@ -1021,7 +1021,7 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
     }
 });
 
-app.post('/api/messages/text/:companyId/:chatId', async (req, res) => {
+app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
   console.log('send message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
@@ -1115,7 +1115,7 @@ app.post('/api/messages/text/:chatId/:token', async (req, res) => {
   }
 });
 
-app.post('/api/messages/image/:companyId/:chatId', async (req, res) => {
+app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
   console.log('send image message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
@@ -1188,7 +1188,7 @@ app.post('/api/messages/image/:token', async (req, res) => {
     }
 });
 
-app.post('/api/messages/document/:companyId/:chatId', async (req, res) => {
+app.post('/api/v2/messages/document/:companyId/:chatId', async (req, res) => {
   console.log('send document message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
@@ -1415,6 +1415,7 @@ async function initializeBot(botName) {
             puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
         });
         botMap.set(botName, { client, status: 'initializing', qrCode: null });
+        broadcastAuthStatus(botName, 'initializing');
 
         client.on('qr', async (qr) => {
             console.log(`${botName} - QR RECEIVED`);

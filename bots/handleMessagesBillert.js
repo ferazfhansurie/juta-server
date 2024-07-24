@@ -73,13 +73,13 @@ async function handleNewMessagesBillert(req, res) {
         console.log('Handling new messages from Billert...');
 
         // Initial fetch of config
-        await fetchConfigFromDatabase();
+
 
         const receivedMessages = req.body.messages;
         for (const message of receivedMessages) {
         
             if (message.from_me) break;
-
+            await fetchConfigFromDatabase();
          const chat = await getChatMetadata(message.chat_id);
 
             const sender = {
