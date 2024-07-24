@@ -51,9 +51,16 @@ wss.on('connection', (ws) => {
     }
   }
   
-  function broadcastProgress(progress) {
+  function broadcastProgress(botName, action, progress) {
     wss.clients.forEach((client) => {
-      sendProgressUpdate(client, progress);
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify({
+          type: 'progress',
+          botName,
+          action,
+          progress
+        }));
+      }
     });
   }
   function broadcastAuthStatus(botName, status, qrCode = null) {
@@ -440,6 +447,9 @@ if(msg == {}){
               batch = db.batch();
               count = 0;
             }
+
+            // Send progress update after each message
+            broadcastProgress(botName, 'saving_contacts', count / sortedMessages.length);
           }
         
           if (count > 0) {
@@ -452,6 +462,10 @@ if(msg == {}){
           }
           //console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
         }
+        
+        // Send final progress update for this contact
+        broadcastProgress(botName, 'saving_contacts', 1);
+
         //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
         // Delay before next operation
@@ -506,10 +520,20 @@ async function initializeBots(botNames) {
 
                 try {
                     const chats = await client.getChats();
+                    const totalChats = chats.length;
+                    let processedChats = 0;
+
                     for (const chat of chats) {
-                        if (chat.isGroup) continue;
+                        if (chat.isGroup) {
+                            processedChats++;
+                            continue;
+                        }
                         const contact = await chat.getContact();
                         await saveContactWithRateLimit(botName, contact, chat);
+                        processedChats++;
+                        
+                        // Send overall progress update
+                        broadcastProgress(botName, 'processing_chats', processedChats / totalChats);
                     }
                     console.log(`Finished saving contacts for bot ${botName}`);
                 } catch (error) {
@@ -1441,10 +1465,20 @@ async function initializeBot(botName) {
 
             try {
                 const chats = await client.getChats();
+                const totalChats = chats.length;
+                let processedChats = 0;
+
                 for (const chat of chats) {
-                    if (chat.isGroup) continue;
+                    if (chat.isGroup) {
+                        processedChats++;
+                        continue;
+                    }
                     const contact = await chat.getContact();
                     await saveContactWithRateLimit(botName, contact, chat);
+                    processedChats++;
+                    
+                    // Send overall progress update
+                    broadcastProgress(botName, 'processing_chats', processedChats / totalChats);
                 }
                 console.log(`Finished saving contacts for bot ${botName}`);
             } catch (error) {
