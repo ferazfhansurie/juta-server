@@ -180,6 +180,8 @@ const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
 const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
 const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js');
 const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb.js');
+const { handleNewMessagesApel} = require('./bots/handleMessagesApel.js');
+
 
 
 
@@ -211,6 +213,7 @@ app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/cnb/hook/messages', handleNewMessagesCNB);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
+app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 
 
