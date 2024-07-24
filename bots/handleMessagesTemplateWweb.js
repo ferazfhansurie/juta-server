@@ -44,19 +44,25 @@ async function addNotificationToUser(companyId, message) {
             return;
         }
 
+        // Filter out undefined values from the message object
+        const cleanMessage = Object.fromEntries(
+            Object.entries(message).filter(([_, value]) => value !== undefined)
+        );
+
         // Add the new message to the notifications subcollection of the user's document
         querySnapshot.forEach(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...message, read: false };
+            const updatedMessage = { ...cleanMessage, read: false };
         
             await notificationsRef.add(updatedMessage);
-            console.log(`Notification ${message} added to user with companyId: ${companyId}`);
+            console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
         });
     } catch (error) {
         console.error('Error adding notification: ', error);
     }
 }
+
 
 async function getChatMetadata(chatId,) {
     const url = `https://gate.whapi.cloud/chats/${chatId}`;
@@ -212,7 +218,21 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                     type: type,
                 },
             };
+            const message =  {
+                chat_id: msg.from,
+                from: msg.from ?? "",
+                from_me: msg.fromMe ?? false,
+                id: msg._data.id.id ?? "",
+                source: chat.deviceType ?? "",
+                status: "delivered",
+                text: {
+                    body:msg.body ?? ""
+                },
+                timestamp: msg.timestamp ?? 0,
+                type: type,
+            };
             console.log(data);
+<<<<<<< Updated upstream
             const messageData = {
                 chat_id: msg.from,
                 from: msg.from ?? "",
@@ -236,6 +256,9 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
               console.log(msg);
            await addNotificationToUser(idSubstring, messageData);
             
+=======
+       await addNotificationToUser(idSubstring, message);
+>>>>>>> Stashed changes
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
             
