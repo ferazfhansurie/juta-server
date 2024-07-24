@@ -252,6 +252,10 @@ async function handleNewMessagesApel(req, res) {
                             //await addtagbookedGHL(contactID, 'idle');
                             await sendWhapiRequest('messages/text', { to: sender.to, body: part });
                             
+                            if (check.includes('here\'s your apel application guide.')) {
+                                console.log(`sending file APEL`);
+                                await sendWhapiRequest('messages/document', { to: sender.to, media: "https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Apel%2FAPEL%20Application%20Guide%202.pdf?alt=media&token=35f193cc-9cf8-43a6-bc9d-cb778ea0e412", filename: `APEL Application Guide.pdf`});
+                            } 
                             if (check.includes('patience')) {
                                 //await addtagbookedGHL(contactID, 'stop bot');
                             } 
