@@ -21,7 +21,7 @@ const db = admin.firestore();
 const OpenAI = require('openai');
 const { MessageMedia } = require('whatsapp-web.js');
 const { v4: uuidv4 } = require('uuid');
-const fs = require('fs').promises;
+const fs = require('fs');
 const path = require('path');
 const stream = require('stream');
 const { promisify } = require('util');
@@ -315,6 +315,11 @@ async function createUserInFirebase(userData) {
       res.status(500).json({ error: 'Failed to process CSV' });
     }
   });
+  async function downloadCSV(url, filename) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Unexpected response ${response.statusText}`);
+    await pipeline(response.body, fs.createWriteStream(filename));
+  }
 
   async function processCSV(filename, companyId) {
     return new Promise((resolve, reject) => {
@@ -338,12 +343,12 @@ async function createUserInFirebase(userData) {
 
   async function processContact(row, companyId) {
     let name = row.Name.trim();
-    let phone = formatPhoneNumber(row.Phone);
+    let phone = await formatPhoneNumber(row.Phone);
   
     if (!name) {
       name = phone;
     }
-    
+    console.log(row.Phone)
     phoneWithPlus = '+' + phone;
     if (phone) {
       const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneWithPlus);
@@ -362,7 +367,7 @@ async function createUserInFirebase(userData) {
             address1: null,
             assignedTo: null,
             businessId: null,
-            phone: phoneWithPlus,
+            phone: "+" + phone,
             tags: [],
             chat: {
                 contact_id: phone,
@@ -415,22 +420,15 @@ async function createUserInFirebase(userData) {
   }
 
   function formatPhoneNumber(phone) {
-    // Remove whitespaces and '-'
-    phone = phone.replace(/[\s-]/g, '');
+    // Remove all non-numeric characters
+    phone = phone.replace(/\D/g, '');
     
-    // Add prefix if necessary
+    // Ensure the number starts with '6'
     if (!phone.startsWith('6')) {
       phone = '6' + phone;
-    } else if (phone.startsWith('6')) {
     }
     
-    // Ensure only numbers remain (except for the leading '+')
-    phone = phone.slice(1).replace(/\D/g, '');
-    
-    // Validate the final format
-    if (!/^\+\d+$/.test(phone)) {
-      return null; // Return null for invalid numbers
-    }
+    console.log(phone)
     
     return phone;
   }
