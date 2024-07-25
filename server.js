@@ -299,6 +299,10 @@ async function createUserInFirebase(userData) {
     try {
       // Add createdAt timestamp
       scheduledMessage.createdAt = admin.firestore.Timestamp.now();
+      scheduledMessage.scheduledTime = new admin.firestore.Timestamp(
+        scheduledMessage.scheduledTime.seconds,
+        scheduledMessage.scheduledTime.nanoseconds
+      );
   
       // Save to Firestore
       const docRef = await db.collection('companies').doc(companyId).collection('scheduledMessages').add(scheduledMessage);
