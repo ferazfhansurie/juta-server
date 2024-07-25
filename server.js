@@ -1,12 +1,8 @@
 require('dotenv').config();
-<<<<<<< Updated upstream
-const { Client, RemoteAuth, LocalAuth} = require('whatsapp-web.js');
-=======
 const { Client, LocalAuth, RemoteAuth} = require('whatsapp-web.js');
 
 //const qrcode = require('qrcode-terminal');
 const FirebaseWWebJS = require('./firebaseWweb.js');
->>>>>>> Stashed changes
 const qrcode = require('qrcode');
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -1060,12 +1056,7 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
   app.get('/api/bot-status/:botName', (req, res) => {
     const { botName } = req.params;
     const botData = botMap.get(botName);
-<<<<<<< Updated upstream
     //console.log(botData);
-=======
-    console.log(botMap);
-    console.log('test');
->>>>>>> Stashed changes
     if (botData) {
         const { status, qrCode } = botData;
         res.json({ status, qrCode });
@@ -1465,8 +1456,8 @@ async function initializeBot(botName) {
             authStrategy: new LocalAuth({
                 clientId: botName,
             }),
-            puppeteer: { args: ['--no-sandbox', '--disable-setuid-sandbox'] }
-        });
+            puppeteer: { executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',args: ['--no-sandbox', '--disable-setuid-sandbox',] }
+          });
         botMap.set(botName, { client, status: 'initializing', qrCode: null });
         broadcastAuthStatus(botName, 'initializing');
 

@@ -232,7 +232,6 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 type: type,
             };
             console.log(data);
-<<<<<<< Updated upstream
             const messageData = {
                 chat_id: msg.from,
                 from: msg.from ?? "",
@@ -256,9 +255,6 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
               console.log(msg);
            await addNotificationToUser(idSubstring, messageData);
             
-=======
-       await addNotificationToUser(idSubstring, message);
->>>>>>> Stashed changes
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
             

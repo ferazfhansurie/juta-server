@@ -336,7 +336,6 @@ async function handleNewMessagesTasty(req, res) {
                await addNotificationToUser('018', message);
                // Add the data to Firestore
          await db.collection('companies').doc('018').collection('contacts').doc(extractedNumber).set(data);  
-<<<<<<< Updated upstream
          if (message.text.body.includes('/resetbot')) {
             removeTagFromFirebase(extractedNumber,'stop bot')
             const thread = await createThread();
@@ -347,9 +346,6 @@ async function handleNewMessagesTasty(req, res) {
             break;
         }
          if(firebaseTags.includes('stop bot')){
-=======
-         if(!stopTag.includes('stop bot') || contactData.tags.includes('stop bot')){
->>>>>>> Stashed changes
             console.log('Bot stopped for this message');
             continue;
         }
