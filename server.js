@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, LocalAuth, RemoteAuth} = require('whatsapp-web.js');
-
+const { Queue, Worker } = require('bullmq');
+const Redis = require('ioredis');
 //const qrcode = require('qrcode-terminal');
 const FirebaseWWebJS = require('./firebaseWweb.js');
 const qrcode = require('qrcode');
@@ -23,7 +24,17 @@ const fs = require('fs').promises;
 const path = require('path');
 
 const botMap = new Map();
+// Redis connection
+const connection = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
+  maxRetriesPerRequest: null,
+  maxmemoryPolicy:'noeviction'
+});
 
+require('events').EventEmitter.prototype._maxListeners = 70;
+require('events').defaultMaxListeners = 70;
+
+// Create a queue
+const messageQueue = new Queue('scheduled-messages', { connection });
 // Ensure this directory exists in your project
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
@@ -280,6 +291,156 @@ async function createUserInFirebase(userData) {
       res.status(500).json({ error: error.code});
     }
   });
+
+  app.post('/api/schedule-message/:companyId', async (req, res) => {
+    const { companyId } = req.params;
+    const scheduledMessage = req.body;
+  
+    try {
+      // Add createdAt timestamp
+      scheduledMessage.createdAt = admin.firestore.Timestamp.now();
+  
+      // Save to Firestore
+      const docRef = await db.collection('companies').doc(companyId).collection('scheduledMessages').add(scheduledMessage);
+  
+      // Calculate delay for the job
+      const delay = scheduledMessage.scheduledTime.toDate().getTime() - Date.now();
+  
+      // Add job to the queue
+      await messageQueue.add('send-message', 
+        { ...scheduledMessage, id: docRef.id }, 
+        { 
+          delay: Math.max(delay, 0),
+          repeat: scheduledMessage.repeatInterval > 0 ? {
+            every: scheduledMessage.repeatInterval * getMillisecondsForUnit(scheduledMessage.repeatUnit)
+          } : undefined
+        }
+      );
+  
+      res.status(201).json({ id: docRef.id, message: 'Message scheduled successfully' });
+    } catch (error) {
+      console.error('Error scheduling message:', error);
+      res.status(500).json({ error: 'Failed to schedule message' });
+    }
+  });
+
+  function getMillisecondsForUnit(unit) {
+    switch(unit) {
+      case 'minutes': return 60 * 1000;
+      case 'hours': return 60 * 60 * 1000;
+      case 'days': return 24 * 60 * 60 * 1000;
+      default: return 0;
+    }
+  }
+
+  // Worker to process jobs
+const worker = new Worker('scheduled-messages', async job => {
+  const message = job.data;
+  
+  try {
+    await sendScheduledMessage(message);
+    
+    // Delete the message from Firestore
+    await db.collection('companies').doc(message.companyId).collection('scheduledMessages').doc(message.id).delete();
+
+    console.log(`Message ${message.id} sent and deleted from Firestore`);
+  } catch (error) {
+    console.error('Error processing scheduled message:', error);
+    throw error; // This will cause the job to be retried
+  }
+}, { connection });
+
+async function sendScheduledMessage(message) {
+  console.log('Sending scheduled message:', message);
+  
+  if(message.v2 == true){
+    // Example: Sending a text message
+    if (message.message) {
+      await fetch(`/api/v2/messages/text/${message.companyId}/${message.chatId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message.message })
+      });
+    }
+
+    // Example: Sending an image message
+    if (message.imageUrl) {
+      await fetch(`/api/v2/messages/image/${message.companyId}/${message.chatId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: message.imageUrl, caption: message.message })
+      });
+    }
+    // Example: Sending a document message
+    if (message.documentUrl) {
+      await fetch(`/api/v2/messages/document/${message.companyId}/${message.chatId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          documentUrl: message.documentUrl, 
+          filename: message.fileName, 
+          caption: message.message 
+        })
+      });
+    }
+  }else{
+    // Example: Sending a text message
+    if (message.message) {
+      await fetch(`/api/messages/text/${message.chatId}/${message.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message.message })
+      });
+    }
+
+    // Example: Sending an image message
+    if (message.imageUrl) {
+      await fetch(`/api/v2/messages/image/${message.chatId}/${message.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: message.imageUrl, caption: message.message })
+      });
+    }
+    // Example: Sending a document message
+    if (message.documentUrl) {
+      await fetch(`/api/v2/messages/document/${message.chatId}/${message.token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          documentUrl: message.documentUrl, 
+          filename: message.fileName, 
+          caption: message.message 
+        })
+      });
+    }
+  }
+  
+}
+
+// Function to schedule all messages on server start
+async function scheduleAllMessages() {
+  const companiesSnapshot = await db.collection('companies').get();
+
+  for (const companyDoc of companiesSnapshot.docs) {
+    const scheduledMessagesSnapshot = await companyDoc.ref.collection('scheduledMessages').where('status', '==', 'scheduled').get();
+
+    for (const doc of scheduledMessagesSnapshot.docs) {
+      const message = doc.data();
+      const delay = message.scheduledTime.toDate().getTime() - Date.now();
+
+      await messageQueue.add('send-message', 
+        { ...message, id: doc.id }, 
+        { 
+          delay: Math.max(delay, 0),
+          repeat: message.repeatInterval > 0 ? {
+            every: message.repeatInterval * getMillisecondsForUnit(message.repeatUnit)
+          } : undefined
+        }
+      );
+    }
+  }
+}
+
   async function saveThreadIDFirebase(email, threadID,) {
     
     // Construct the Firestore document path
@@ -611,6 +772,7 @@ async function main(reinitialize = false) {
     }
 
     await initializeBots(botNames);
+    await scheduleAllMessages();
 }
 async function getContactDataFromDatabaseByEmail(email) {
   try {
