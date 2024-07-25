@@ -356,7 +356,7 @@ async function sendScheduledMessage(message) {
   if(message.v2 == true){
     // Example: Sending a text message
     if (message.message) {
-      await fetch(`/api/v2/messages/text/${message.companyId}/${message.chatId}`, {
+      await fetch(`http://localhost:8443/api/v2/messages/text/${message.companyId}/${message.chatId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: message.message })
@@ -364,16 +364,16 @@ async function sendScheduledMessage(message) {
     }
 
     // Example: Sending an image message
-    if (message.imageUrl) {
-      await fetch(`/api/v2/messages/image/${message.companyId}/${message.chatId}`, {
+    if (message.imageUrl != '') {
+      await fetch(`http://localhost:8443/api/v2/messages/image/${message.companyId}/${message.chatId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageUrl: message.imageUrl, caption: message.message })
       });
     }
     // Example: Sending a document message
-    if (message.documentUrl) {
-      await fetch(`/api/v2/messages/document/${message.companyId}/${message.chatId}`, {
+    if (message.documentUrl != '') {
+      await fetch(`http://localhost:8443/api/v2/messages/document/${message.companyId}/${message.chatId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -386,24 +386,24 @@ async function sendScheduledMessage(message) {
   }else{
     // Example: Sending a text message
     if (message.message) {
-      await fetch(`/api/messages/text/${message.chatId}/${message.token}`, {
+      await fetch(`http://localhost:8443/api/messages/text/${message.chatId}/${message.whapiToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: message.message })
       });
     }
 
-    // Example: Sending an image message
-    if (message.imageUrl) {
-      await fetch(`/api/v2/messages/image/${message.chatId}/${message.token}`, {
+    //Example: Sending an image message
+    if (message.imageUrl != '') {
+      await fetch(`http://localhost:8443/api/messages/image/${message.chatId}/${message.whapiToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ imageUrl: message.imageUrl, caption: message.message })
       });
     }
-    // Example: Sending a document message
-    if (message.documentUrl) {
-      await fetch(`/api/v2/messages/document/${message.chatId}/${message.token}`, {
+    //Example: Sending a document message
+    if (message.documentUrl != '') {
+      await fetch(`http://localhost:8443/api/messages/document/${message.chatId}/${message.whapiToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
