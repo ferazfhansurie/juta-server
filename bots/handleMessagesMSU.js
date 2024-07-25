@@ -481,10 +481,27 @@ async function runAssistant(assistantID,threadId) {
     return answer;
 }
 
+const rateLimitMap = new Map();
+
 async function handleOpenAIAssistant(message, threadID) {
     const assistantId = 'asst_tqVuJyl8gR1ZmV7OdBdQBNEF';
+    
+    // Check if we've made a request for this threadID recently
+    const lastRequestTime = rateLimitMap.get(threadID) || 0;
+    const currentTime = Date.now();
+    const timeSinceLastRequest = currentTime - lastRequestTime;
+
+    // If less than 5 seconds have passed since the last request, wait
+    if (timeSinceLastRequest < 5000) {
+        console.log(`Rate limiting: Waiting ${5000 - timeSinceLastRequest}ms before next request for threadID ${threadID}`);
+        await new Promise(resolve => setTimeout(resolve, 5000 - timeSinceLastRequest));
+    }
+
+    // Update the last request time for this threadID
+    rateLimitMap.set(threadID, Date.now());
+
     await addMessage(threadID, message);
-    const answer = await runAssistant(assistantId,threadID);
+    const answer = await runAssistant(assistantId, threadID);
     return answer;
 }
 
