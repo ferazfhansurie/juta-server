@@ -7,6 +7,7 @@ const FirebaseWWebJS = require('./firebaseWweb.js');
 const qrcode = require('qrcode');
 const express = require('express');
 const bodyParser = require('body-parser');
+const csv = require('csv-parser');
 const fetch = require('node-fetch');
 const cors = require('cors');
 const app = express();
@@ -22,6 +23,9 @@ const { MessageMedia } = require('whatsapp-web.js');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs').promises;
 const path = require('path');
+const stream = require('stream');
+const { promisify } = require('util');
+const pipeline = promisify(stream.pipeline)
 
 const botMap = new Map();
 // Redis connection
@@ -292,6 +296,145 @@ async function createUserInFirebase(userData) {
     }
   });
 
+  app.post('/api/import-csv/:companyId', async (req, res) => {
+    const { companyId } = req.params;
+    const { csvUrl } = req.body;
+  
+    if (!csvUrl) {
+      return res.status(400).json({ error: 'CSV URL is required' });
+    }
+  
+    try {
+      const tempFile = `temp_${Date.now()}.csv`;
+      await downloadCSV(csvUrl, tempFile);
+      await processCSV(tempFile, companyId);
+      fs.unlinkSync(tempFile); // Clean up temporary file
+      res.json({ message: 'CSV processed successfully' });
+    } catch (error) {
+      console.error('Error processing CSV:', error);
+      res.status(500).json({ error: 'Failed to process CSV' });
+    }
+  });
+
+  async function processCSV(filename, companyId) {
+    return new Promise((resolve, reject) => {
+      fs.createReadStream(filename)
+        .pipe(csv())
+        .on('data', async (row) => {
+          try {
+            await processContact(row, companyId);
+          } catch (error) {
+            console.error('Error processing row:', error);
+            // Continue processing other rows
+          }
+        })
+        .on('end', () => {
+          console.log('CSV file successfully processed');
+          resolve();
+        })
+        .on('error', reject);
+    });
+  }
+
+  async function processContact(row, companyId) {
+    let name = row.Name.trim();
+    let phone = formatPhoneNumber(row.Phone);
+  
+    if (!name) {
+      name = phone;
+    }
+    
+    phoneWithPlus = '+' + phone;
+    if (phone) {
+      const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneWithPlus);
+      const doc = await contactRef.get();
+  
+      if (doc.exists) {
+        // Contact already exists, add 'csv' tag
+        await contactRef.update({
+          tags: admin.firestore.FieldValue.arrayUnion('csv')
+        });
+        console.log(`Updated existing contact with 'csv' tag: ${name} - ${phone}`);
+      } else {
+        // Contact doesn't exist, create new contact with 'csv' tag
+          const contactData = {
+            additionalEmails: [],
+            address1: null,
+            assignedTo: null,
+            businessId: null,
+            phone: phoneWithPlus,
+            tags: [],
+            chat: {
+                contact_id: phone,
+                id: phone + '@c.us',
+                name: name,
+                not_spam: true,
+                tags: ['csv'], // You might want to populate this with actual tags if available
+                timestamp: Date.now(),
+                type: 'contact',
+                unreadCount: 0,
+                last_message: {
+                    chat_id:phone + '@c.us' ,
+                    from: phone + '@c.us',
+                    from_me: false,
+                    id: '',
+                    source: '',
+                    status: "delivered",
+                    text: {
+                      body:''
+                    },
+                    timestamp: Date.now(),
+                    type: '',
+                },
+            },
+            chat_id: phone + '@c.us',
+            city: null,
+            companyName: null,
+            contactName: name,
+            threadid: '', // You might want to generate or retrieve this
+            last_message: {
+                chat_id:phone + '@c.us',
+                from: phone + '@c.us',
+                from_me: false,
+                id: '',
+                source: '',
+                status: "delivered",
+                text: {
+                  body:''
+                },
+                timestamp: Date.now(),
+                type: '',
+            },
+        };
+        await contactRef.set(contactData);
+        console.log(`Added new contact: ${name} - ${phone}`);
+      }
+    } else {
+      console.warn(`Skipping invalid phone number for ${name}`);
+    }
+  }
+
+  function formatPhoneNumber(phone) {
+    // Remove whitespaces and '-'
+    phone = phone.replace(/[\s-]/g, '');
+    
+    // Add prefix if necessary
+    if (!phone.startsWith('6')) {
+      phone = '6' + phone;
+    } else if (phone.startsWith('6')) {
+    }
+    
+    // Ensure only numbers remain (except for the leading '+')
+    phone = phone.slice(1).replace(/\D/g, '');
+    
+    // Validate the final format
+    if (!/^\+\d+$/.test(phone)) {
+      return null; // Return null for invalid numbers
+    }
+    
+    return phone;
+  }
+
   app.post('/api/schedule-message/:companyId', async (req, res) => {
     const { companyId } = req.params;
     const scheduledMessage = req.body;
@@ -359,16 +502,14 @@ async function sendScheduledMessage(message) {
   
   if(message.v2 == true){
     // Example: Sending an image message
-    if (message.imageUrl != '') {
-      await fetch(`http://localhost:8443/api/v2/messages/image/${message.companyId}/${message.chatId}`, {
+    if (message.mediaUrl != '') {
+      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/image/${message.companyId}/${message.chatId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: message.imageUrl, caption: message.message })
+        body: JSON.stringify({ imageUrl: message.mediaUrl, caption: message.message })
       });
-    }
-    // Example: Sending a document message
-    if (message.documentUrl != '') {
-      await fetch(`http://localhost:8443/api/v2/messages/document/${message.companyId}/${message.chatId}`, {
+    }else if (message.documentUrl != '') {
+      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/document/${message.companyId}/${message.chatId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -377,47 +518,47 @@ async function sendScheduledMessage(message) {
           caption: message.message 
         })
       });
-    }
-    // Example: Sending a text message
-    if (message.message) {
-      await fetch(`http://localhost:8443/api/v2/messages/text/${message.companyId}/${message.chatId}`, {
+    }else if (message.message) {
+      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${message.companyId}/${message.chatId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: message.message })
       });
     }
+    // Example: Sending a document message
+    
+    // Example: Sending a text message
+    
 
     
   }else{
     //Example: Sending an image message
-    if (message.imageUrl != '') {
-      await fetch(`http://localhost:8443/api/messages/image/${message.chatId}/${message.whapiToken}`, {
+    if (message.mediaUrl != '') {
+      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${message.whapiToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: message.imageUrl, caption: message.message })
+        body: JSON.stringify({ chatId: message.chatId,imageUrl: message.mediaUrl, caption: message.message })
       });
-    }
-    //Example: Sending a document message
-    if (message.documentUrl != '') {
-      await fetch(`http://localhost:8443/api/messages/document/${message.chatId}/${message.whapiToken}`, {
+    }else if (message.documentUrl != '') {
+      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${message.whapiToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          chatId: message.chatId,
           documentUrl: message.documentUrl, 
           filename: message.fileName, 
           caption: message.message 
         })
       });
-    }
-
-    // Example: Sending a text message
-    if (message.message) {
-      await fetch(`http://localhost:8443/api/messages/text/${message.chatId}/${message.whapiToken}`, {
+    }else if (message.message) {
+      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${message.chatId}/${message.whapiToken}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: message.message })
       });
     }
+    
+    
 
     
   }
