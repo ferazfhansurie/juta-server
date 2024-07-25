@@ -525,14 +525,18 @@ async function checkingStatus(threadId, runId) {
     
     if(status == 'completed') {
         clearInterval(pollingInterval);
+        try{
+            const messagesList = await openai.beta.threads.messages.list(threadId);
+            const latestMessage = messagesList.body.data[0].content;
 
-        const messagesList = await openai.beta.threads.messages.list(threadId);
-        const latestMessage = messagesList.body.data[0].content;
-
-        console.log("Latest Message:");
-        console.log(latestMessage[0].text.value);
-        const answer = latestMessage[0].text.value;
-        return answer;
+            console.log("Latest Message:");
+            console.log(latestMessage[0].text.value);
+            const answer = latestMessage[0].text.value;
+            return answer;
+        } catch(error){
+            console.log("error from handleNewMessagescallabio: "+error)
+        }
+        
     }
 }
 

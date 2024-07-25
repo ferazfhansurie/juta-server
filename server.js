@@ -344,7 +344,9 @@ async function createUserInFirebase(userData) {
   async function processContact(row, companyId) {
     let name = row.Name.trim();
     let phone = await formatPhoneNumber(row.Phone);
-  
+    const sixMonthsAgo = new Date();
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth()-6)
+    const sixMonthsAgoTimeStamp = sixMonthsAgo.getTime();
     if (!name) {
       name = phone;
     }
@@ -368,48 +370,24 @@ async function createUserInFirebase(userData) {
             assignedTo: null,
             businessId: null,
             phone: "+" + phone,
-            tags: [],
+            tags: ['csv'],
             chat: {
                 contact_id: phone,
                 id: phone + '@c.us',
                 name: name,
                 not_spam: true,
                 tags: ['csv'], // You might want to populate this with actual tags if available
-                timestamp: Date.now(),
+                timestamp: 1708858609,
                 type: 'contact',
                 unreadCount: 0,
-                last_message: {
-                    chat_id:phone + '@c.us' ,
-                    from: phone + '@c.us',
-                    from_me: false,
-                    id: '',
-                    source: '',
-                    status: "delivered",
-                    text: {
-                      body:''
-                    },
-                    timestamp: Date.now(),
-                    type: '',
-                },
+                last_message:null,
             },
             chat_id: phone + '@c.us',
             city: null,
             companyName: null,
             contactName: name,
             threadid: '', // You might want to generate or retrieve this
-            last_message: {
-                chat_id:phone + '@c.us',
-                from: phone + '@c.us',
-                from_me: false,
-                id: '',
-                source: '',
-                status: "delivered",
-                text: {
-                  body:''
-                },
-                timestamp: Date.now(),
-                type: '',
-            },
+            last_message: null,
         };
         await contactRef.set(contactData);
         console.log(`Added new contact: ${name} - ${phone}`);

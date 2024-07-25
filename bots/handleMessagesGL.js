@@ -361,12 +361,20 @@ async function checkingStatus(threadId, runId) {
     );
     const status = runObject.status;
     console.log(status);
-    if (status == 'completed') {
+    if(status == 'completed') {
         clearInterval(pollingInterval);
-        const messagesList = await openai.beta.threads.messages.list(threadId);
-        const latestMessage = messagesList.body.data[0].content;
-        const answer = latestMessage[0].text.value;
-        return answer;
+        try{
+            const messagesList = await openai.beta.threads.messages.list(threadId);
+            const latestMessage = messagesList.body.data[0].content;
+
+            console.log("Latest Message:");
+            console.log(latestMessage[0].text.value);
+            const answer = latestMessage[0].text.value;
+            return answer;
+        } catch(error){
+            console.log("error from handleNewMessagesgl: "+error)
+        }
+        
     }
 }
 
