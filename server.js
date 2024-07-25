@@ -358,15 +358,6 @@ async function sendScheduledMessage(message) {
   console.log('Sending scheduled message:', message);
   
   if(message.v2 == true){
-    // Example: Sending a text message
-    if (message.message) {
-      await fetch(`http://localhost:8443/api/v2/messages/text/${message.companyId}/${message.chatId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: message.message })
-      });
-    }
-
     // Example: Sending an image message
     if (message.imageUrl != '') {
       await fetch(`http://localhost:8443/api/v2/messages/image/${message.companyId}/${message.chatId}`, {
@@ -387,16 +378,17 @@ async function sendScheduledMessage(message) {
         })
       });
     }
-  }else{
     // Example: Sending a text message
     if (message.message) {
-      await fetch(`http://localhost:8443/api/messages/text/${message.chatId}/${message.whapiToken}`, {
+      await fetch(`http://localhost:8443/api/v2/messages/text/${message.companyId}/${message.chatId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: message.message })
       });
     }
 
+    
+  }else{
     //Example: Sending an image message
     if (message.imageUrl != '') {
       await fetch(`http://localhost:8443/api/messages/image/${message.chatId}/${message.whapiToken}`, {
@@ -417,6 +409,17 @@ async function sendScheduledMessage(message) {
         })
       });
     }
+
+    // Example: Sending a text message
+    if (message.message) {
+      await fetch(`http://localhost:8443/api/messages/text/${message.chatId}/${message.whapiToken}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: message.message })
+      });
+    }
+
+    
   }
   
 }
