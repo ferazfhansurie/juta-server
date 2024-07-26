@@ -39,6 +39,8 @@ require('events').defaultMaxListeners = 70;
 
 // Create a queue
 const messageQueue = new Queue('scheduled-messages', { connection });
+// Create a queue scheduler to handle delayed jobs
+const scheduler = new QueueScheduler('scheduled-messages', { connection });
 // Ensure this directory exists in your project
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
@@ -423,21 +425,32 @@ async function createUserInFirebase(userData) {
         scheduledMessage.scheduledTime.nanoseconds
       );
   
+       // Generate a unique ID for the message
+      const messageId = uuidv4();
+
       // Save to Firestore
-      const docRef = await db.collection('companies').doc(companyId).collection('scheduledMessages').add(scheduledMessage);
-  
+      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(scheduledMessage);
+
       // Calculate delay for the job
       const delay = scheduledMessage.scheduledTime.toDate().getTime() - Date.now();
-  
+
       // Add job to the queue
+      const jobOptions = { 
+        delay: Math.max(delay, 0),
+        jobId: messageId,
+        removeOnComplete: false,
+        removeOnFail: false
+      };
+
+      if (scheduledMessage.repeatInterval > 0) {
+        jobOptions.repeat = {
+          every: scheduledMessage.repeatInterval * getMillisecondsForUnit(scheduledMessage.repeatUnit)
+        };
+      }
+
       await messageQueue.add('send-message', 
-        { ...scheduledMessage, id: docRef.id }, 
-        { 
-          delay: Math.max(delay, 0),
-          repeat: scheduledMessage.repeatInterval > 0 ? {
-            every: scheduledMessage.repeatInterval * getMillisecondsForUnit(scheduledMessage.repeatUnit)
-          } : undefined
-        }
+        { ...scheduledMessage, id: messageId }, 
+        jobOptions
       );
   
       res.status(201).json({ id: docRef.id, message: 'Message scheduled successfully' });
@@ -456,22 +469,32 @@ async function createUserInFirebase(userData) {
     }
   }
 
-  // Worker to process jobs
+// Worker to process jobs
 const worker = new Worker('scheduled-messages', async job => {
   const message = job.data;
   
   try {
     await sendScheduledMessage(message);
     
-    // Delete the message from Firestore
-    await db.collection('companies').doc(message.companyId).collection('scheduledMessages').doc(message.id).delete();
-
-    console.log(`Message ${message.id} sent and deleted from Firestore`);
+    // Delete the message from Firestore only if it's not a repeating message
+    if (!message.repeatInterval) {
+      await db.collection('companies').doc(message.companyId).collection('scheduledMessages').doc(message.id).delete();
+      console.log(`One-time message ${message.id} sent and deleted from Firestore`);
+    } else {
+      console.log(`Repeating message ${message.id} sent`);
+    }
   } catch (error) {
     console.error('Error processing scheduled message:', error);
     throw error; // This will cause the job to be retried
   }
-}, { connection });
+}, { 
+  connection,
+  concurrency: 1, // Process one job at a time
+  limiter: {
+    max: 1,
+    duration: 1000 // Limit to one job per second
+  }
+});
 
 async function sendScheduledMessage(message) {
   console.log('Sending scheduled message:', message);
@@ -541,26 +564,41 @@ async function sendScheduledMessage(message) {
   
 }
 
-// Function to schedule all messages on server start
+// Modify the scheduleAllMessages function
 async function scheduleAllMessages() {
+  // Clear all existing jobs from the queue
+  await messageQueue.obliterate({ force: true });
+  console.log("Queue cleared successfully");
   const companiesSnapshot = await db.collection('companies').get();
 
   for (const companyDoc of companiesSnapshot.docs) {
-    const scheduledMessagesSnapshot = await companyDoc.ref.collection('scheduledMessages').where('status', '==', 'scheduled').get();
+    const scheduledMessagesSnapshot = await companyDoc.ref.collection('scheduledMessages').get();
 
     for (const doc of scheduledMessagesSnapshot.docs) {
       const message = doc.data();
       const delay = message.scheduledTime.toDate().getTime() - Date.now();
 
-      await messageQueue.add('send-message', 
-        { ...message, id: doc.id }, 
-        { 
-          delay: Math.max(delay, 0),
-          repeat: message.repeatInterval > 0 ? {
-            every: message.repeatInterval * getMillisecondsForUnit(message.repeatUnit)
-          } : undefined
-        }
-      );
+      const jobOptions = { 
+        delay: Math.max(delay, 0),
+        jobId: doc.id, // Use Firestore document ID as the job ID
+        removeOnComplete: false, // Keep the job in the completed set
+        removeOnFail: false // Keep the job in the failed set
+      };
+
+      if (message.repeatInterval > 0) {
+        jobOptions.repeat = {
+          every: message.repeatInterval * getMillisecondsForUnit(message.repeatUnit)
+        };
+      }
+
+      // Check if the job already exists in the queue
+      const existingJob = await messageQueue.getJob(doc.id);
+      if (!existingJob) {
+        await messageQueue.add('send-message', 
+          { ...message, id: doc.id }, 
+          jobOptions
+        );
+      }
     }
   }
 }
