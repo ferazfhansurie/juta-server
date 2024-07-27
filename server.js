@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { Client, LocalAuth, RemoteAuth} = require('whatsapp-web.js');
-const { Queue, Worker } = require('bullmq');
+const { Queue, Worker, QueueScheduler} = require('bullmq');
 const Redis = require('ioredis');
 //const qrcode = require('qrcode-terminal');
 const FirebaseWWebJS = require('./firebaseWweb.js');
@@ -39,8 +39,7 @@ require('events').defaultMaxListeners = 70;
 
 // Create a queue
 const messageQueue = new Queue('scheduled-messages', { connection });
-// Create a queue scheduler to handle delayed jobs
-const scheduler = new QueueScheduler('scheduled-messages', { connection });
+
 // Ensure this directory exists in your project
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
