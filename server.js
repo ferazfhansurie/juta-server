@@ -437,31 +437,40 @@ async function createUserInFirebase(userData) {
       const messageId = uuidv4();
 
       // Save to Firestore
-      const docRef = await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(scheduledMessage);
+      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(scheduledMessage);
 
       // Calculate delay for the job
       const delay = scheduledMessage.scheduledTime.toDate().getTime() - Date.now();
 
-      // Add job to the queue
-      const jobOptions = { 
-        delay: Math.max(delay, 0),
-        jobId: messageId,
+      // Base job options
+      const baseJobOptions = { 
         removeOnComplete: false,
         removeOnFail: false
       };
 
       if (scheduledMessage.repeatInterval > 0) {
-        jobOptions.repeat = {
+        baseJobOptions.repeat = {
           every: scheduledMessage.repeatInterval * getMillisecondsForUnit(scheduledMessage.repeatUnit)
         };
       }
 
-      await messageQueue.add('send-message', 
-        { ...scheduledMessage, id: messageId }, 
-        jobOptions
-      );
-  
-      res.status(201).json({ id: docRef.id, message: 'Message scheduled successfully' });
+      // Create a job for each chatId
+      for (let i = 0; i < scheduledMessage.chatIds.length; i++) {
+        const chatId = scheduledMessage.chatIds[i];
+        const jobId = `${messageId}_${i}`;
+        const jobOptions = {
+          ...baseJobOptions,
+          delay: Math.max(delay, 0),
+          jobId: jobId
+        };
+
+        await messageQueue.add('send-message', 
+          { ...scheduledMessage, id: jobId, chatId: chatId }, 
+          jobOptions
+        );
+      }
+
+      res.status(201).json({ id: messageId, message: 'Message scheduled successfully' });
     } catch (error) {
       console.error('Error scheduling message:', error);
       res.status(500).json({ error: 'Failed to schedule message' });
@@ -477,19 +486,19 @@ async function createUserInFirebase(userData) {
     }
   }
 
-// Worker to process jobs
+// Update the worker to process jobs
 const worker = new Worker('scheduled-messages', async job => {
   const message = job.data;
   
   try {
     await sendScheduledMessage(message);
     
-    // Delete the message from Firestore only if it's not a repeating message
-    if (!message.repeatInterval) {
-      await db.collection('companies').doc(message.companyId).collection('scheduledMessages').doc(message.id).delete();
-      console.log(`One-time message ${message.id} sent and deleted from Firestore`);
+    // Delete the message from Firestore only if it's not a repeating message and it's the last chatId
+    if (!message.repeatInterval && message.id.endsWith(`_${message.chatIds.length - 1}`)) {
+      await db.collection('companies').doc(message.companyId).collection('scheduledMessages').doc(message.id.split('_')[0]).delete();
+      console.log(`One-time message ${message.id.split('_')[0]} sent and deleted from Firestore`);
     } else {
-      console.log(`Repeating message ${message.id} sent`);
+      console.log(`Message ${message.id} sent`);
     }
   } catch (error) {
     console.error('Error processing scheduled message:', error);
@@ -497,10 +506,10 @@ const worker = new Worker('scheduled-messages', async job => {
   }
 }, { 
   connection,
-  concurrency: 1, // Process one job at a time
+  concurrency: 3, // Process up to 3 jobs at a time
   limiter: {
-    max: 1,
-    duration: 1000 // Limit to one job per second
+    max: 3,
+    duration: 1000 // Limit to 3 jobs per second
   }
 });
 
@@ -586,26 +595,35 @@ async function scheduleAllMessages() {
       const message = doc.data();
       const delay = message.scheduledTime.toDate().getTime() - Date.now();
 
-      const jobOptions = { 
-        delay: Math.max(delay, 0),
-        jobId: doc.id, // Use Firestore document ID as the job ID
-        removeOnComplete: false, // Keep the job in the completed set
-        removeOnFail: false // Keep the job in the failed set
+      const baseJobOptions = { 
+        removeOnComplete: false,
+        removeOnFail: false
       };
 
       if (message.repeatInterval > 0) {
-        jobOptions.repeat = {
+        baseJobOptions.repeat = {
           every: message.repeatInterval * getMillisecondsForUnit(message.repeatUnit)
         };
       }
 
-      // Check if the job already exists in the queue
-      const existingJob = await messageQueue.getJob(doc.id);
-      if (!existingJob) {
-        await messageQueue.add('send-message', 
-          { ...message, id: doc.id }, 
-          jobOptions
-        );
+      // Create a job for each chatId
+      for (let i = 0; i < message.chatIds.length; i++) {
+        const chatId = message.chatIds[i];
+        const jobId = `${doc.id}_${i}`;
+        const jobOptions = {
+          ...baseJobOptions,
+          delay: Math.max(delay, 0),
+          jobId: jobId
+        };
+
+        // Check if the job already exists in the queue
+        const existingJob = await messageQueue.getJob(jobId);
+        if (!existingJob) {
+          await messageQueue.add('send-message', 
+            { ...message, id: jobId, chatId: chatId }, 
+            jobOptions
+          );
+        }
       }
     }
   }
