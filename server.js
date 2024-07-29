@@ -477,6 +477,61 @@ async function createUserInFirebase(userData) {
     }
   });
 
+  app.put('/api/schedule-message/:companyId/:messageId', async (req, res) => {
+    const { companyId, messageId } = req.params;
+    const updatedMessage = req.body;
+  
+    try {
+      // 1. Delete the existing message from the queue
+      await messageQueue.removeJobs(messageId);
+  
+      // 2. Remove the message from Firebase
+      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).delete();
+  
+      // 3. Add the new message to Firebase
+      updatedMessage.createdAt = admin.firestore.Timestamp.now();
+      updatedMessage.scheduledTime = new admin.firestore.Timestamp(
+        updatedMessage.scheduledTime.seconds,
+        updatedMessage.scheduledTime.nanoseconds
+      );
+      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(updatedMessage);
+  
+      // 4. Add the new message to the queue
+      const delay = updatedMessage.scheduledTime.toDate().getTime() - Date.now();
+      const baseJobOptions = { 
+        removeOnComplete: false,
+        removeOnFail: false
+      };
+  
+      if (updatedMessage.repeatInterval > 0) {
+        baseJobOptions.repeat = {
+          every: updatedMessage.repeatInterval * getMillisecondsForUnit(updatedMessage.repeatUnit)
+        };
+      }
+  
+      // Create a job for each chatId
+      for (let i = 0; i < updatedMessage.chatIds.length; i++) {
+        const chatId = updatedMessage.chatIds[i];
+        const jobId = `${messageId}_${i}`;
+        const jobOptions = {
+          ...baseJobOptions,
+          delay: Math.max(delay, 0),
+          jobId: jobId
+        };
+  
+        await messageQueue.add('send-message', 
+          { ...updatedMessage, id: jobId, chatId: chatId }, 
+          jobOptions
+        );
+      }
+  
+      res.json({ message: 'Scheduled message updated successfully', id: messageId });
+    } catch (error) {
+      console.error('Error updating scheduled message:', error);
+      res.status(500).json({ error: 'Failed to update scheduled message' });
+    }
+  });
+
   function getMillisecondsForUnit(unit) {
     switch(unit) {
       case 'minutes': return 60 * 1000;
