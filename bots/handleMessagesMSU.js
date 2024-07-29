@@ -47,6 +47,59 @@ async function addNotificationToUser(companyId, message) {
         console.error('Error adding notification: ', error);
     }
 }
+async function getContactDataFromDatabaseByPhone(phoneNumber) {
+    try {
+        // Check if phoneNumber is defined
+        if (!phoneNumber) {
+            throw new Error("Phone number is undefined or null");
+        }
+
+        // Initial fetch of config
+        await fetchConfigFromDatabase();
+
+        let threadID;
+        let contactName;
+        let bot_status;
+        const contactsRef = db.collection('companies').doc('018').collection('contacts');
+        const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+
+        if (querySnapshot.empty) {
+            console.log('No matching documents.');
+            return null;
+        } else {
+            const doc = querySnapshot.docs[0];
+            const contactData = doc.data();
+            contactName = contactData.name;
+            threadID = contactData.thread_id;
+            bot_status = contactData.bot_status;
+
+           
+
+           
+
+
+            return { ...contactData};
+        }
+    } catch (error) {
+        console.error('Error fetching or updating document:', error);
+        throw error;
+    }
+}
+async function getChatMetadata(chatId,) {
+    const url = `https://gate.whapi.cloud/chats/${chatId}`;
+    const headers = {
+        'Authorization': `Bearer ${ghlConfig.whapiToken}`,
+        'Accept': 'application/json'
+    };
+
+    try {
+        const response = await axios.get(url, { headers });
+        return response.data;
+    } catch (error) {
+       // console.error('Error fetching chat metadata:', error.response.data);
+        throw error;
+    }
+}
 async function handleNewMessagesMSU(req, res) {
     try {
         console.log('Handling new messages from MSU...');
@@ -79,6 +132,12 @@ async function handleNewMessagesMSU(req, res) {
             const senderTo = sender.to;
             const extractedNumber = '+' + senderTo.match(/\d+/)[0];
             const contactPresent = await getContact(extractedNumber);
+            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
+            const chat = await getChatMetadata(message.chat_id);
+            let firebaseTags =[]
+            if(contactData){
+                firebaseTags=   contactData.tags??[];
+            }
             const idleTag = contactPresent.tags
             if (idleTag && idleTag.includes('idle')) {
                 await removeTagBookedGHL(contactPresent.id,'idle');
@@ -130,9 +189,68 @@ async function handleNewMessagesMSU(req, res) {
           
                 console.log('sent new contact to create new contact');
             }
+            
             if(message.text.body.toLowerCase().includes('cod') || message.text.body.toLowerCase().includes('bank in')){
                 await addtagbookedGHL(contactID, 'closed');
             }
+            let contactPresent2 = await getContact(extractedNumber);    
+            const stopTag = contactPresent2.tags;
+            const data = {
+                additionalEmails: [],
+                address1: null,
+                assignedTo: null,
+                businessId: null,
+                phone:extractedNumber,
+                tags:firebaseTags,
+                chat: {
+                    chat_pic: chat.chat_pic ?? "",
+                    chat_pic_full: chat.chat_pic_full ?? "",
+                    contact_id: contactPresent2.id,
+                    id: message.chat_id,
+                    name: contactPresent2.firstName,
+                    not_spam: true,
+                    tags:firebaseTags,
+                    timestamp: message.timestamp,
+                    type: 'contact',
+                    unreadCount: 0,
+                    last_message: {
+                        chat_id: chat.id,
+                        device_id: message.device_id ?? "",
+                        from: message.from ?? "",
+                        from_me: message.from_me ?? false,
+                        id: message.id ?? "",
+                        source: message.source ?? "",
+                        status: "delivered",
+                        text: message.text ?? "",
+                        timestamp: message.timestamp ?? 0,
+                        type: message.type ?? "",
+                    },
+                },
+                chat_id: message.chat_id,
+                chat_pic: chat.chat_pic ?? "",
+                chat_pic_full: chat.chat_pic_full ?? "",
+                city: null,
+                companyName: null,
+                contactName: chat.name??extractedNumber,
+                country: contactPresent2.country ?? "",
+                customFields: contactPresent2.customFields ?? {},
+                last_message: {
+                    chat_id: chat.id,
+                    device_id: message.device_id ?? "",
+                    from: message.from ?? "",
+                    from_me: message.from_me ?? false,
+                    id: message.id ?? "",
+                    source: message.source ?? "",
+                    status: "delivered",
+                    text: message.text ?? "",
+                    timestamp: message.timestamp ?? 0,
+                    type: message.type ?? "",
+                },
+            };
+                
+            await addNotificationToUser('021', message);
+            // Add the data to Firestore
+      await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data); 
             currentStep = userState.get(sender.to) || steps.START;
             switch (currentStep) {
                 case steps.START:
@@ -223,64 +341,7 @@ async function handleNewMessagesMSU(req, res) {
                     console.log('Response sent.');
                     await addtagbookedGHL(contactID, 'replied');
                     
-            let contactPresent2 = await getContact(extractedNumber);    
-            const stopTag = contactPresent2.tags;
-            const data = {
-                additionalEmails: [],
-                address1: null,
-                assignedTo: null,
-                businessId: null,
-                phone:extractedNumber,
-                tags:firebaseTags,
-                chat: {
-                    chat_pic: chat.chat_pic ?? "",
-                    chat_pic_full: chat.chat_pic_full ?? "",
-                    contact_id: contactPresent2.id,
-                    id: message.chat_id,
-                    name: contactPresent2.firstName,
-                    not_spam: true,
-                    tags:firebaseTags,
-                    timestamp: message.timestamp,
-                    type: 'contact',
-                    unreadCount: 0,
-                    last_message: {
-                        chat_id: chat.id,
-                        device_id: message.device_id ?? "",
-                        from: message.from ?? "",
-                        from_me: message.from_me ?? false,
-                        id: message.id ?? "",
-                        source: message.source ?? "",
-                        status: "delivered",
-                        text: message.text ?? "",
-                        timestamp: message.timestamp ?? 0,
-                        type: message.type ?? "",
-                    },
-                },
-                chat_id: message.chat_id,
-                chat_pic: chat.chat_pic ?? "",
-                chat_pic_full: chat.chat_pic_full ?? "",
-                city: null,
-                companyName: null,
-                contactName: chat.name??extractedNumber,
-                country: contactPresent2.country ?? "",
-                customFields: contactPresent2.customFields ?? {},
-                last_message: {
-                    chat_id: chat.id,
-                    device_id: message.device_id ?? "",
-                    from: message.from ?? "",
-                    from_me: message.from_me ?? false,
-                    id: message.id ?? "",
-                    source: message.source ?? "",
-                    status: "delivered",
-                    text: message.text ?? "",
-                    timestamp: message.timestamp ?? 0,
-                    type: message.type ?? "",
-                },
-            };
-               
-               await addNotificationToUser('021', message);
-               // Add the data to Firestore
-         await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data);  
+          
                     userState.set(sender.to, steps.START);
                     break;                
                 case steps.NEW_CONTACT:

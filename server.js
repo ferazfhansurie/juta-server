@@ -26,7 +26,7 @@ const path = require('path');
 const stream = require('stream');
 const { promisify } = require('util');
 const pipeline = promisify(stream.pipeline)
-
+const url = require('url');
 const botMap = new Map();
 // Redis connection
 const connection = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
@@ -55,8 +55,12 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
   return `/media/${uniqueFilename}`;
 }
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws,req) => {
     console.log('Client connected');
+    const{pathname} = url.parse(req.url);
+    const [,,email,companyId] = pathname.split('/');
+    ws.companyId = companyId;
+    console.log('client connected:'+ws.companyId);
     ws.on('close', () => {
       console.log('Client disconnected');
     });
@@ -82,9 +86,11 @@ wss.on('connection', (ws) => {
       }
     });
   }
+  const botStatusMap = new Map();
   function broadcastAuthStatus(botName, status, qrCode = null) {
+
     wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
+      if (client.readyState === WebSocket.OPEN && client.companyId === botName) {
         console.log('sent to clinet');
         client.send(JSON.stringify({ 
           type: 'auth_status', 
@@ -94,6 +100,7 @@ wss.on('connection', (ws) => {
         }));
       }
     });
+    botStatusMap.set(botName,status);
   }
   async function ghlToken(companyId) {
     try {
@@ -196,6 +203,7 @@ const { handleNewMessagesTasty} = require('./bots/handleMessagesTasty.js');
 const { handleNewMessagesTastyPuga} = require('./bots/handleMessagesPugaTasty.js');
 const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
+const { handleNewMessagesApel} = require('./bots/handleMessagesApel.js');
 const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
 const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js');
 const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb.js');
@@ -229,6 +237,7 @@ app.post('/sunz/hook/messages', handleNewMessagesSunz);
 app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/cnb/hook/messages', handleNewMessagesCNB);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
+app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 
@@ -428,7 +437,7 @@ async function createUserInFirebase(userData) {
       const messageId = uuidv4();
 
       // Save to Firestore
-      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(scheduledMessage);
+      const docRef = await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(scheduledMessage);
 
       // Calculate delay for the job
       const delay = scheduledMessage.scheduledTime.toDate().getTime() - Date.now();
