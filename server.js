@@ -482,8 +482,13 @@ async function createUserInFirebase(userData) {
     const updatedMessage = req.body;
   
     try {
-      // 1. Delete the existing message from the queue
-      await messageQueue.removeJobs(messageId);
+      // 1. Delete the existing messages from the queue
+      const jobs = await messageQueue.getJobs(['active', 'waiting', 'delayed', 'paused']);
+      for (const job of jobs) {
+        if (job.id.startsWith(messageId)) {
+          await job.remove();
+        }
+      }
   
       // 2. Remove the message from Firebase
       await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).delete();
