@@ -22,6 +22,31 @@ const userState = new Map();
 async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
+async function addNotificationToUser(companyId, message) {
+    console.log('noti');
+    try {
+        // Find the user with the specified companyId
+        const usersRef = db.collection('user');
+        const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
+
+        if (querySnapshot.empty) {
+            console.log('No matching documents.');
+            return;
+        }
+
+        // Add the new message to the notifications subcollection of the user's document
+        querySnapshot.forEach(async (doc) => {
+            const userRef = doc.ref;
+            const notificationsRef = userRef.collection('notifications');
+            const updatedMessage = { ...message, read: false };
+        
+            await notificationsRef.add(updatedMessage);
+            console.log(`Notification ${message} added to user with companyId: ${companyId}`);
+        });
+    } catch (error) {
+        console.error('Error adding notification: ', error);
+    }
+}
 async function handleNewMessagesMSU(req, res) {
     try {
         console.log('Handling new messages from MSU...');
@@ -197,7 +222,65 @@ async function handleNewMessagesMSU(req, res) {
                     }
                     console.log('Response sent.');
                     await addtagbookedGHL(contactID, 'replied');
-
+                    
+            let contactPresent2 = await getContact(extractedNumber);    
+            const stopTag = contactPresent2.tags;
+            const data = {
+                additionalEmails: [],
+                address1: null,
+                assignedTo: null,
+                businessId: null,
+                phone:extractedNumber,
+                tags:firebaseTags,
+                chat: {
+                    chat_pic: chat.chat_pic ?? "",
+                    chat_pic_full: chat.chat_pic_full ?? "",
+                    contact_id: contactPresent2.id,
+                    id: message.chat_id,
+                    name: contactPresent2.firstName,
+                    not_spam: true,
+                    tags:firebaseTags,
+                    timestamp: message.timestamp,
+                    type: 'contact',
+                    unreadCount: 0,
+                    last_message: {
+                        chat_id: chat.id,
+                        device_id: message.device_id ?? "",
+                        from: message.from ?? "",
+                        from_me: message.from_me ?? false,
+                        id: message.id ?? "",
+                        source: message.source ?? "",
+                        status: "delivered",
+                        text: message.text ?? "",
+                        timestamp: message.timestamp ?? 0,
+                        type: message.type ?? "",
+                    },
+                },
+                chat_id: message.chat_id,
+                chat_pic: chat.chat_pic ?? "",
+                chat_pic_full: chat.chat_pic_full ?? "",
+                city: null,
+                companyName: null,
+                contactName: chat.name??extractedNumber,
+                country: contactPresent2.country ?? "",
+                customFields: contactPresent2.customFields ?? {},
+                last_message: {
+                    chat_id: chat.id,
+                    device_id: message.device_id ?? "",
+                    from: message.from ?? "",
+                    from_me: message.from_me ?? false,
+                    id: message.id ?? "",
+                    source: message.source ?? "",
+                    status: "delivered",
+                    text: message.text ?? "",
+                    timestamp: message.timestamp ?? 0,
+                    type: message.type ?? "",
+                },
+            };
+               
+               await addNotificationToUser('021', message);
+               // Add the data to Firestore
+         await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data);  
                     userState.set(sender.to, steps.START);
                     break;                
                 case steps.NEW_CONTACT:
