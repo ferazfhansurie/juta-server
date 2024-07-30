@@ -467,7 +467,6 @@ async function checkingStatus(threadId, runId) {
     );
     const status = runObject.status; 
     if(status == 'completed') {
-        clearInterval(pollingInterval);
         try{
             const messagesList = await openai.beta.threads.messages.list(threadId);
             const latestMessage = messagesList.body.data[0].content;
@@ -478,9 +477,10 @@ async function checkingStatus(threadId, runId) {
             return answer;
         } catch(error){
             console.log("error from handleNewMessageswwebjs: "+error)
+            throw error;
         }
-        
     }
+    return null; // Return null if not completed
 }
 
 async function waitForCompletion(threadId, runId) {
