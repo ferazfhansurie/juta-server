@@ -85,7 +85,7 @@ const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
 
 async function handleNewMessagesTemplateWweb(client, msg, botName) {
-    console.log('DEBUG: handleNewMessagesTemplateWweb function called', msg);
+    console.log('Handling new Messages '+botName);
 
     //const url=req.originalUrl
 
@@ -97,13 +97,11 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
     //const idSubstring = url.substring(firstSlash + 1, secondSlash);
     const idSubstring = botName;
     try {
-        console.log('Handling new messages from Template...');
 
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring);
 
         //const receivedMessages = req.body.messages;
-            console.log('MESSAGE RECEIVED', msg);
             if (msg.fromMe){
                 return;
             }
@@ -297,10 +295,30 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                         if (part) {
                             //await addtagbookedGHL(contactID, 'idle');
                             //await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            client.sendMessage(msg.from, part);
+                            const sentMessage = client.sendMessage(msg.from, part);
 
-                            
-                            if (check.includes('patience')) {
+                            // Save the message to Firebase
+                            const messageData = {
+                                chat_id: sentMessage.from,
+                                from: sentMessage.from ?? "",
+                                from_me: true,
+                                id: sentMessage.id._serialized ?? "",
+                                source: sentMessage.deviceType ?? "",
+                                status: "delivered",
+                                text: {
+                                    body: part
+                                },
+                                timestamp: sentMessage.timestamp ?? 0,
+                                type: 'text',
+                                ack: sentMessage.ack ?? 0,
+                            };
+
+                            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+                            const messagesRef = contactRef.collection('messages');
+
+                            const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+                            await messageDoc.set(messageData, { merge: true });
+                                            if (check.includes('patience')) {
                                 //await addtagbookedGHL(contactID, 'stop bot');
                             } 
                             if(check.includes('get back to you as soon as possible')){
