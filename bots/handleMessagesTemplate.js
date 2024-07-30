@@ -114,7 +114,9 @@ async function handleNewMessagesTemplate(req, res) {
             const extractedNumber = '+' + senderTo.match(/\d+/)[0];
             const chat = await getChatMetadata(message.chat_id);
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
-            
+            if(chat.isGroup){
+                return;
+            }
             console.log(contactData);
             if (contactData !== null) {
                 const stopTag = contactData.tags;

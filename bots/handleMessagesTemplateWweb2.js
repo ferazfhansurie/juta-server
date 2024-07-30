@@ -113,6 +113,9 @@ async function handleNewMessagesTemplateWweb2(client, msg) {
             let currentStep;
             const extractedNumber = '+'+(sender.to).split('@')[0];
             const chat = await msg.getChat();
+            if(chat.isGroup){
+                return;
+            }
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             
             console.log(contactData);
