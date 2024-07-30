@@ -80,6 +80,10 @@ async function getChatMetadata(chatId,) {
     }
 }
 
+const messageQueue = new Map();
+const MAX_QUEUE_SIZE = 5;
+const RATE_LIMIT_DELAY = 5000; // 5 seconds
+
 async function handleNewMessagesTemplateWweb(client, msg, botName) {
     console.log('DEBUG: handleNewMessagesTemplateWweb function called', msg);
 
@@ -481,13 +485,24 @@ async function checkingStatus(threadId, runId) {
 
 async function waitForCompletion(threadId, runId) {
     return new Promise((resolve, reject) => {
-        pollingInterval = setInterval(async () => {
-            const answer = await checkingStatus(threadId, runId);
-            if (answer) {
+        const maxAttempts = 30; // Maximum number of attempts
+        let attempts = 0;
+        const pollingInterval = setInterval(async () => {
+            attempts++;
+            try {
+                const answer = await checkingStatus(threadId, runId);
+                if (answer) {
+                    clearInterval(pollingInterval);
+                    resolve(answer);
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(pollingInterval);
+                    reject(new Error("Timeout: Assistant did not complete in time"));
+                }
+            } catch (error) {
                 clearInterval(pollingInterval);
-                resolve(answer);
+                reject(error);
             }
-        }, 1000);
+        }, 2000); // Poll every 2 seconds
     });
 }
 

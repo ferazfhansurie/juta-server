@@ -537,6 +537,51 @@ async function createUserInFirebase(userData) {
     }
   });
 
+  // New route for syncing contacts
+  app.post('/api/sync-contacts/:companyId', async (req, res) => {
+    const { companyId } = req.params;
+    
+    try {
+      const botData = botMap.get(companyId);
+      if (!botData || !botData.client) {
+        return res.status(404).json({ error: 'WhatsApp client not found for this company' });
+      }
+      
+      const client = botData.client;
+      await syncContacts(client, companyId);
+      
+      res.json({ success: true, message: 'Contact synchronization started' });
+    } catch (error) {
+      console.error(`Error starting contact sync for ${companyId}:`, error);
+      res.status(500).json({ error: 'Failed to start contact synchronization' });
+    }
+  });
+
+  async function syncContacts(client, companyId) {
+    try {
+      const chats = await client.getChats();
+      const totalChats = chats.length;
+      let processedChats = 0;
+  
+      for (const chat of chats) {
+        if (chat.isGroup) {
+          processedChats++;
+          continue;
+        }
+        const contact = await chat.getContact();
+        await saveContactWithRateLimit(companyId, contact, chat);
+        processedChats++;
+        
+        // Send overall progress update
+        broadcastProgress(companyId, 'syncing_contacts', processedChats / totalChats);
+      }
+      console.log(`Finished syncing contacts for company ${companyId}`);
+      broadcastProgress(companyId, 'syncing_contacts', 1); // 100% complete
+    } catch (error) {
+      console.error(`Error syncing contacts for company ${companyId}:`, error);
+      broadcastProgress(companyId, 'syncing_contacts', -1); // Indicate error
+    }
+  }
   function getMillisecondsForUnit(unit) {
     switch(unit) {
       case 'minutes': return 60 * 1000;
@@ -734,13 +779,13 @@ if(msg == {}){
             assignedTo: null,
             businessId: null,
             phone: phoneNumber,
-            tags: [],
+            tags:null,
             chat: {
                 contact_id: phoneNumber,
                 id: msg.from || contact.id.user + '@c.us',
                 name: contact.name || contact.pushname || phoneNumber,
                 not_spam: true,
-                tags: [], // You might want to populate this with actual tags if available
+                tags: null, // You might want to populate this with actual tags if available
                 timestamp: chat.timestamp || Date.now(),
                 type: 'contact',
                 unreadCount: chat.unreadCount || 0,
@@ -936,7 +981,6 @@ async function initializeBot(botName, retryCount = 0) {
             console.log(`${botName} - READY`);
             botMap.set(botName, { client, status: 'ready', qrCode: null });
             setupMessageHandler(client, botName);
-            await processChats(client, botName);
         });
 
         client.on('auth_failure', msg => {
