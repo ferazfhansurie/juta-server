@@ -778,10 +778,10 @@ if(msg == {}){
             address1: null,
             assignedTo: null,
             businessId: null,
-            phone: phoneNumber,
+            phone: '+'+phoneNumber,
             tags:['stop bot'],
             chat: {
-                contact_id: phoneNumber,
+                contact_id: '+'+phoneNumber,
                 id: msg.from || contact.id.user + '@c.us',
                 name: contact.name || contact.pushname || phoneNumber,
                 not_spam: true,
