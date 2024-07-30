@@ -181,7 +181,7 @@ async function handleNewMessagesTasty(req, res) {
             let currentStep;
             const senderTo = sender.to;
             const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-            let contactPresent = await getContact(extractedNumber);faf
+            let contactPresent = await getContact(extractedNumber);
 
             const chat = await getChatMetadata(message.chat_id);
          
