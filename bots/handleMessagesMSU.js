@@ -624,30 +624,71 @@ async function runAssistant(assistantID,threadId) {
     const answer = await waitForCompletion(threadId, runId);
     return answer;
 }
-
 const rateLimitMap = new Map();
+const messageQueue = new Map();
+const processingThreads = new Set();
 
 async function handleOpenAIAssistant(message, threadID) {
     const assistantId = 'asst_tqVuJyl8gR1ZmV7OdBdQBNEF';
     
-    // Check if we've made a request for this threadID recently
-    const lastRequestTime = rateLimitMap.get(threadID) || 0;
-    const currentTime = Date.now();
-    const timeSinceLastRequest = currentTime - lastRequestTime;
+    // Add message to queue
+    if (!messageQueue.has(threadID)) {
+        messageQueue.set(threadID, []);
+    }
+    messageQueue.get(threadID).push(message);
 
-    // If less than 5 seconds have passed since the last request, wait
-    if (timeSinceLastRequest < 5000) {
-        console.log(`Rate limiting: Waiting ${5000 - timeSinceLastRequest}ms before next request for threadID ${threadID}`);
-        await new Promise(resolve => setTimeout(resolve, 5000 - timeSinceLastRequest));
+    // If the thread is already being processed, return a promise that will resolve when it's this message's turn
+    if (processingThreads.has(threadID)) {
+        return new Promise((resolve) => {
+            const checkQueue = setInterval(() => {
+                if (messageQueue.get(threadID)[0] === message) {
+                    clearInterval(checkQueue);
+                    resolve(processQueue(threadID, assistantId));
+                }
+            }, 100);
+        });
     }
 
-    // Update the last request time for this threadID
-    rateLimitMap.set(threadID, Date.now());
-
-    await addMessage(threadID, message);
-    const answer = await runAssistant(assistantId, threadID);
-    return answer;
+    // If the thread is not being processed, start processing
+    processingThreads.add(threadID);
+    return processQueue(threadID, assistantId);
 }
+
+async function processQueue(threadID, assistantId) {
+    while (messageQueue.get(threadID).length > 0) {
+        const currentMessage = messageQueue.get(threadID)[0];
+        
+        // Check if we've made a request for this threadID recently
+        const lastRequestTime = rateLimitMap.get(threadID) || 0;
+        const currentTime = Date.now();
+        const timeSinceLastRequest = currentTime - lastRequestTime;
+
+        // If less than 5 seconds have passed since the last request, wait
+        if (timeSinceLastRequest < 5000) {
+            const waitTime = 5000 - timeSinceLastRequest;
+            //console.log(Rate limiting: Waiting ${waitTime}ms before next request for threadID ${threadID});
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
+        // Update the last request time for this threadID
+        rateLimitMap.set(threadID, Date.now());
+
+        await addMessage(threadID, currentMessage);
+        const answer = await runAssistant(assistantId, threadID);
+
+        // Remove processed message from queue
+        messageQueue.get(threadID).shift();
+
+        // If this was the last message in the queue, remove the thread from processing
+        if (messageQueue.get(threadID).length === 0) {
+            processingThreads.delete(threadID);
+        }
+
+        // Return answer for the current message
+        return answer;
+    }
+}
+
 
 async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
     console.log('Sending request to Whapi.Cloud...');
