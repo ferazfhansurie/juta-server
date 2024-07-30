@@ -941,72 +941,72 @@ if(msg == {}){
     }
 }
 
-async function initializeBot(botName, retryCount = 0) {
-    const maxRetries = 3;
-    const retryDelay = 5000; // 5 seconds
+// async function initializeBot(botName, retryCount = 0) {
+//     const maxRetries = 3;
+//     const retryDelay = 5000; // 5 seconds
 
-    try {
-        console.log(`DEBUG: Starting initialization for ${botName}`);
-        const client = new Client({
-            authStrategy: new LocalAuth({
-                clientId: botName,
-            }),
-            puppeteer: { 
-                args: ['--no-sandbox', '--disable-setuid-sandbox'],
-                headless: true,
-                timeout: 60000 // 60 seconds timeout
-            }
-        });
-        botMap.set(botName, { client, status: 'initializing', qrCode: null });
+//     try {
+//         console.log(`DEBUG: Starting initialization for ${botName}`);
+//         const client = new Client({
+//             authStrategy: new LocalAuth({
+//                 clientId: botName,
+//             }),
+//             puppeteer: { 
+//                 args: ['--no-sandbox', '--disable-setuid-sandbox'],
+//                 headless: true,
+//                 timeout: 60000 // 60 seconds timeout
+//             }
+//         });
+//         botMap.set(botName, { client, status: 'initializing', qrCode: null });
 
-        // Set up event listeners
-        client.on('qr', async (qr) => {
-            console.log(`${botName} - QR RECEIVED`);
-            try {
-                const qrCodeData = await qrcode.toDataURL(qr);
-                botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
-                broadcastAuthStatus(botName, 'qr', qrCodeData);
-            } catch (err) {
-                console.error(`Error generating QR code for ${botName}:`, err);
-            }
-        });
+//         // Set up event listeners
+//         client.on('qr', async (qr) => {
+//             console.log(`${botName} - QR RECEIVED`);
+//             try {
+//                 const qrCodeData = await qrcode.toDataURL(qr);
+//                 botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
+//                 broadcastAuthStatus(botName, 'qr', qrCodeData);
+//             } catch (err) {
+//                 console.error(`Error generating QR code for ${botName}:`, err);
+//             }
+//         });
 
-        client.on('authenticated', () => {
-            console.log(`${botName} - AUTHENTICATED`);
-            botMap.set(botName, { client, status: 'authenticated', qrCode: null });
-            broadcastAuthStatus(botName, 'authenticated');
-        });
+//         client.on('authenticated', () => {
+//             console.log(`${botName} - AUTHENTICATED`);
+//             botMap.set(botName, { client, status: 'authenticated', qrCode: null });
+//             broadcastAuthStatus(botName, 'authenticated');
+//         });
 
-        client.on('ready', async () => {
-            console.log(`${botName} - READY`);
-            botMap.set(botName, { client, status: 'ready', qrCode: null });
-            setupMessageHandler(client, botName);
-        });
+//         client.on('ready', async () => {
+//             console.log(`${botName} - READY`);
+//             botMap.set(botName, { client, status: 'ready', qrCode: null });
+//             setupMessageHandler(client, botName);
+//         });
 
-        client.on('auth_failure', msg => {
-            console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
-            botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
-        });
+//         client.on('auth_failure', msg => {
+//             console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
+//             botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
+//         });
 
-        client.on('disconnected', (reason) => {
-            console.log(`${botName} - DISCONNECTED:`, reason);
-            botMap.set(botName, { client, status: 'disconnected', qrCode: null });
-        });
+//         client.on('disconnected', (reason) => {
+//             console.log(`${botName} - DISCONNECTED:`, reason);
+//             botMap.set(botName, { client, status: 'disconnected', qrCode: null });
+//         });
 
-        await client.initialize();
-        console.log(`DEBUG: Bot ${botName} initialized successfully`);
-    } catch (error) {
-        console.error(`Error initializing bot ${botName}:`, error);
-        botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
+//         await client.initialize();
+//         console.log(`DEBUG: Bot ${botName} initialized successfully`);
+//     } catch (error) {
+//         console.error(`Error initializing bot ${botName}:`, error);
+//         botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
         
-        if (retryCount < maxRetries) {
-            console.log(`Retrying initialization for ${botName} in ${retryDelay / 1000} seconds...`);
-            setTimeout(() => initializeBot(botName, retryCount + 1), retryDelay);
-        } else {
-            console.error(`Failed to initialize ${botName} after ${maxRetries} attempts`);
-        }
-    }
-}
+//         if (retryCount < maxRetries) {
+//             console.log(`Retrying initialization for ${botName} in ${retryDelay / 1000} seconds...`);
+//             setTimeout(() => initializeBot(botName, retryCount + 1), retryDelay);
+//         } else {
+//             console.error(`Failed to initialize ${botName} after ${maxRetries} attempts`);
+//         }
+//     }
+// }
 
 async function processChats(client, botName) {
     try {
@@ -1937,27 +1937,27 @@ async function initializeBot(botName) {
             botMap.set(botName, { client, status: 'ready', qrCode: null });
             setupMessageHandler(client, botName);
 
-            try {
-                const chats = await client.getChats();
-                const totalChats = chats.length;
-                let processedChats = 0;
+            // try {
+            //     const chats = await client.getChats();
+            //     const totalChats = chats.length;
+            //     let processedChats = 0;
 
-                for (const chat of chats) {
-                    if (chat.isGroup) {
-                        processedChats++;
-                        continue;
-                    }
-                    const contact = await chat.getContact();
-                    await saveContactWithRateLimit(botName, contact, chat);
-                    processedChats++;
+            //     for (const chat of chats) {
+            //         if (chat.isGroup) {
+            //             processedChats++;
+            //             continue;
+            //         }
+            //         const contact = await chat.getContact();
+            //         await saveContactWithRateLimit(botName, contact, chat);
+            //         processedChats++;
                     
-                    // Send overall progress update
-                    broadcastProgress(botName, 'processing_chats', processedChats / totalChats);
-                }
-                console.log(`Finished saving contacts for bot ${botName}`);
-            } catch (error) {
-                console.error(`Error processing chats for bot ${botName}:`, error);
-            }
+            //         // Send overall progress update
+            //         broadcastProgress(botName, 'processing_chats', processedChats / totalChats);
+            //     }
+            //     console.log(`Finished saving contacts for bot ${botName}`);
+            // } catch (error) {
+            //     console.error(`Error processing chats for bot ${botName}:`, error);
+            // }
         });
 
         client.on('auth_failure', msg => {
