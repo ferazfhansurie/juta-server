@@ -779,13 +779,13 @@ if(msg == {}){
             assignedTo: null,
             businessId: null,
             phone: phoneNumber,
-            tags:null,
+            tags:['stop bot'],
             chat: {
                 contact_id: phoneNumber,
                 id: msg.from || contact.id.user + '@c.us',
                 name: contact.name || contact.pushname || phoneNumber,
                 not_spam: true,
-                tags: null, // You might want to populate this with actual tags if available
+                tags: ['stop bot'], // You might want to populate this with actual tags if available
                 timestamp: chat.timestamp || Date.now(),
                 type: 'contact',
                 unreadCount: chat.unreadCount || 0,
