@@ -295,10 +295,10 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                         if (part) {
                             //await addtagbookedGHL(contactID, 'idle');
                             //await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            const sentMessage = client.sendMessage(msg.from, part);
+                            const sentMessage = await client.sendMessage(msg.from, part);
 
                             // Save the message to Firebase
-                            const messageData = {
+                            const sentMessageData = {
                                 chat_id: sentMessage.from,
                                 from: sentMessage.from ?? "",
                                 from_me: true,
@@ -313,11 +313,9 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                                 ack: sentMessage.ack ?? 0,
                             };
 
-                            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-                            const messagesRef = contactRef.collection('messages');
-
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
-                            await messageDoc.set(messageData, { merge: true });
+
+                            await messageDoc.set(sentMessageData, { merge: true });
                                             if (check.includes('patience')) {
                                 //await addtagbookedGHL(contactID, 'stop bot');
                             } 
