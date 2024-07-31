@@ -238,6 +238,9 @@ async function handleNewMessagesApplyRadar(req, res) {
                         'tenaga nasional': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2FUNITEN%20Campus%20Tour.mp4?alt=media&token=7aa4dff3-53e2-46c7-989a-b8af0b008287',
                         'uniten': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2FUNITEN%20Campus%20Tour.mp4?alt=media&token=7aa4dff3-53e2-46c7-989a-b8af0b008287',
                         'segi': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2FSEGi%20Campus%20Tour.mp4?alt=media&token=ed72c7bb-d7ef-43e8-9fc5-1b26375e79a1',
+                        'inti': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2Finti.mp4?alt=media&token=f6208fe6-10eb-4e33-91ee-eb116f0fe377',
+                        'apu': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2Fapu%20video.mp4?alt=media&token=d058e05c-5481-425e-a9f1-a03e65d51739',
+                        'asia pacific': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2Fapu%20video.mp4?alt=media&token=d058e05c-5481-425e-a9f1-a03e65d51739',
                     };
                     answer= await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
