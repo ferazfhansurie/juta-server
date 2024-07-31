@@ -1,9 +1,11 @@
 // handleMessagesMSU.js
 const OpenAI = require('openai');
 const axios = require('axios').default;
-
+const path = require('path');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
+const fs = require('fs');
+
 const db = admin.firestore();
 
 let ghlConfig = {};
@@ -190,11 +192,10 @@ async function handleNewMessagesMSU(req, res) {
                 console.log('sent new contact to create new contact');
             }
             
-            if(message.text.body.toLowerCase().includes('cod') || message.text.body.toLowerCase().includes('bank in')){
-                await addtagbookedGHL(contactID, 'closed');
-            }
+            
             let contactPresent2 = await getContact(extractedNumber);    
             const stopTag = contactPresent2.tags;
+            console.log(message)
             const data = {
                 additionalEmails: [],
                 address1: null,
@@ -251,10 +252,18 @@ async function handleNewMessagesMSU(req, res) {
             await addNotificationToUser('021', message);
             // Add the data to Firestore
       await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data); 
+      
             currentStep = userState.get(sender.to) || steps.START;
             switch (currentStep) {
                 case steps.START:
                     if(message.type === 'text'){
+                        if (message.text.body.includes('/resetbot')) {
+                            const thread = await createThread();
+                            threadID = thread.id;
+                            await saveThreadIDGHL(contactID,threadID);
+                            await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+                            break;
+                        }
                         query = `${message.text.body} user_name: ${contactName}`;
                         const brochureFilePaths = {
                             'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
@@ -350,7 +359,6 @@ async function handleNewMessagesMSU(req, res) {
                             link: message.document.link,
                             caption: message.document.caption
                         };
-                        await addMessage(threadID, `Document received: ${documentDetails.file_name}`, documentDetails);
                         answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
                         
 
@@ -358,7 +366,8 @@ async function handleNewMessagesMSU(req, res) {
                         for (let i = 0; i < parts.length; i++) {
                             const part = parts[i].trim();
                             if (part) {
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: part });
+                                const cleanedPart = await removeTextInsideDelimiters(part)
+                                await sendWhapiRequest('messages/text', { to: sender.to, body: cleanedPart });
                             }
                         }
                     }else {
@@ -468,7 +477,33 @@ async function removeTagBookedGHL(contactID, tag) {
         console.error('Error removing tag from contact:', error);
     }
 }
+async function downloadFile(fileUrl, outputLocationPath) {
+    const writer = fs.createWriteStream(outputLocationPath);
+    const response = await axios({
+        url: fileUrl,
+        method: 'GET',
+        responseType: 'stream'
+    });
 
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+        writer.on('finish', resolve);
+        writer.on('error', reject);
+    });
+}
+async function uploadFile(filePath, purpose) {
+    try {
+        const response = await openai.files.create({
+            file: fs.createReadStream(filePath),
+            purpose: purpose
+        });
+        return response;
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        throw error;
+    }
+}
 async function addtagbookedGHL(contactID, tag) {
     const contact = await getContactById(contactID);
     const previousTags = contact.tags || [];
@@ -499,15 +534,35 @@ async function createThread() {
     return thread;
 }
 
-async function addMessage(threadId, message) {
+async function addMessage(threadId, message, documentDetails = null) {
     console.log('Adding a new message to thread: ' + threadId);
-    const response = await openai.beta.threads.messages.create(
-        threadId,
-        {
-            role: "user",
-            content: message
-        }
-    );
+
+    const requestBody = {
+        role: "user",
+        content: message
+    };
+
+    if (documentDetails) {
+        const fileExtension = path.extname(documentDetails.file_name);
+        const tempFilePath = path.join(__dirname, `tempfile${fileExtension}`);
+        await downloadFile(documentDetails.link, tempFilePath);
+        const uploadedFile = await uploadFile(tempFilePath, 'assistants');
+        requestBody.attachments = [
+            {
+                file_id: uploadedFile.id,
+                tools: [
+                    {
+                        type: "file_search",
+                    }
+                ]
+            }
+        ];
+
+        // Clean up the downloaded file
+        fs.unlinkSync(tempFilePath);
+    }
+
+    const response = await openai.beta.threads.messages.create(threadId, requestBody);
     return response;
 }
 
@@ -651,6 +706,24 @@ async function runAssistant(assistantID,threadId) {
     const answer = await waitForCompletion(threadId, runId);
     return answer;
 }
+
+async function runAssistantFile(assistantID,threadId) {
+    console.log('Running assistant for thread: ' + threadId);
+    const response = await openai.beta.threads.runs.create(
+        threadId,
+        {
+            assistant_id: assistantID,
+            instructions: "The file you just received is a document containing my examination results. Please check my eligibility for MSU based on the results."
+        }
+    );
+
+    const runId = response.id;
+    console.log('Run ID:', runId);
+
+    const answer = await waitForCompletion(threadId, runId);
+    return answer;
+}
+
 const rateLimitMap = new Map();
 const messageQueue = new Map();
 const processingThreads = new Set();
@@ -684,7 +757,7 @@ async function handleOpenAIAssistant(message, threadID) {
 async function handleOpenAIAssistantFile(message, threadID, documentDetails = null) {
     const assistantId = 'asst_tqVuJyl8gR1ZmV7OdBdQBNEF';
     await addMessage(threadID, message, documentDetails);
-    const answer = await runAssistant(assistantId, threadID);
+    const answer = await runAssistantFile(assistantId, threadID);
     return answer;
 }
 
