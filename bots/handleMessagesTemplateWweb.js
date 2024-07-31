@@ -316,7 +316,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
 
                             await messageDoc.set(sentMessageData, { merge: true });
-                                            if (check.includes('patience')) {
+                            if (check.includes('patience')) {
                                 //await addtagbookedGHL(contactID, 'stop bot');
                             } 
                             if(check.includes('get back to you as soon as possible')){
