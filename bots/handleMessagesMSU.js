@@ -254,89 +254,116 @@ async function handleNewMessagesMSU(req, res) {
             currentStep = userState.get(sender.to) || steps.START;
             switch (currentStep) {
                 case steps.START:
-                    
-                    query = `${message.text.body} user_name: ${contactName}`;
-                    const brochureFilePaths = {
-                        'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
-                        'Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
-                        'Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
-                        'Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
-                        'Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
-                        'Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
-                        'Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
-                        'Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                        'Information Science': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                        'Engineering': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                        'Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
-                        'Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                        'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
-                    };
-                    answer = await handleOpenAIAssistant(query,threadID);
-                    parts = answer.split(/\s*\|\|\s*/);
-                    for (let i = 0; i < parts.length; i++) {
-                        const part = parts[i].trim();                
-                        if (part) {
-                            if(part.includes("【"))
-                            {
-                                const cleanedPart = await removeTextInsideDelimiters(part)
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: cleanedPart });
-                                if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
-                                    console.log('sending vid');
-                                    const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
-                                    // Send the video
-                                    await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
-                                }    
-                                if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
-                                    const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
-                                    // Send the video
-                                    await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
-                                }
-                                for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-                                    if (part.includes(key) && part.includes("Brochure")) {
-                                        console.log(`${key} sending file, ${filePath}`);
-                                        await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
-                                        break;
+                    if(message.type === 'text'){
+                        query = `${message.text.body} user_name: ${contactName}`;
+                        const brochureFilePaths = {
+                            'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
+                            'Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
+                            'Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+                            'Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+                            'Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
+                            'Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+                            'Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+                            'Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                            'Information Science': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                            'Engineering': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                            'Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+                            'Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+                            'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+                        };
+                        answer = await handleOpenAIAssistant(query,threadID);
+                        parts = answer.split(/\s*\|\|\s*/);
+                        for (let i = 0; i < parts.length; i++) {
+                            const part = parts[i].trim();                
+                            if (part) {
+                                if(part.includes("【"))
+                                {
+                                    const cleanedPart = await removeTextInsideDelimiters(part)
+                                    await sendWhapiRequest('messages/text', { to: sender.to, body: cleanedPart });
+                                    if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
+                                        console.log('sending vid');
+                                        const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
+                                        // Send the video
+                                        await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
+                                    }    
+                                    if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
+                                        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
+                                        // Send the video
+                                        await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
                                     }
-                                }      
-                            }else{
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                                if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
-                                    console.log('sending vid');
-                                    const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
-                                    // Send the video
-                                    await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
-                                }    
-                                if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
-                                    const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
-                                    // Send the video
-                                    await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
-                                }
-                                if(part.includes('enjoy reading about the exciting')){
-                                    // Add 'idle' tag to GHL
-                                    await addtagbookedGHL(contactID, 'idle');
-                                    
-                                    // Start a timer for 1 hour
-                                    setTimeout(async () => {
-                                        // Check if the 'idle' tag is still present after 1 hour
-                                        const contactPresent = await getContact(extractedNumber);
-                                        const idleTags = contactPresent.tags
-                                        if (idleTags && idleTags.includes('idle')) {
-                                            // If 'idle' tag is still present, you can perform additional actions here
-                                            console.log(`User ${contactID} has been idle for 1 hour`);
-                                            await sendWhapiRequest('messages/text', { to: sender.to, body: "Would you like to check out our cool campus tour? It's got top-notch facilities and amazing student life." });
-
+                                    for (const [key, filePath] of Object.entries(brochureFilePaths)) {
+                                        if (part.includes(key) && part.includes("Brochure")) {
+                                            console.log(`${key} sending file, ${filePath}`);
+                                            await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
+                                            break;
                                         }
-                                    }, 60 * 60 * 1000); // 1 hour in milliseconds
-                                }
-                                for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-                                    if (part.includes(key) && part.includes("Brochure")) {
-                                        console.log(`${key} sending file, ${filePath}`);
-                                        await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
-                                        break;
+                                    }      
+                                }else{
+                                    await sendWhapiRequest('messages/text', { to: sender.to, body: part });
+                                    if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
+                                        console.log('sending vid');
+                                        const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
+                                        // Send the video
+                                        await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
+                                    }    
+                                    if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
+                                        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
+                                        // Send the video
+                                        await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
                                     }
-                                }      
+                                    if(part.includes('enjoy reading about the exciting')){
+                                        // Add 'idle' tag to GHL
+                                        await addtagbookedGHL(contactID, 'idle');
+                                        
+                                        // Start a timer for 1 hour
+                                        setTimeout(async () => {
+                                            // Check if the 'idle' tag is still present after 1 hour
+                                            const contactPresent = await getContact(extractedNumber);
+                                            const idleTags = contactPresent.tags
+                                            if (idleTags && idleTags.includes('idle')) {
+                                                // If 'idle' tag is still present, you can perform additional actions here
+                                                console.log(`User ${contactID} has been idle for 1 hour`);
+                                                await sendWhapiRequest('messages/text', { to: sender.to, body: "Would you like to check out our cool campus tour? It's got top-notch facilities and amazing student life." });
+
+                                            }
+                                        }, 60 * 60 * 1000); // 1 hour in milliseconds
+                                    }
+                                    for (const [key, filePath] of Object.entries(brochureFilePaths)) {
+                                        if (part.includes(key) && part.includes("Brochure")) {
+                                            console.log(`${key} sending file, ${filePath}`);
+                                            await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
+                                            break;
+                                        }
+                                    }      
+                                }
                             }
                         }
+                    
+                    } else if(message.type === 'document'){
+                        query = `${message.document.caption ?? ""} `;
+                        const documentDetails = {
+                            id: message.document.id,
+                            mime_type: message.document.mime_type,
+                            file_size: message.document.file_size,
+                            sha256: message.document.sha256,
+                            file_name: message.document.file_name,
+                            link: message.document.link,
+                            caption: message.document.caption
+                        };
+                        await addMessage(threadID, `Document received: ${documentDetails.file_name}`, documentDetails);
+                        answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
+                        
+
+                        parts = answer.split(/\s*\|\|\s*/);
+                        for (let i = 0; i < parts.length; i++) {
+                            const part = parts[i].trim();
+                            if (part) {
+                                await sendWhapiRequest('messages/text', { to: sender.to, body: part });
+                            }
+                        }
+                    }else {
+                        await sendWhapiRequest('messages/text', { to: sender.to, body: "Sorry, but we currently can't handle these types of files, we will forward your inquiry to our team!" });
+                        await sendWhapiRequest('messages/text', { to: sender.to, body: "In the meantime, if you have any questions, feel free to ask!" });
                     }
                     console.log('Response sent.');
                     await addtagbookedGHL(contactID, 'replied');
@@ -652,6 +679,13 @@ async function handleOpenAIAssistant(message, threadID) {
     // If the thread is not being processed, start processing
     processingThreads.add(threadID);
     return processQueue(threadID, assistantId);
+}
+
+async function handleOpenAIAssistantFile(message, threadID, documentDetails = null) {
+    const assistantId = 'asst_tqVuJyl8gR1ZmV7OdBdQBNEF';
+    await addMessage(threadID, message, documentDetails);
+    const answer = await runAssistant(assistantId, threadID);
+    return answer;
 }
 
 async function processQueue(threadID, assistantId) {
