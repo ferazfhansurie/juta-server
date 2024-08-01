@@ -5,6 +5,8 @@ const path = require('path');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
 const fs = require('fs');
+const AsyncLock = require('async-lock');
+const lock = new AsyncLock();
 
 const db = admin.firestore();
 
@@ -116,7 +118,13 @@ async function handleNewMessagesMSU(req, res) {
             if (message.from_me) continue;
             if (!message.chat_id.includes("whatsapp")) continue;
 
-            messagePromises.push(processMessage(message));
+            const lockKey = `chat_${message.chat_id}`;
+
+            messagePromises.push(
+                lock.acquire(lockKey, async () => {
+                    return processMessage(message);
+                }, { timeout: 30000 }) // 30 seconds timeout
+            );
         }
 
         await Promise.all(messagePromises);
@@ -124,7 +132,7 @@ async function handleNewMessagesMSU(req, res) {
         res.send('All messages processed');
     } catch (e) {
         console.error('Error:', e.message);
-        res.send(e.message);
+        res.status(500).send(e.message);
     }
 }
 
@@ -386,47 +394,55 @@ async function handleImageMessage(message, sender, threadID) {
     }
 }
 async function handleTextMessage(message, sender, extractedNumber, contactName, threadID) {
-    if (message.text.body.includes('/resetbot')) {
-        const thread = await createThread();
-        threadID = thread.id;
-        await saveThreadIDGHL(contactID, threadID);
-        await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-        return;
-    }
+    const lockKey = `thread_${threadID}`;
 
-    const query = `${message.text.body} user_name: ${contactName}`;
-    const brochureFilePaths = {
-        'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
-        'Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
-        'Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
-        'Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
-        'Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
-        'Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
-        'Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
-        'Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-        'Information Science': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-        'Engineering': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-        'Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
-        'Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-        'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
-    };
-    const answer = await handleOpenAIAssistant(query, threadID);
-    await sendResponseParts(answer, sender.to, brochureFilePaths);
+    return lock.acquire(lockKey, async () => {
+        if (message.text.body.includes('/resetbot')) {
+            const thread = await createThread();
+            threadID = thread.id;
+            await saveThreadIDGHL(contactID, threadID);
+            await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+            return;
+        }
+
+        const query = `${message.text.body} user_name: ${contactName}`;
+        const brochureFilePaths = {
+            'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
+            'Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
+            'Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+            'Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+            'Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
+            'Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+            'Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+            'Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+            'Information Science': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+            'Engineering': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+            'Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+            'Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+            'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+        };
+        const answer = await handleOpenAIAssistant(query, threadID);
+        await sendResponseParts(answer, sender.to, brochureFilePaths);
+    }, { timeout: 60000 }); // 60 seconds timeout
 }
 
 async function handleDocumentMessage(message, sender, threadID) {
-    const query = message.document.caption ?? "";
-    const documentDetails = {
-        id: message.document.id,
-        mime_type: message.document.mime_type,
-        file_size: message.document.file_size,
-        sha256: message.document.sha256,
-        file_name: message.document.file_name,
-        link: message.document.link,
-        caption: message.document.caption
-    };
-    const answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
-    await sendResponseParts(answer, sender.to);
+    const lockKey = `thread_${threadID}`;
+
+    return lock.acquire(lockKey, async () => {
+        const query = message.document.caption ?? "";
+        const documentDetails = {
+            id: message.document.id,
+            mime_type: message.document.mime_type,
+            file_size: message.document.file_size,
+            sha256: message.document.sha256,
+            file_name: message.document.file_name,
+            link: message.document.link,
+            caption: message.document.caption
+        };
+        const answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
+        await sendResponseParts(answer, sender.to);
+    }, { timeout: 60000 }); // 60 seconds timeout
 }
 
 async function sendResponseParts(answer, to, brochureFilePaths = {}) {
@@ -815,15 +831,31 @@ async function processQueue(threadID, assistantId) {
         // If less than 5 seconds have passed since the last request, wait
         if (timeSinceLastRequest < 5000) {
             const waitTime = 5000 - timeSinceLastRequest;
-            //console.log(Rate limiting: Waiting ${waitTime}ms before next request for threadID ${threadID});
             await new Promise(resolve => setTimeout(resolve, waitTime));
         }
 
         // Update the last request time for this threadID
         rateLimitMap.set(threadID, Date.now());
 
+        // Add message to the thread
         await addMessage(threadID, currentMessage);
-        const answer = await runAssistant(assistantId, threadID);
+
+        // Run the assistant
+        const run = await openai.beta.threads.runs.create(
+            threadID,
+            { assistant_id: assistantId }
+        );
+
+        // Wait for the run to complete
+        let runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
+        while (runStatus.status !== "completed") {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+            runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
+        }
+
+        // Retrieve the assistant's response
+        const messages = await openai.beta.threads.messages.list(threadID);
+        const answer = messages.data[0].content[0].text.value;
 
         // Remove processed message from queue
         messageQueue.get(threadID).shift();

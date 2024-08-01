@@ -1,6 +1,7 @@
 {
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
+    "async-lock": "^1.4.1",
     "axios": "^1.6.8",
     "bottleneck": "^2.19.5",
     "bullmq": "^5.10.3",
