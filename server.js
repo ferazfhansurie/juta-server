@@ -433,49 +433,52 @@ async function createUserInFirebase(userData) {
         scheduledMessage.scheduledTime.nanoseconds
       );
   
-       // Generate a unique ID for the message
+      // Generate a unique ID for the message
       const messageId = uuidv4();
-
+  
       // Save to Firestore
       await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(scheduledMessage);
-
+  
       // Calculate delay for the job
       const delay = scheduledMessage.scheduledTime.toDate().getTime() - Date.now();
+  
+      // Calculate the number of batches
+      const totalContacts = scheduledMessage.chatIds.length;
+      const batchSize = scheduledMessage.batchQuantity || totalContacts;
+      const numberOfBatches = Math.ceil(totalContacts / batchSize);
+  
+    // Base job options
+    const baseJobOptions = { 
+      removeOnComplete: false,
+      removeOnFail: false
+    };
 
-      // Base job options
-      const baseJobOptions = { 
-        removeOnComplete: false,
-        removeOnFail: false
+    // Create a job for each batch
+    for (let batchIndex = 0; batchIndex < numberOfBatches; batchIndex++) {
+      const batchDelay = delay + (batchIndex * scheduledMessage.repeatInterval * getMillisecondsForUnit(scheduledMessage.repeatUnit));
+      const startIndex = batchIndex * batchSize;
+      const endIndex = Math.min((batchIndex + 1) * batchSize, totalContacts);
+      const batchChatIds = scheduledMessage.chatIds.slice(startIndex, endIndex);
+
+      const jobId = `${messageId}_batch_${batchIndex}`;
+      const jobOptions = {
+        ...baseJobOptions,
+        delay: Math.max(batchDelay, 0),
+        jobId: jobId
       };
 
-      if (scheduledMessage.repeatInterval > 0) {
-        baseJobOptions.repeat = {
-          every: scheduledMessage.repeatInterval * getMillisecondsForUnit(scheduledMessage.repeatUnit)
-        };
-      }
-
-      // Create a job for each chatId
-      for (let i = 0; i < scheduledMessage.chatIds.length; i++) {
-        const chatId = scheduledMessage.chatIds[i];
-        const jobId = `${messageId}_${i}`;
-        const jobOptions = {
-          ...baseJobOptions,
-          delay: Math.max(delay, 0),
-          jobId: jobId
-        };
-
-        await messageQueue.add('send-message', 
-          { ...scheduledMessage, id: jobId, chatId: chatId }, 
-          jobOptions
-        );
-      }
-
-      res.status(201).json({ id: messageId, message: 'Message scheduled successfully' });
-    } catch (error) {
-      console.error('Error scheduling message:', error);
-      res.status(500).json({ error: 'Failed to schedule message' });
+      await messageQueue.add('send-message-batch', 
+        { ...scheduledMessage, id: jobId, chatIds: batchChatIds }, 
+        jobOptions
+      );
     }
-  });
+
+    res.status(201).json({ id: messageId, message: 'Message scheduled successfully' });
+  } catch (error) {
+    console.error('Error scheduling message:', error);
+    res.status(500).json({ error: 'Failed to schedule message' });
+  }
+});
 
   app.put('/api/schedule-message/:companyId/:messageId', async (req, res) => {
     const { companyId, messageId } = req.params;
@@ -592,29 +595,28 @@ async function createUserInFirebase(userData) {
   }
 
 // Update the worker to process jobs
+// Update the worker to process batch jobs
 const worker = new Worker('scheduled-messages', async job => {
-  const message = job.data;
-  
-  try {
-    await sendScheduledMessage(message);
+  if (job.name === 'send-message-batch') {
+    const batchMessage = job.data;
     
-    // Delete the message from Firestore only if it's not a repeating message and it's the last chatId
-    if (!message.repeatInterval && message.id.endsWith(`_${message.chatIds.length - 1}`)) {
-      await db.collection('companies').doc(message.companyId).collection('scheduledMessages').doc(message.id.split('_')[0]).delete();
-      console.log(`One-time message ${message.id.split('_')[0]} sent and deleted from Firestore`);
-    } else {
-      console.log(`Message ${message.id} sent`);
+    try {
+      for (const chatId of batchMessage.chatIds) {
+        await sendScheduledMessage({ ...batchMessage, chatId });
+      }
+      
+      console.log(`Batch ${batchMessage.id} sent successfully`);
+    } catch (error) {
+      console.error('Error processing scheduled message batch:', error);
+      throw error; // This will cause the job to be retried
     }
-  } catch (error) {
-    console.error('Error processing scheduled message:', error);
-    throw error; // This will cause the job to be retried
   }
 }, { 
   connection,
-  concurrency: 3, // Process up to 3 jobs at a time
+  concurrency: 3,
   limiter: {
     max: 3,
-    duration: 1000 // Limit to 3 jobs per second
+    duration: 1000
   }
 });
 
@@ -700,32 +702,36 @@ async function scheduleAllMessages() {
       const message = doc.data();
       const delay = message.scheduledTime.toDate().getTime() - Date.now();
 
+      // Calculate the number of batches
+      const totalContacts = message.chatIds.length;
+      const batchSize = message.batchQuantity || totalContacts;
+      const numberOfBatches = Math.ceil(totalContacts / batchSize);
+
+      // Base job options
       const baseJobOptions = { 
         removeOnComplete: false,
         removeOnFail: false
       };
 
-      if (message.repeatInterval > 0) {
-        baseJobOptions.repeat = {
-          every: message.repeatInterval * getMillisecondsForUnit(message.repeatUnit)
-        };
-      }
+      // Create a job for each batch
+      for (let batchIndex = 0; batchIndex < numberOfBatches; batchIndex++) {
+        const batchDelay = delay + (batchIndex * message.repeatInterval * getMillisecondsForUnit(message.repeatUnit));
+        const startIndex = batchIndex * batchSize;
+        const endIndex = Math.min((batchIndex + 1) * batchSize, totalContacts);
+        const batchChatIds = message.chatIds.slice(startIndex, endIndex);
 
-      // Create a job for each chatId
-      for (let i = 0; i < message.chatIds.length; i++) {
-        const chatId = message.chatIds[i];
-        const jobId = `${doc.id}_${i}`;
+        const jobId = `${doc.id}_batch_${batchIndex}`;
         const jobOptions = {
           ...baseJobOptions,
-          delay: Math.max(delay, 0),
+          delay: Math.max(batchDelay, 0),
           jobId: jobId
         };
 
         // Check if the job already exists in the queue
         const existingJob = await messageQueue.getJob(jobId);
         if (!existingJob) {
-          await messageQueue.add('send-message', 
-            { ...message, id: jobId, chatId: chatId }, 
+          await messageQueue.add('send-message-batch', 
+            { ...message, id: jobId, chatIds: batchChatIds }, 
             jobOptions
           );
         }
@@ -767,12 +773,14 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
     try {
         const phoneNumber = contact.id.user;
         const msg = chat.lastMessage || {};
-if(msg == {}){
-  return;
-}
+        if(msg == {}){
+          return;
+        }
       
         let type = msg.type === 'chat' ? 'text' : msg.type;
-
+        if(phoneNumber == 'status'){
+          return;
+        }
         const contactData = {
             additionalEmails: [],
             address1: null,
