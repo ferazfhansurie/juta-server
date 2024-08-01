@@ -110,327 +110,16 @@ async function handleNewMessagesMSU(req, res) {
         await fetchConfigFromDatabase();
 
         const receivedMessages = req.body.messages;
+        const messagePromises = [];
+
         for (const message of receivedMessages) {
-        
-            if (message.from_me) break;
-          
-            if(!message.chat_id.includes("whatsapp")){
-                break;
-            }
+            if (message.from_me) continue;
+            if (!message.chat_id.includes("whatsapp")) continue;
 
-            const sender = {
-                to: message.chat_id,
-                name:message.from_name
-            };
-
-            let contactID;
-            let contactName;
-            let threadID;
-            let query;
-            let answer;
-            let parts;
-            let pollParams;
-            let currentStep;
-            const senderTo = sender.to;
-            const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-            const contactPresent = await getContact(extractedNumber);
-            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
-            const chat = await getChatMetadata(message.chat_id);
-            let firebaseTags =[]
-            if(contactData){
-                firebaseTags=   contactData.tags??[];
-            }
-            const idleTag = contactPresent.tags
-            if (idleTag && idleTag.includes('idle')) {
-                await removeTagBookedGHL(contactPresent.id,'idle');
-            }
-            if (contactPresent !== null) {
-                const stopTag = contactPresent.tags;
-                console.log(stopTag);
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-                    continue;
-                }else {
-                    contactID = contactPresent.id;
-                    contactName = contactPresent.fullNameLowerCase;
-                    console.log(contactID);
-                    console.log(contactPresent.id);
-                    const threadIdField = contactPresent.customFields.find(field => field.id === 'IrpD9F1cqKdWoO5XYwYq');
-                    if (threadIdField) {
-                        threadID = threadIdField.value;
-                    } else {
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        await saveThreadIDGHL(contactID,threadID);
-                    }
-                }
-            }else{
-   
-                await createContact(sender.name,extractedNumber);
-                await customWait(2500);
-                const contactPresent = await getContact(extractedNumber);
-                const stopTag = contactPresent.tags;
-                console.log(stopTag);
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-                    continue;
-                }else {
-                    contactID = contactPresent.id;
-                    contactName = contactPresent.fullNameLowerCase;
-                    console.log(contactID);
-                    console.log(contactPresent.id);
-                    const threadIdField = contactPresent.customFields.find(field => field.id === 'IrpD9F1cqKdWoO5XYwYq');
-                    if (threadIdField) {
-                        threadID = threadIdField.value;
-                    } else {
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        await saveThreadIDGHL(contactID,threadID);
-                    }
-                }
-          
-                console.log('sent new contact to create new contact');
-            }
-            
-            
-            let contactPresent2 = await getContact(extractedNumber);    
-            const stopTag = contactPresent2.tags;
-            console.log(message)
-            const data = {
-                additionalEmails: [],
-                address1: null,
-                assignedTo: null,
-                businessId: null,
-                phone:extractedNumber,
-                tags:firebaseTags,
-                chat: {
-                    chat_pic: chat.chat_pic ?? "",
-                    chat_pic_full: chat.chat_pic_full ?? "",
-                    contact_id: contactPresent2.id,
-                    id: message.chat_id,
-                    name: contactPresent2.firstName,
-                    not_spam: true,
-                    tags:firebaseTags,
-                    timestamp: message.timestamp,
-                    type: 'contact',
-                    unreadCount: 0,
-                    last_message: {
-                        chat_id: chat.id,
-                        device_id: message.device_id ?? "",
-                        from: message.from ?? "",
-                        from_me: message.from_me ?? false,
-                        id: message.id ?? "",
-                        source: message.source ?? "",
-                        status: "delivered",
-                        text: message.text ?? "",
-                        timestamp: message.timestamp ?? 0,
-                        type: message.type ?? "",
-                    },
-                },
-                chat_id: message.chat_id,
-                chat_pic: chat.chat_pic ?? "",
-                chat_pic_full: chat.chat_pic_full ?? "",
-                city: null,
-                companyName: null,
-                contactName: chat.name??extractedNumber,
-                country: contactPresent2.country ?? "",
-                customFields: contactPresent2.customFields ?? {},
-                last_message: {
-                    chat_id: chat.id,
-                    device_id: message.device_id ?? "",
-                    from: message.from ?? "",
-                    from_me: message.from_me ?? false,
-                    id: message.id ?? "",
-                    source: message.source ?? "",
-                    status: "delivered",
-                    text: message.text ?? "",
-                    timestamp: message.timestamp ?? 0,
-                    type: message.type ?? "",
-                },
-            };
-                
-            await addNotificationToUser('021', message);
-            // Add the data to Firestore
-      await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data); 
-      
-            currentStep = userState.get(sender.to) || steps.START;
-            switch (currentStep) {
-                case steps.START:
-                    if(message.type === 'text'){
-                        if (message.text.body.includes('/resetbot')) {
-                            const thread = await createThread();
-                            threadID = thread.id;
-                            await saveThreadIDGHL(contactID,threadID);
-                            await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-                            break;
-                        }
-                        query = `${message.text.body} user_name: ${contactName}`;
-                        const brochureFilePaths = {
-                            'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
-                            'Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
-                            'Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
-                            'Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
-                            'Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
-                            'Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
-                            'Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
-                            'Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                            'Information Science': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                            'Engineering': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                            'Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
-                            'Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
-                            'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
-                        };
-                        answer = await handleOpenAIAssistant(query,threadID);
-                        parts = answer.split(/\s*\|\|\s*/);
-                        for (let i = 0; i < parts.length; i++) {
-                            const part = parts[i].trim();                
-                            if (part) {
-                                if(part.includes("【"))
-                                {
-                                    const cleanedPart = await removeTextInsideDelimiters(part)
-                                    await sendWhapiRequest('messages/text', { to: sender.to, body: cleanedPart });
-                                    if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
-                                        console.log('sending vid');
-                                        const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
-                                        // Send the video
-                                        await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
-                                    }    
-                                    if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
-                                        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
-                                        // Send the video
-                                        await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
-                                    }
-                                    for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-                                        if (part.includes(key) && part.includes("Brochure")) {
-                                            console.log(`${key} sending file, ${filePath}`);
-                                            await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
-                                            break;
-                                        }
-                                    }      
-                                }else{
-                                    await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                                    if(part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')){
-                                        console.log('sending vid');
-                                        const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
-                                        // Send the video
-                                        await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
-                                    }    
-                                    if(part.includes('Check out our food video!') || part.includes('Jom makan makan!')){
-                                        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
-                                        // Send the video
-                                        await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
-                                    }
-                                    if(part.includes('enjoy reading about the exciting')){
-                                        // Add 'idle' tag to GHL
-                                        await addtagbookedGHL(contactID, 'idle');
-                                        
-                                        // Start a timer for 1 hour
-                                        setTimeout(async () => {
-                                            // Check if the 'idle' tag is still present after 1 hour
-                                            const contactPresent = await getContact(extractedNumber);
-                                            const idleTags = contactPresent.tags
-                                            if (idleTags && idleTags.includes('idle')) {
-                                                // If 'idle' tag is still present, you can perform additional actions here
-                                                console.log(`User ${contactID} has been idle for 1 hour`);
-                                                await sendWhapiRequest('messages/text', { to: sender.to, body: "Would you like to check out our cool campus tour? It's got top-notch facilities and amazing student life." });
-
-                                            }
-                                        }, 60 * 60 * 1000); // 1 hour in milliseconds
-                                    }
-                                    for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-                                        if (part.includes(key) && part.includes("Brochure")) {
-                                            console.log(`${key} sending file, ${filePath}`);
-                                            await sendWhapiRequest('messages/document', { to: sender.to, media: filePath, filename: `${key}.pdf`});
-                                            break;
-                                        }
-                                    }      
-                                }
-                            }
-                        }
-                    
-                    } else if(message.type === 'document'){
-                        query = `${message.document.caption ?? ""} `;
-                        const documentDetails = {
-                            id: message.document.id,
-                            mime_type: message.document.mime_type,
-                            file_size: message.document.file_size,
-                            sha256: message.document.sha256,
-                            file_name: message.document.file_name,
-                            link: message.document.link,
-                            caption: message.document.caption
-                        };
-                        answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
-                        
-
-                        parts = answer.split(/\s*\|\|\s*/);
-                        for (let i = 0; i < parts.length; i++) {
-                            const part = parts[i].trim();
-                            if (part) {
-                                const cleanedPart = await removeTextInsideDelimiters(part)
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: cleanedPart });
-                            }
-                        }
-                    }else {
-                        await sendWhapiRequest('messages/text', { to: sender.to, body: "Sorry, but we currently can't handle these types of files, we will forward your inquiry to our team!" });
-                        await sendWhapiRequest('messages/text', { to: sender.to, body: "In the meantime, if you have any questions, feel free to ask!" });
-                    }
-                    console.log('Response sent.');
-                    await addtagbookedGHL(contactID, 'replied');
-                    
-          
-                    userState.set(sender.to, steps.START);
-                    break;                
-                case steps.NEW_CONTACT:
-                    await sendWhapiRequest('messages/text', { to: sender.to, body: 'Sebelum kita mula boleh saya dapatkan nama?' });
-                    userState.set(sender.to, steps.START);
-                    break;
-                case steps.CREATE_CONTACT:
-       
-                    await createContact(sender.name,extractedNumber);
-                    pollParams = {
-                        to: sender.to,
-                        title: 'Are you dreaming of your next getaway?',
-                        options: ['Yes'],
-                        count: 1,
-                        view_once: true
-                    };
-                    webhook = await sendWhapiRequest('/messages/poll', pollParams);
-                    await customWait(2500);
-                    userState.set(sender.to, steps.POLL);
-                    break;
-                case steps.POLL:
-                    let selectedOption = [];
-                    for (const result of webhook.message.poll.results) {
-                        selectedOption.push (result.id);
-                    }    
-                    if(message.action.votes[0]=== selectedOption[0]){
-                        const contactDetails = await getContact(extractedNumber);
-                        contactID = contactDetails.id;
-                        contactName = contactDetails.fullNameLowerCase;
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        console.log('thread ID generated: ', threadID);
-                        await saveThreadIDGHL(contactID,threadID);
-                        query = `${message.text.body} user_name: ${contactName}`;
-                        answer = await handleOpenAIAssistant(query,threadID);
-                        parts = answer.split(/\s*\|\|\s*/);
-                        for (let i = 0; i < parts.length; i++) {
-                            const part = parts[i].trim();                
-                            if (part) {
-                                await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                                console.log('Part sent:', part);
-                            }
-                        }
-                        console.log('Response sent.');
-                        userState.set(sender.to, steps.START);
-                        break;
-                    }
-                default:
-                    // Handle unrecognized step
-                    console.error('Unrecognized step:', currentStep);
-                    break;
-            }
+            messagePromises.push(processMessage(message));
         }
+
+        await Promise.all(messagePromises);
 
         res.send('All messages processed');
     } catch (e) {
@@ -438,6 +127,353 @@ async function handleNewMessagesMSU(req, res) {
         res.send(e.message);
     }
 }
+
+async function processMessage(message) {
+    const sender = {
+        to: message.chat_id,
+        name: message.from_name
+    };
+
+    let contactID;
+    let contactName;
+    let threadID;
+    let query;
+    let answer;
+    let parts;
+    let pollParams;
+    let currentStep;
+    const senderTo = sender.to;
+    const extractedNumber = '+' + senderTo.match(/\d+/)[0];
+    const contactPresent = await getContact(extractedNumber);
+    const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
+    const chat = await getChatMetadata(message.chat_id);
+    let firebaseTags = [];
+    if (contactData) {
+        firebaseTags = contactData.tags ?? [];
+    }
+    const idleTag = contactPresent.tags
+    if (idleTag && idleTag.includes('idle')) {
+        await removeTagBookedGHL(contactPresent.id, 'idle');
+    }
+    if (contactPresent !== null) {
+        const stopTag = contactPresent.tags;
+        console.log(stopTag);
+        if (stopTag.includes('stop bot')) {
+            console.log('Bot stopped for this message');
+            return;
+        } else {
+            contactID = contactPresent.id;
+            contactName = contactPresent.fullNameLowerCase;
+            console.log(contactID);
+            console.log(contactPresent.id);
+            const threadIdField = contactPresent.customFields.find(field => field.id === 'IrpD9F1cqKdWoO5XYwYq');
+            if (threadIdField) {
+                threadID = threadIdField.value;
+            } else {
+                const thread = await createThread();
+                threadID = thread.id;
+                await saveThreadIDGHL(contactID, threadID);
+            }
+        }
+    } else {
+        await createContact(sender.name, extractedNumber);
+        await customWait(2500);
+        const contactPresent = await getContact(extractedNumber);
+        const stopTag = contactPresent.tags;
+        console.log(stopTag);
+        if (stopTag.includes('stop bot')) {
+            console.log('Bot stopped for this message');
+            return;
+        } else {
+            contactID = contactPresent.id;
+            contactName = contactPresent.fullNameLowerCase;
+            console.log(contactID);
+            console.log(contactPresent.id);
+            const threadIdField = contactPresent.customFields.find(field => field.id === 'IrpD9F1cqKdWoO5XYwYq');
+            if (threadIdField) {
+                threadID = threadIdField.value;
+            } else {
+                const thread = await createThread();
+                threadID = thread.id;
+                await saveThreadIDGHL(contactID, threadID);
+            }
+        }
+        console.log('sent new contact to create new contact');
+    }
+
+    let contactPresent2 = await getContact(extractedNumber);
+    const stopTag = contactPresent2.tags;
+    console.log(message)
+    const data = {
+        additionalEmails: [],
+        address1: null,
+        assignedTo: null,
+        businessId: null,
+        phone: extractedNumber,
+        tags: firebaseTags,
+        chat: {
+            chat_pic: chat.chat_pic ?? "",
+            chat_pic_full: chat.chat_pic_full ?? "",
+            contact_id: contactPresent2.id,
+            id: message.chat_id,
+            name: contactPresent2.firstName,
+            not_spam: true,
+            tags: firebaseTags,
+            timestamp: message.timestamp,
+            type: 'contact',
+            unreadCount: 0,
+            last_message: {
+                chat_id: chat.id,
+                device_id: message.device_id ?? "",
+                from: message.from ?? "",
+                from_me: message.from_me ?? false,
+                id: message.id ?? "",
+                source: message.source ?? "",
+                status: "delivered",
+                text: message.text ?? "",
+                timestamp: message.timestamp ?? 0,
+                type: message.type ?? "",
+            },
+        },
+        chat_id: message.chat_id,
+        chat_pic: chat.chat_pic ?? "",
+        chat_pic_full: chat.chat_pic_full ?? "",
+        city: null,
+        companyName: null,
+        contactName: chat.name ?? extractedNumber,
+        country: contactPresent2.country ?? "",
+        customFields: contactPresent2.customFields ?? {},
+        last_message: {
+            chat_id: chat.id,
+            device_id: message.device_id ?? "",
+            from: message.from ?? "",
+            from_me: message.from_me ?? false,
+            id: message.id ?? "",
+            source: message.source ?? "",
+            status: "delivered",
+            text: message.text ?? "",
+            timestamp: message.timestamp ?? 0,
+            type: message.type ?? "",
+        },
+    };
+
+    await addNotificationToUser('021', message);
+    // Add the data to Firestore
+    await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data);
+
+    currentStep = userState.get(sender.to) || steps.START;
+    switch (currentStep) {
+        case steps.START:
+            if (message.type === 'text') {
+                await handleTextMessage(message, sender, extractedNumber, contactName, threadID);
+            } else if (message.type === 'document' ) {
+                await handleDocumentMessage(message, sender, threadID);
+            }else if (message.type === 'image') {
+                await handleImageMessage(message, sender, threadID);
+            }else {
+                await sendWhapiRequest('messages/text', { to: sender.to, body: "Sorry, but we currently can't handle these types of files, we will forward your inquiry to our team!" });
+                await sendWhapiRequest('messages/text', { to: sender.to, body: "In the meantime, if you have any questions, feel free to ask!" });
+            }
+            console.log('Response sent.');
+            await addtagbookedGHL(contactID, 'replied');
+            userState.set(sender.to, steps.START);
+            break;
+
+        case steps.NEW_CONTACT:
+            await sendWhapiRequest('messages/text', { to: sender.to, body: 'Sebelum kita mula boleh saya dapatkan nama?' });
+            userState.set(sender.to, steps.START);
+            break;
+
+        case steps.CREATE_CONTACT:
+            await createContact(sender.name, extractedNumber);
+            pollParams = {
+                to: sender.to,
+                title: 'Are you dreaming of your next getaway?',
+                options: ['Yes'],
+                count: 1,
+                view_once: true
+            };
+            webhook = await sendWhapiRequest('/messages/poll', pollParams);
+            await customWait(2500);
+            userState.set(sender.to, steps.POLL);
+            break;
+
+        case steps.POLL:
+            let selectedOption = [];
+            for (const result of webhook.message.poll.results) {
+                selectedOption.push(result.id);
+            }
+            if (message.action.votes[0] === selectedOption[0]) {
+                const contactDetails = await getContact(extractedNumber);
+                contactID = contactDetails.id;
+                contactName = contactDetails.fullNameLowerCase;
+                const thread = await createThread();
+                threadID = thread.id;
+                console.log('thread ID generated: ', threadID);
+                await saveThreadIDGHL(contactID, threadID);
+                query = `${message.text.body} user_name: ${contactName}`;
+                answer = await handleOpenAIAssistant(query, threadID);
+                parts = answer.split(/\s*\|\|\s*/);
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i].trim();
+                    if (part) {
+                        await sendWhapiRequest('messages/text', { to: sender.to, body: part });
+                        console.log('Part sent:', part);
+                    }
+                }
+                console.log('Response sent.');
+                userState.set(sender.to, steps.START);
+                break;
+            }
+
+        default:
+            // Handle unrecognized step
+            console.error('Unrecognized step:', currentStep);
+            break;
+    }
+}
+async function handleImageMessage(message, sender, threadID) {
+    const query = message.image.caption ?? "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
+    const imageUrl = message.image.link;
+
+    try {
+        // Create a message with the image attachment
+        const response = await openai.beta.threads.messages.create(
+            threadID,
+            {
+                role: "user",
+                content: [
+                    {
+                        type: "text",
+                        text: query
+                    },
+                    {
+                        type: "image_url",
+                        image_url: {
+                            url: imageUrl
+                        }
+                    }
+                ]
+            }
+        );
+
+        // Run the assistant to get a response
+        const run = await openai.beta.threads.runs.create(
+            threadID,
+            { 
+                assistant_id: "asst_tqVuJyl8gR1ZmV7OdBdQBNEF" // Replace with your actual assistant ID
+            }
+        );
+
+        // Wait for the run to complete
+        let runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
+        while (runStatus.status !== "completed") {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+            runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
+        }
+
+        // Retrieve the assistant's response
+        const messages = await openai.beta.threads.messages.list(threadID);
+        const assistantResponse = messages.data[0].content[0].text.value;
+
+        await sendResponseParts(assistantResponse, sender.to);
+    } catch (error) {
+        console.error("Error in image processing:", error);
+        await sendWhapiRequest('messages/text', { 
+            to: sender.to, 
+            body: "Sorry, I couldn't analyze that image. Could you try sending it again or asking a different question?" 
+        });
+    }
+}
+async function handleTextMessage(message, sender, extractedNumber, contactName, threadID) {
+    if (message.text.body.includes('/resetbot')) {
+        const thread = await createThread();
+        threadID = thread.id;
+        await saveThreadIDGHL(contactID, threadID);
+        await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+        return;
+    }
+
+    const query = `${message.text.body} user_name: ${contactName}`;
+    const brochureFilePaths = {
+        'Pharmacy': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUPharmacy.pdf?alt=media&token=c62cb344-2e92-4f1b-a6b0-e7ab0f5ae4f6',
+        'Business Management': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUBusinessManagement.pdf?alt=media&token=ac8f2ebb-111e-4c5a-a278-72ed0d747243',
+        'Education Social Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+        'Edu Socsc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUEducationandSocialSciences.pdf?alt=media&token=6a3e95b8-80cc-4224-ad09-82014e3100c1',
+        'Medicine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInternationalMedicalSchool.pdf?alt=media&token=5925b4cb-b8cf-4b65-98fc-4818b71ef480',
+        'Hospitality Creativearts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+        'Hospitality And Creative Arts': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHospitalityandCreativeArts.pdf?alt=media&token=a84d92f2-462a-4a81-87ec-b4b376e4c581',
+        'Information Science Engine': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+        'Information Science': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+        'Engineering': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+        'Health And Life Sciences': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+        'Informationsc Engin': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUInformationSciencesandEngineering.pdf?alt=media&token=7c1aa152-72b4-4504-9e3b-9e92e982a563',
+        'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
+    };
+    const answer = await handleOpenAIAssistant(query, threadID);
+    await sendResponseParts(answer, sender.to, brochureFilePaths);
+}
+
+async function handleDocumentMessage(message, sender, threadID) {
+    const query = message.document.caption ?? "";
+    const documentDetails = {
+        id: message.document.id,
+        mime_type: message.document.mime_type,
+        file_size: message.document.file_size,
+        sha256: message.document.sha256,
+        file_name: message.document.file_name,
+        link: message.document.link,
+        caption: message.document.caption
+    };
+    const answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
+    await sendResponseParts(answer, sender.to);
+}
+
+async function sendResponseParts(answer, to, brochureFilePaths = {}) {
+    const parts = answer.split(/\s*\|\|\s*/);
+    for (const part of parts) {
+        if (part.trim()) {
+            const cleanedPart = await removeTextInsideDelimiters(part);
+            await sendWhapiRequest('messages/text', { to, body: cleanedPart });
+            await handleSpecialResponses(part, to, brochureFilePaths);
+        }
+    }
+}
+
+async function handleSpecialResponses(part, to, brochureFilePaths) {
+    if (part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')) {
+        const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
+        await sendWhapiRequest('messages/video', { to, media: vidPath });
+    }
+    if (part.includes('Check out our food video!') || part.includes('Jom makan makan!')) {
+        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
+        await sendWhapiRequest('messages/video', { to, media: vidPath2 });
+    }
+    if (part.includes('enjoy reading about the exciting')) {
+        // Add 'idle' tag to GHL
+        await addtagbookedGHL(contactID, 'idle');
+        
+        // Start a timer for 1 hour
+        setTimeout(async () => {
+            // Check if the 'idle' tag is still present after 1 hour
+            const contactPresent = await getContact(extractedNumber);
+            const idleTags = contactPresent.tags
+            if (idleTags && idleTags.includes('idle')) {
+                // If 'idle' tag is still present, you can perform additional actions here
+                console.log(`User ${contactID} has been idle for 1 hour`);
+                await sendWhapiRequest('messages/text', { to: sender.to, body: "Would you like to check out our cool campus tour? It's got top-notch facilities and amazing student life." });
+            }
+        }, 60 * 60 * 1000); // 1 hour in milliseconds
+    }
+    for (const [key, filePath] of Object.entries(brochureFilePaths)) {
+        if (part.includes(key) && part.includes("Brochure")) {
+            console.log(`${key} sending file, ${filePath}`);
+            await sendWhapiRequest('messages/document', { to, media: filePath, filename: `${key}.pdf` });
+            break;
+        }
+    }
+}
+
 async function getContactById(contactId) {
     const options = {
         method: 'GET',
@@ -456,6 +492,7 @@ async function getContactById(contactId) {
         console.error(error);
     }
 }
+
 async function removeTagBookedGHL(contactID, tag) {
     const options = {
         method: 'DELETE',
@@ -477,6 +514,7 @@ async function removeTagBookedGHL(contactID, tag) {
         console.error('Error removing tag from contact:', error);
     }
 }
+
 async function downloadFile(fileUrl, outputLocationPath) {
     const writer = fs.createWriteStream(outputLocationPath);
     const response = await axios({
@@ -492,6 +530,7 @@ async function downloadFile(fileUrl, outputLocationPath) {
         writer.on('error', reject);
     });
 }
+
 async function uploadFile(filePath, purpose) {
     try {
         const response = await openai.files.create({
@@ -504,6 +543,7 @@ async function uploadFile(filePath, purpose) {
         throw error;
     }
 }
+
 async function addtagbookedGHL(contactID, tag) {
     const contact = await getContactById(contactID);
     const previousTags = contact.tags || [];
@@ -522,12 +562,13 @@ async function addtagbookedGHL(contactID, tag) {
     };
 
     try {
-      const response =  await axios.request(options);
-      console.log(response);
+        const response = await axios.request(options);
+        console.log(response);
     } catch (error) {
         console.error('Error adding tag to contact:', error);
     }
 }
+
 async function createThread() {
     console.log('Creating a new thread...');
     const thread = await openai.beta.threads.create();
@@ -572,25 +613,27 @@ async function removeTextInsideDelimiters(text) {
     return cleanedText;
 }
 
-async function callWebhook(webhook,senderText,senderNumber,senderName) {
+async function callWebhook(webhook, senderText, senderNumber, senderName) {
     console.log('Calling webhook...');
     const webhookUrl = webhook;
-    const body = JSON.stringify({ senderText,senderNumber,senderName }); // Include sender's text in the request body
+    const body = JSON.stringify({ senderText, senderNumber, senderName }); // Include sender's text in the request body
     const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: body
-    });  let responseData =""
-    if(response.status === 200){
-        responseData= await response.text(); // Dapatkan respons sebagai teks
-    }else{
+    });
+    let responseData = "";
+    if (response.status === 200) {
+        responseData = await response.text(); // Dapatkan respons sebagai teks
+    } else {
         responseData = 'stop'
     }
     console.log('Webhook response:', responseData); // Log raw response
- return responseData;
+    return responseData;
 }
+
 async function checkingNameStatus(threadId, runId) {
     const runObject = await openai.beta.threads.runs.retrieve(
         threadId,
@@ -601,7 +644,7 @@ async function checkingNameStatus(threadId, runId) {
     console.log(runObject);
     console.log('Current status: ' + status);
     
-    if(status == 'completed') {
+    if (status == 'completed') {
         clearInterval(pollingInterval);
 
         const messagesList = await openai.beta.threads.messages.list(threadId);
@@ -626,7 +669,7 @@ async function waitForNameCompletion(threadId, runId) {
     });
 }
 
-async function runNameAssistant(assistantID,threadId) {
+async function runNameAssistant(assistantID, threadId) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
         threadId,
@@ -662,9 +705,9 @@ async function checkingStatus(threadId, runId) {
     console.log(runObject);
     console.log('Current status: ' + status);
     
-    if(status == 'completed') {
+    if (status == 'completed') {
         clearInterval(pollingInterval);
-        try{
+        try {
             const messagesList = await openai.beta.threads.messages.list(threadId);
             const latestMessage = messagesList.body.data[0].content;
 
@@ -672,10 +715,9 @@ async function checkingStatus(threadId, runId) {
             console.log(latestMessage[0].text.value);
             const answer = latestMessage[0].text.value;
             return answer;
-        } catch(error){
-            console.log("error from handleNewMessagesMSU: "+error)
+        } catch (error) {
+            console.log("error from handleNewMessagesMSU: " + error)
         }
-        
     }
 }
 
@@ -691,7 +733,7 @@ async function waitForCompletion(threadId, runId) {
     });
 }
 
-async function runAssistant(assistantID,threadId) {
+async function runAssistant(assistantID, threadId) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
         threadId,
@@ -707,7 +749,7 @@ async function runAssistant(assistantID,threadId) {
     return answer;
 }
 
-async function runAssistantFile(assistantID,threadId) {
+async function runAssistantFile(assistantID, threadId) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
         threadId,
