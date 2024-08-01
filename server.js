@@ -1937,27 +1937,27 @@ async function initializeBot(botName) {
             botMap.set(botName, { client, status: 'ready', qrCode: null });
             setupMessageHandler(client, botName);
 
-            // try {
-            //     const chats = await client.getChats();
-            //     const totalChats = chats.length;
-            //     let processedChats = 0;
+            try {
+                const chats = await client.getChats();
+                const totalChats = chats.length;
+                let processedChats = 0;
 
-            //     for (const chat of chats) {
-            //         if (chat.isGroup) {
-            //             processedChats++;
-            //             continue;
-            //         }
-            //         const contact = await chat.getContact();
-            //         await saveContactWithRateLimit(botName, contact, chat);
-            //         processedChats++;
+                for (const chat of chats) {
+                    if (chat.isGroup) {
+                        processedChats++;
+                        continue;
+                    }
+                    const contact = await chat.getContact();
+                    await saveContactWithRateLimit(botName, contact, chat);
+                    processedChats++;
                     
-            //         // Send overall progress update
-            //         broadcastProgress(botName, 'processing_chats', processedChats / totalChats);
-            //     }
-            //     console.log(`Finished saving contacts for bot ${botName}`);
-            // } catch (error) {
-            //     console.error(`Error processing chats for bot ${botName}:`, error);
-            // }
+                    // Send overall progress update
+                    broadcastProgress(botName, 'processing_chats', processedChats / totalChats);
+                }
+                console.log(`Finished saving contacts for bot ${botName}`);
+            } catch (error) {
+                console.error(`Error processing chats for bot ${botName}:`, error);
+            }
         });
 
         client.on('auth_failure', msg => {

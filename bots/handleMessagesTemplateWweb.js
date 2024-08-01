@@ -184,7 +184,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                     name: contact.name || contact.pushname || extractedNumber,
                     not_spam: true,
                     tags: firebaseTags,
-                    timestamp: chat.timestamp,
+                    timestamp: chat.timestamp || Date.now(),
                     type: 'contact',
                     unreadCount: 0,
                     last_message: {
