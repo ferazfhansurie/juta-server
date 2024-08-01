@@ -149,6 +149,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                     }
                 }
             }else{
+                
                 await customWait(2500); 
 
                 contactID = extractedNumber;
@@ -163,7 +164,12 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             let firebaseTags =['']
             if(contactData){
                 firebaseTags=   contactData.tags??[];
+            } else {
+                if((sender.to).includes('@g.us')){
+                    firebaseTags = ['stop bot']
+                }
             }
+            
             let type = '';
             if(msg.type == 'chat'){
                 type ='text'
