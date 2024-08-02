@@ -617,13 +617,25 @@ const worker = new Worker('scheduled-messages', async job => {
       const remainingBatches = await messageQueue.getJobs(['waiting', 'delayed', 'active']);
       const relatedJobs = remainingBatches.filter(job => job.id.startsWith(baseMessageId));
 
+      console.log(`Total remaining jobs: ${remainingBatches.length}`);
+      console.log(`Related jobs for message ${baseMessageId}: ${relatedJobs.length}`);
+      console.log(`Related job IDs: ${relatedJobs.map(job => job.id).join(', ')}`);
+
       if (relatedJobs.length === 0) {
         // All batches for this message have been processed
         await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(baseMessageId).delete();
         console.log(`Scheduled message ${baseMessageId} deleted from Firebase`);
       } else {
         console.log(`${relatedJobs.length} batches remaining for message ${baseMessageId}`);
+        for (const job of relatedJobs) {
+          console.log(`Remaining job ${job.id} status: ${job.status}`);
+        }
       }
+
+      // Remove the current job from the queue
+      await job.remove();
+      console.log(`Job ${job.id} removed from queue`);
+
     } catch (error) {
       console.error('Error processing scheduled message batch:', error);
       throw error; // This will cause the job to be retried
