@@ -480,65 +480,68 @@ async function createUserInFirebase(userData) {
   }
 });
 
-  app.put('/api/schedule-message/:companyId/:messageId', async (req, res) => {
-    const { companyId, messageId } = req.params;
-    const updatedMessage = req.body;
-  
-    try {
-      // 1. Delete the existing messages from the queue
-      const jobs = await messageQueue.getJobs(['active', 'waiting', 'delayed', 'paused']);
-      for (const job of jobs) {
-        if (job.id.startsWith(messageId)) {
-          await job.remove();
-        }
+app.put('/api/schedule-message/:companyId/:messageId', async (req, res) => {
+  const { companyId, messageId } = req.params;
+  const updatedMessage = req.body;
+
+  try {
+    // 1. Delete the existing messages from the queue
+    const jobs = await messageQueue.getJobs(['active', 'waiting', 'delayed', 'paused']);
+    for (const job of jobs) {
+      if (job.id.startsWith(messageId)) {
+        await job.remove();
       }
-  
-      // 2. Remove the message from Firebase
-      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).delete();
-  
-      // 3. Add the new message to Firebase
-      updatedMessage.createdAt = admin.firestore.Timestamp.now();
-      updatedMessage.scheduledTime = new admin.firestore.Timestamp(
-        updatedMessage.scheduledTime.seconds,
-        updatedMessage.scheduledTime.nanoseconds
-      );
-      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(updatedMessage);
-  
-      // 4. Add the new message to the queue
-      const delay = updatedMessage.scheduledTime.toDate().getTime() - Date.now();
-      const baseJobOptions = { 
-        removeOnComplete: false,
-        removeOnFail: false
-      };
-  
-      if (updatedMessage.repeatInterval > 0) {
-        baseJobOptions.repeat = {
-          every: updatedMessage.repeatInterval * getMillisecondsForUnit(updatedMessage.repeatUnit)
-        };
-      }
-  
-      // Create a job for each chatId
-      for (let i = 0; i < updatedMessage.chatIds.length; i++) {
-        const chatId = updatedMessage.chatIds[i];
-        const jobId = `${messageId}_${i}`;
-        const jobOptions = {
-          ...baseJobOptions,
-          delay: Math.max(delay, 0),
-          jobId: jobId
-        };
-  
-        await messageQueue.add('send-message', 
-          { ...updatedMessage, id: jobId, chatId: chatId }, 
-          jobOptions
-        );
-      }
-  
-      res.json({ message: 'Scheduled message updated successfully', id: messageId });
-    } catch (error) {
-      console.error('Error updating scheduled message:', error);
-      res.status(500).json({ error: 'Failed to update scheduled message' });
     }
-  });
+
+    // 2. Remove the message from Firebase
+    await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).delete();
+
+    // 3. Add the new message to Firebase
+    updatedMessage.createdAt = admin.firestore.Timestamp.now();
+    updatedMessage.scheduledTime = new admin.firestore.Timestamp(
+      updatedMessage.scheduledTime.seconds,
+      updatedMessage.scheduledTime.nanoseconds
+    );
+    await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(updatedMessage);
+
+    // 4. Add the new message to the queue
+    const delay = updatedMessage.scheduledTime.toDate().getTime() - Date.now();
+    const totalContacts = updatedMessage.chatIds.length;
+    const batchSize = updatedMessage.batchQuantity || totalContacts;
+    const numberOfBatches = Math.ceil(totalContacts / batchSize);
+
+    // Base job options
+    const baseJobOptions = { 
+      removeOnComplete: false,
+      removeOnFail: false
+    };
+
+    // Create a job for each batch
+    for (let batchIndex = 0; batchIndex < numberOfBatches; batchIndex++) {
+      const batchDelay = delay + (batchIndex * updatedMessage.repeatInterval * getMillisecondsForUnit(updatedMessage.repeatUnit));
+      const startIndex = batchIndex * batchSize;
+      const endIndex = Math.min((batchIndex + 1) * batchSize, totalContacts);
+      const batchChatIds = updatedMessage.chatIds.slice(startIndex, endIndex);
+
+      const jobId = `${messageId}_batch_${batchIndex}`;
+      const jobOptions = {
+        ...baseJobOptions,
+        delay: Math.max(batchDelay, 0),
+        jobId: jobId
+      };
+
+      await messageQueue.add('send-message-batch', 
+        { ...updatedMessage, id: jobId, chatIds: batchChatIds }, 
+        jobOptions
+      );
+    }
+
+    res.json({ message: 'Scheduled message updated successfully', id: messageId });
+  } catch (error) {
+    console.error('Error updating scheduled message:', error);
+    res.status(500).json({ error: 'Failed to update scheduled message' });
+  }
+});
 
   // New route for syncing contacts
   app.post('/api/sync-contacts/:companyId', async (req, res) => {
@@ -594,7 +597,6 @@ async function createUserInFirebase(userData) {
     }
   }
 
-// Update the worker to process jobs
 // Update the worker to process batch jobs
 const worker = new Worker('scheduled-messages', async job => {
   if (job.name === 'send-message-batch') {
@@ -606,6 +608,17 @@ const worker = new Worker('scheduled-messages', async job => {
       }
       
       console.log(`Batch ${batchMessage.id} sent successfully`);
+
+      // Check if all batches are processed
+      const remainingBatches = await messageQueue.getJobs(['waiting', 'delayed', 'active']);
+      const allBatchesProcessed = !remainingBatches.some(job => job.id.startsWith(batchMessage.id.split('_batch_')[0]));
+
+      if (allBatchesProcessed) {
+        const companyId = batchMessage.companyId;
+        const messageId = batchMessage.id.split('_batch_')[0];
+        await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).delete();
+        console.log(`Scheduled message ${messageId} deleted from Firebase`);
+      }
     } catch (error) {
       console.error('Error processing scheduled message batch:', error);
       throw error; // This will cause the job to be retried
