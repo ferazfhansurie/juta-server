@@ -621,20 +621,25 @@ const worker = new Worker('scheduled-messages', async job => {
       console.log(`Related jobs for message ${baseMessageId}: ${relatedJobs.length}`);
       console.log(`Related job IDs: ${relatedJobs.map(job => job.id).join(', ')}`);
 
-      if (relatedJobs.length === 0) {
-        // All batches for this message have been processed
+      // Force remove all related jobs
+      for (const relatedJob of relatedJobs) {
+        console.log(`Attempting to remove job ${relatedJob.id}, status: ${relatedJob.status}`);
+        await relatedJob.remove();
+        console.log(`Job ${relatedJob.id} removed from queue`);
+      }
+
+      // Double-check if all related jobs are removed
+      const remainingRelatedJobs = await messageQueue.getJobs(['waiting', 'delayed', 'active', 'completed']);
+      const stillRelatedJobs = remainingRelatedJobs.filter(job => job.id.startsWith(baseMessageId));
+
+      if (stillRelatedJobs.length === 0) {
+        // All batches for this message have been processed and removed
         await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(baseMessageId).delete();
         console.log(`Scheduled message ${baseMessageId} deleted from Firebase`);
       } else {
-        console.log(`${relatedJobs.length} batches remaining for message ${baseMessageId}`);
-        for (const job of relatedJobs) {
-          console.log(`Remaining job ${job.id} status: ${job.status}`);
-        }
+        console.error(`Failed to remove all related jobs for message ${baseMessageId}`);
+        console.log(`Remaining job IDs: ${stillRelatedJobs.map(job => job.id).join(', ')}`);
       }
-
-      // Remove the current job from the queue
-      await job.remove();
-      console.log(`Job ${job.id} removed from queue`);
 
     } catch (error) {
       console.error('Error processing scheduled message batch:', error);
