@@ -798,6 +798,8 @@ function setupMessageHandler(client, botName) {
     });
 }
 
+console.log('Server starting - version 2'); // Add this line at the beginning of the file
+
 async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) {
     const maxRetries = 5;
     const baseDelay = 1000; // 1 second base delay
@@ -1072,39 +1074,60 @@ async function processChats(client, botName) {
 }
 
 async function initializeBots(botNames) {
-    for (const botName of botNames) {
-        await initializeBot(botName);
-        // Add a delay between bot initializations to reduce resource contention
-        await new Promise(resolve => setTimeout(resolve, 5000));
-    }
+  const batchSize = 10;
+  for (let i = 0; i < botNames.length; i += batchSize) {
+      const batch = botNames.slice(i, i + batchSize);
+      console.log(`Initializing batch ${Math.floor(i / batchSize) + 1}: Bots ${i + 1}-${Math.min(i + batchSize, botNames.length)} of ${botNames.length}`);
+      
+      await Promise.all(batch.map(async (botName, index) => {
+         
+          await initializeBot(botName);
+          console.log(`Bot ${botName} initialized (${i + index + 1}/${botNames.length})`);
+      }));
+
+      console.log(`Batch ${Math.floor(i / batchSize) + 1} complete`);
+  }
+  console.log('All bots initialized');
 }
 
 async function main(reinitialize = false) {
-    const companiesRef = db.collection('companies');
-    const snapshot = await companiesRef.get();
-    
-    const botNames = [];
+  console.log('Initialization starting...');
 
-    snapshot.forEach(doc => {
-        const companyId = doc.id;    
-        const data = doc.data();
-        if (data.v2) {
-            botNames.push(companyId);
-        }
-    });
-    //console.log(botNames);
-    if (reinitialize) {
-        // Clear existing bot instances
-        for (const [botName, botData] of botMap.entries()) {
-            if (botData.client) {
-                await botData.client.destroy();
-            }
-        }
-        botMap.clear();
-    }
-    await obiliterateAllJobs();
-    await initializeBots(botNames);
-    await scheduleAllMessages();
+  console.log('Fetching companies...');
+  const companiesRef = db.collection('companies');
+  const snapshot = await companiesRef.get();
+  
+  const botNames = [];
+
+  snapshot.forEach(doc => {
+      const companyId = doc.id;    
+      const data = doc.data();
+      if (data.v2) {
+          botNames.push(companyId);
+      }
+  });
+  console.log(`Found ${botNames.length} bots to initialize`);
+
+  if (reinitialize) {
+      console.log('Reinitializing, clearing existing bot instances...');
+      for (const [botName, botData] of botMap.entries()) {
+          if (botData.client) {
+              await botData.client.destroy();
+          }
+      }
+      botMap.clear();
+  }
+
+  console.log('Obliterating all jobs...');
+  await obiliterateAllJobs();
+
+  console.log('Initializing bots...');
+  await initializeBots(botNames);
+
+  console.log('Scheduling all messages...');
+  await scheduleAllMessages();
+
+  console.log('Initialization complete');
 }
 async function getContactDataFromDatabaseByEmail(email) {
   try {
@@ -1945,7 +1968,7 @@ app.post('/api/channel/create/:companyID', async (req, res) => {
 
 async function initializeBot(botName) {
     try {
-        console.log(`DEBUG: Starting initialization for ${botName}`);
+      console.log(`Starting initialization for bot: ${botName}`);
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: botName,
@@ -2026,6 +2049,7 @@ async function initializeBot(botName) {
         });
 
         await client.initialize();
+        console.log(`Bot ${botName} initialization complete`);
         console.log(`DEBUG: Bot ${botName} initialized successfully`);
     } catch (error) {
         console.error(`Error initializing bot ${botName}:`, error);
@@ -2071,6 +2095,9 @@ console.log('creating ass');
   }
 }
 
-main();
+main().catch(error => {
+  console.error('Error during initialization:', error);
+  process.exit(1);
+});
 
 
