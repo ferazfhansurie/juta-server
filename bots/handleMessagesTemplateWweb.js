@@ -177,6 +177,10 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 type = msg.type;
               }
               const contact = await chat.getContact();
+            
+            if(extractedNumber.includes('status')){
+                return;
+            }
             const data = {
                 additionalEmails: [],
                 address1: null,
