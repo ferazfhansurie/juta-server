@@ -465,8 +465,6 @@ async function handleSpecialResponses(part, to, brochureFilePaths) {
     if (part.includes('Check out our food video!') || part.includes('Jom makan makan!')) {
         const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
         await sendWhapiRequest('messages/video', { to, media: vidPath2 });
-        await sendWhapiRequest('messages/text', { to, body: "Would you like to receive a programme brochure to know more about MSU?" });
-        await addMessageAssistant(threadID, "Would you like to receive a programme brochure to know more about MSU?")
     }
     if (part.includes('enjoy reading about the exciting')) {
         // Add 'idle' tag to GHL
