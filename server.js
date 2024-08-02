@@ -707,10 +707,15 @@ async function sendScheduledMessage(message) {
 }
 
 // Modify the scheduleAllMessages function
-async function scheduleAllMessages() {
+async function obiliterateAllJobs() {
   // Clear all existing jobs from the queue
   await messageQueue.obliterate({ force: true });
   console.log("Queue cleared successfully");
+  
+}
+
+// Modify the scheduleAllMessages function
+async function scheduleAllMessages() {
   const companiesSnapshot = await db.collection('companies').get();
 
   for (const companyDoc of companiesSnapshot.docs) {
@@ -1088,7 +1093,7 @@ async function main(reinitialize = false) {
         }
         botMap.clear();
     }
-
+    await obiliterateAllJobs();
     await initializeBots(botNames);
     await scheduleAllMessages();
 }
