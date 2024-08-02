@@ -460,10 +460,13 @@ async function handleSpecialResponses(part, to, brochureFilePaths) {
     if (part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')) {
         const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
         await sendWhapiRequest('messages/video', { to, media: vidPath });
+
     }
     if (part.includes('Check out our food video!') || part.includes('Jom makan makan!')) {
         const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
         await sendWhapiRequest('messages/video', { to, media: vidPath2 });
+        await sendWhapiRequest('messages/text', { to, body: "Would you like to receive a programme brochure to know more about MSU?" });
+        await addMessageAssistant(threadID, "Would you like to receive a programme brochure to know more about MSU?")
     }
     if (part.includes('enjoy reading about the exciting')) {
         // Add 'idle' tag to GHL
@@ -596,6 +599,38 @@ async function addMessage(threadId, message, documentDetails = null) {
 
     const requestBody = {
         role: "user",
+        content: message
+    };
+
+    if (documentDetails) {
+        const fileExtension = path.extname(documentDetails.file_name);
+        const tempFilePath = path.join(__dirname, `tempfile${fileExtension}`);
+        await downloadFile(documentDetails.link, tempFilePath);
+        const uploadedFile = await uploadFile(tempFilePath, 'assistants');
+        requestBody.attachments = [
+            {
+                file_id: uploadedFile.id,
+                tools: [
+                    {
+                        type: "file_search",
+                    }
+                ]
+            }
+        ];
+
+        // Clean up the downloaded file
+        fs.unlinkSync(tempFilePath);
+    }
+
+    const response = await openai.beta.threads.messages.create(threadId, requestBody);
+    return response;
+}
+
+async function addMessageAssistant(threadId, message, documentDetails = null) {
+    console.log('Adding a new message to thread: ' + threadId);
+
+    const requestBody = {
+        role: "assistant",
         content: message
     };
 
