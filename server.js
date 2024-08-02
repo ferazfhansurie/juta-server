@@ -609,15 +609,20 @@ const worker = new Worker('scheduled-messages', async job => {
       
       console.log(`Batch ${batchMessage.id} sent successfully`);
 
+      // Extract companyId and base messageId
+      const companyId = batchMessage.companyId;
+      const baseMessageId = batchMessage.id.split('_batch_')[0];
+
       // Check if all batches are processed
       const remainingBatches = await messageQueue.getJobs(['waiting', 'delayed', 'active']);
-      const allBatchesProcessed = !remainingBatches.some(job => job.id.startsWith(batchMessage.id.split('_batch_')[0]));
+      const relatedJobs = remainingBatches.filter(job => job.id.startsWith(baseMessageId));
 
-      if (allBatchesProcessed) {
-        const companyId = batchMessage.companyId;
-        const messageId = batchMessage.id.split('_batch_')[0];
-        await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).delete();
-        console.log(`Scheduled message ${messageId} deleted from Firebase`);
+      if (relatedJobs.length === 0) {
+        // All batches for this message have been processed
+        await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(baseMessageId).delete();
+        console.log(`Scheduled message ${baseMessageId} deleted from Firebase`);
+      } else {
+        console.log(`${relatedJobs.length} batches remaining for message ${baseMessageId}`);
       }
     } catch (error) {
       console.error('Error processing scheduled message batch:', error);
