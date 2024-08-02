@@ -1931,7 +1931,18 @@ async function initializeBot(botName) {
             authStrategy: new LocalAuth({
                 clientId: botName,
             }),
-            puppeteer: { executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',args: ['--no-sandbox', '--disable-setuid-sandbox',] }
+            puppeteer: { headless: true,executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',args: [
+              '--no-sandbox',
+              '--disable-setuid-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-web-security',
+              '--disable-gpu',
+              '--hide-scrollbars',
+              '--disable-cache',
+              '--disable-application-cache',
+              '--disable-gpu-driver-bug-workarounds',
+              '--disable-accelerated-2d-canvas',
+           ], }
           });
         botMap.set(botName, { client, status: 'initializing', qrCode: null });
         broadcastAuthStatus(botName, 'initializing');
