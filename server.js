@@ -15,7 +15,6 @@ const cors = require('cors');
 const app = express();
 const admin = require('./firebase.js');
 const axios = require('axios');
-const cron = require('node-cron');
 const WebSocket = require('ws');
 const server = require('http').createServer(app);
 const wss = new WebSocket.Server({ server });
