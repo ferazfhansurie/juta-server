@@ -12,6 +12,7 @@
     "express-sse": "^0.5.3",
     "express-ws": "^5.0.2",
     "firebase-admin": "^12.1.0",
+    "googleapis": "^140.0.1",
     "html-entities": "^2.5.2",
     "http-proxy-middleware": "^3.0.0",
     "ioredis": "^5.4.1",

@@ -2,6 +2,8 @@ require('dotenv').config();
 const { Client, LocalAuth, RemoteAuth} = require('whatsapp-web.js');
 const { Queue, Worker, QueueScheduler} = require('bullmq');
 const Redis = require('ioredis');
+const { google } = require('googleapis');
+const cron = require('node-cron');
 //const qrcode = require('qrcode-terminal');
 const FirebaseWWebJS = require('./firebaseWweb.js');
 const qrcode = require('qrcode');
@@ -37,6 +39,9 @@ const connection = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', 
 require('events').EventEmitter.prototype._maxListeners = 70;
 require('events').defaultMaxListeners = 70;
 
+//Save last processed row
+const LAST_PROCESSED_ROW_FILE = 'last_processed_row.json';
+
 // Create a queue
 const messageQueue = new Queue('scheduled-messages', { connection });
 
@@ -53,6 +58,67 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
 
   // Return the URL path to access this filez
   return `/media/${uniqueFilename}`;
+}
+
+// Function to load the last processed row from file
+async function loadLastProcessedRow() {
+  try {
+    const data = await fs.readFile(LAST_PROCESSED_ROW_FILE, 'utf8');
+    const { lastProcessedRow, lastProcessedTimestamp } = JSON.parse(data);
+    return { lastProcessedRow, lastProcessedTimestamp };
+  } catch (error) {
+    console.log('No saved state found, starting from the beginning.');
+    return { lastProcessedRow: 0, lastProcessedTimestamp: 0 };
+  }
+}
+
+// Function to save the last processed row to file
+async function saveLastProcessedRow(lastProcessedRow, lastProcessedTimestamp) {
+  await fs.writeFile(LAST_PROCESSED_ROW_FILE, JSON.stringify({ lastProcessedRow, lastProcessedTimestamp }));
+}
+
+async function checkAndProcessNewRows(spreadsheetId, range, botName) {
+  try {
+    const { lastProcessedRow, lastProcessedTimestamp } = await loadLastProcessedRow();
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range,
+    });
+
+    const rows = response.data.values;
+    if (!rows || rows.length === 0) {
+      console.log('No data found.');
+      return;
+    }
+
+    let newLastProcessedRow = lastProcessedRow;
+    const currentTimestamp = Date.now();
+
+    // Process new rows
+    for (let i = lastProcessedRow + 1; i < rows.length; i++) {
+      const row = rows[i];
+      const [name, phoneNumber, message, timestamp] = row; // Assuming timestamp is the 4th column
+
+      // Check if this row is newer than the last processed timestamp
+      if (new Date(timestamp).getTime() > lastProcessedTimestamp) {
+        // Send WhatsApp message
+        const botData = botMap.get(botName);
+        if (!botData || !botData.client) {
+          return res.status(404).send('WhatsApp client not found for this company');
+        }
+        const client = botData.client;
+        await client.sendMessage(`${phoneNumber}@c.us`, message);
+        console.log(`Processed row ${i + 1}: Message sent to ${name} (${phoneNumber})`);
+        newLastProcessedRow = i;
+      }
+    }
+
+    // Update the last processed row and timestamp
+    await saveLastProcessedRow(newLastProcessedRow, currentTimestamp);
+  } catch (error) {
+    console.error('Error processing spreadsheet:', error);
+  }
 }
 
 wss.on('connection', (ws,req) => {
@@ -1120,7 +1186,11 @@ async function main(reinitialize = false) {
 
   console.log('Obliterating all jobs...');
   await obiliterateAllJobs();
-
+  
+  // Run the check immediately when the server starts
+  console.log('Checking for new rows msu...');
+  checkAndProcessNewRows('1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA','Sheet1!A:S','001');
+  
   console.log('Initializing bots...');
   await initializeBots(botNames);
 
@@ -1129,6 +1199,7 @@ async function main(reinitialize = false) {
 
   console.log('Initialization complete');
 }
+
 async function getContactDataFromDatabaseByEmail(email) {
   try {
       // Check if email is defined
@@ -2098,6 +2169,12 @@ console.log('creating ass');
 main().catch(error => {
   console.error('Error during initialization:', error);
   process.exit(1);
+});
+
+// Then schedule it to run every 5 minutes
+cron.schedule('*/5 * * * *', () => {
+  console.log('Checking for new rows in the spreadsheet...');
+  checkAndProcessNewRows('1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA','Sheet1!A:S','001');
 });
 
 

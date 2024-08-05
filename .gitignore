@@ -19,6 +19,7 @@ config/secret-config.json
 temp/
 
 sa_firebase.json
+service_account.json
 jutaCRM.code-workspace
 juta.json
 firestore.rules
