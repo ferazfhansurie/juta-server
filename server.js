@@ -272,6 +272,8 @@ const { handleNewMessagesApel} = require('./bots/handleMessagesApel.js');
 const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
 const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js');
 const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb.js');
+const { handleNewMessagesZahinTravel } = require('./bots/handleMessagesZahinTravel.js');
+
 
 
 
@@ -305,7 +307,10 @@ app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
-
+const customHandlers = {
+  '042': handleNewMessagesZahinTravel,
+  // Add more custom handlers for other bots as needed
+};
 
 
 
@@ -853,14 +858,20 @@ async function scheduleAllMessages() {
 }
 
 function setupMessageHandler(client, botName) {
-    client.on('message', async (msg) => {
-        console.log(`DEBUG: Message received for bot ${botName}`);
-        try {
-            await handleNewMessagesTemplateWweb(client, msg, botName);
-        } catch (error) {
-            console.error(`ERROR in message handling for bot ${botName}:`, error);
-        }
-    });
+  client.on('message', async (msg) => {
+      console.log(`DEBUG: Message received for bot ${botName}`);
+      try {
+          // Check if there's a custom handler for this bot
+          if (customHandlers[botName]) {
+              await customHandlers[botName](client, msg, botName);
+          } else {
+              // Use the default template handler if no custom handler is defined
+              await handleNewMessagesTemplateWweb(client, msg, botName);
+          }
+      } catch (error) {
+          console.error(`ERROR in message handling for bot ${botName}:`, error);
+      }
+  });
 }
 
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
