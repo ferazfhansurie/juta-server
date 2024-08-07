@@ -151,6 +151,72 @@ async function removeTagFromFirebase(phoneNumber, tagToRemove) {
     }
 }
 
+const rateLimitMap = new Map();
+const messageQueue = new Map();
+const processingThreads = new Set();
+
+async function handleOpenAIAssistant2(message, threadID) {
+    const assistantId = 'asst_ONO6YUxpCKM0PGEcv3ZyObmz';
+    
+    // Add message to queue
+    if (!messageQueue.has(threadID)) {
+        messageQueue.set(threadID, []);
+    }
+    messageQueue.get(threadID).push(message);
+
+    // If the thread is already being processed, return a promise that will resolve when it's this message's turn
+    if (processingThreads.has(threadID)) {
+        return new Promise((resolve) => {
+            const checkQueue = setInterval(() => {
+                if (messageQueue.get(threadID)[0] === message) {
+                    clearInterval(checkQueue);
+                    resolve(processQueue(threadID, assistantId));
+                }
+            }, 100);
+        });
+    }
+
+    // If the thread is not being processed, start processing
+    processingThreads.add(threadID);
+    return processQueue(threadID, assistantId);
+}
+
+async function processQueue(threadID, assistantId) {
+    while (messageQueue.get(threadID).length > 0) {
+        const currentMessage = messageQueue.get(threadID)[0];
+        
+        // Check if we've made a request for this threadID recently
+        const lastRequestTime = rateLimitMap.get(threadID) || 0;
+        const currentTime = Date.now();
+        const timeSinceLastRequest = currentTime - lastRequestTime;
+
+        // If less than 5 seconds have passed since the last request, wait
+        if (timeSinceLastRequest < 5000) {
+            const waitTime = 5000 - timeSinceLastRequest;
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
+        // Update the last request time for this threadID
+        rateLimitMap.set(threadID, Date.now());
+
+        // Add message to the thread
+        await addMessage(threadID, currentMessage);
+
+        // Run the assistant
+        const answer = await runAssistant(assistantId, threadID);
+
+        // Remove processed message from queue
+        messageQueue.get(threadID).shift();
+
+        // If this was the last message in the queue, remove the thread from processing
+        if (messageQueue.get(threadID).length === 0) {
+            processingThreads.delete(threadID);
+        }
+
+        // Return answer for the current message
+        return answer;
+    }
+}
 
 async function handleNewMessagesTasty(req, res) {
     try {
@@ -701,12 +767,6 @@ async function handleOpenAIMyMessage(message, threadID) {
     await addMessageAssistant(threadID, query);
 }
 
-async function handleOpenAIAssistant2(message, threadID) {
-    const assistantId = 'asst_ONO6YUxpCKM0PGEcv3ZyObmz';
-    await addMessage(threadID, message);
-    const answer = await runAssistant(assistantId,threadID);
-    return answer;
-}
 async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
     console.log('Sending request to Whapi.Cloud...');
     const options = {
