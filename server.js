@@ -23,6 +23,7 @@ const OpenAI = require('openai');
 const { MessageMedia } = require('whatsapp-web.js');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
+const util = require('util');  // We'll use this to promisify fs functions
 const path = require('path');
 const stream = require('stream');
 const { promisify } = require('util');
@@ -37,6 +38,19 @@ const connection = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', 
 
 require('events').EventEmitter.prototype._maxListeners = 70;
 require('events').defaultMaxListeners = 70;
+
+// Initialize the Google Sheets API
+const auth = new google.auth.GoogleAuth({
+  keyFile: 'service_account.json', // Replace with the path to your Google API credentials file
+  scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+});
+
+const sheets = google.sheets({ version: 'v4', auth });
+
+
+// Promisify the fs.readFile and fs.writeFile functions
+const readFileAsync = util.promisify(fs.readFile);
+const writeFileAsync = util.promisify(fs.writeFile);
 
 //Save last processed row
 const LAST_PROCESSED_ROW_FILE = 'last_processed_row.json';
@@ -59,21 +73,23 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
   return `/media/${uniqueFilename}`;
 }
 
-// Function to load the last processed row from file
 async function loadLastProcessedRow() {
   try {
-    const data = await fs.readFile(LAST_PROCESSED_ROW_FILE, 'utf8');
-    const { lastProcessedRow, lastProcessedTimestamp } = JSON.parse(data);
-    return { lastProcessedRow, lastProcessedTimestamp };
+    const data = await readFileAsync(LAST_PROCESSED_ROW_FILE, 'utf8');
+    return JSON.parse(data);
   } catch (error) {
-    console.log('No saved state found, starting from the beginning.');
-    return { lastProcessedRow: 0, lastProcessedTimestamp: 0 };
+    if (error.code === 'ENOENT') {
+      console.log('No saved state found, starting from the beginning.');
+      return { lastProcessedRow: 0, lastProcessedTimestamp: 0 };
+    }
+    throw error;
   }
 }
 
-// Function to save the last processed row to file
+
 async function saveLastProcessedRow(lastProcessedRow, lastProcessedTimestamp) {
-  await fs.writeFile(LAST_PROCESSED_ROW_FILE, JSON.stringify({ lastProcessedRow, lastProcessedTimestamp }));
+  const data = JSON.stringify({ lastProcessedRow, lastProcessedTimestamp });
+  await writeFileAsync(LAST_PROCESSED_ROW_FILE, data, 'utf8');
 }
 
 async function checkAndProcessNewRows(spreadsheetId, range, botName) {
@@ -99,12 +115,14 @@ async function checkAndProcessNewRows(spreadsheetId, range, botName) {
       const row = rows[i];
       const [name, phoneNumber, message, timestamp] = row; // Assuming timestamp is the 4th column
 
+
       // Check if this row is newer than the last processed timestamp
       if (new Date(timestamp).getTime() > lastProcessedTimestamp) {
         // Send WhatsApp message
         const botData = botMap.get(botName);
         if (!botData || !botData.client) {
-          return res.status(404).send('WhatsApp client not found for this company');
+          console.log('WhatsApp client not found for this company');
+          continue; // Skip this iteration and continue with the next row
         }
         const client = botData.client;
         await client.sendMessage(`${phoneNumber}@c.us`, message);
@@ -1191,7 +1209,7 @@ async function main(reinitialize = false) {
   
   // Run the check immediately when the server starts
   console.log('Checking for new rows msu...');
-  checkAndProcessNewRows('1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA','Sheet1!A:S','001');
+  await checkAndProcessNewRows('1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA','Sheet1!A:S','001');
   
   console.log('Initializing bots...');
   await initializeBots(botNames);
