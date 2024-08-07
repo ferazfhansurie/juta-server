@@ -4,7 +4,7 @@ module.exports = {
         name: 'app-blue',
         script: 'server.js',
         env: {
-          PORT: 8444,
+          PORT: 8443,
           NODE_ENV: 'production',
         },
       },
@@ -12,7 +12,7 @@ module.exports = {
         name: 'app-green',
         script: 'server.js',
         env: {
-          PORT: 8445,
+          PORT: 8444,
           NODE_ENV: 'production',
         },
         disable_startup: true, // This will prevent it from starting automatically

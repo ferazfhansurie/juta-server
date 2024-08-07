@@ -1150,20 +1150,12 @@ async function processChats(client, botName) {
 }
 
 async function initializeBots(botNames) {
-  const batchSize = 10;
-  for (let i = 0; i < botNames.length; i += batchSize) {
-      const batch = botNames.slice(i, i + batchSize);
-      console.log(`Initializing batch ${Math.floor(i / batchSize) + 1}: Bots ${i + 1}-${Math.min(i + batchSize, botNames.length)} of ${botNames.length}`);
-      
-      await Promise.all(batch.map(async (botName, index) => {
-         
-          await initializeBot(botName);
-          console.log(`Bot ${botName} initialized (${i + index + 1}/${botNames.length})`);
-      }));
-
-      console.log(`Batch ${Math.floor(i / batchSize) + 1} complete`);
-  }
-  console.log('All bots initialized');
+  for (let i = 0; i < botNames.length; i++) {
+      const botName = botNames[i];
+    console.log('Initializing bot ${i + 1}/${botNames.length}: ${botName}');
+      await initializeBot(botName);
+      console.log('Bot ${botName} initialized');
+  }
 }
 
 async function main(reinitialize = false) {
@@ -2130,7 +2122,7 @@ async function initializeBot(botName) {
         });
 
         await client.initialize();
-        console.log(`Bot ${botName} initialization complete`);
+        console.log(`Bot ${botName} initialization`);
         console.log(`DEBUG: Bot ${botName} initialized successfully`);
     } catch (error) {
         console.error(`Error initializing bot ${botName}:`, error);

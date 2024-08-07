@@ -134,7 +134,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 }
                 if(stopTag.includes('stop bot')){
                     console.log('Bot stopped for this message');
-                    return;
+             
                 }else {
                     contactID = extractedNumber;
                     contactName = msg.notifyName ?? extractedNumber;
@@ -154,7 +154,9 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
 
                 contactID = extractedNumber;
                 contactName = msg.notifyName ?? extractedNumber;
-             
+                if(idSubstring === '001'){
+                    client.sendMessage('601121677522@c.us', 'New Lead '+contactName +' '+contactID);
+                }
                 const thread = await createThread();
                 threadID = thread.id;
                 console.log(threadID);
@@ -304,14 +306,13 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                     answer= await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
                     
+                    await customWait(10000);
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();   
                         const check = part.toLowerCase();
                         if (part) {
-                            //await addtagbookedGHL(contactID, 'idle');
-                            //await sendWhapiRequest('messages/text', { to: sender.to, body: part });
                             const sentMessage = await client.sendMessage(msg.from, part);
-
+    
                             // Save the message to Firebase
                             const sentMessageData = {
                                 chat_id: sentMessage.from,
@@ -323,16 +324,15 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                                 text: {
                                     body: part
                                 },
-                                timestamp: sentMessage.timestamp ?? 0,
+                                timestamp: sentMessage.timestamp,
                                 type: 'text',
                                 ack: sentMessage.ack ?? 0,
                             };
-
+    
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
-
+    
                             await messageDoc.set(sentMessageData, { merge: true });
                             if (check.includes('patience')) {
-                                //await addtagbookedGHL(contactID, 'stop bot');
                             } 
                             if(check.includes('get back to you as soon as possible')){
                                 console.log('check includes');
@@ -340,7 +340,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                                await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                             }
                         }
-                    }
+                    }
                     console.log('Response sent.');
                     userState.set(sender.to, steps.START);
                     break;
