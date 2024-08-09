@@ -505,6 +505,11 @@ async function handleNewMessagesCNB3(client, msg, botName) {
     }
 }
 
+const extractProductName = (str) => {
+    const match = str.split('-')[0];
+    return match ? match.trim() : null;
+};
+
 
 async function removeTagFirebase(contactID, tag, idSubstring) {
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
