@@ -285,6 +285,7 @@ const { handleNewMessagesBHQ } = require('./bots/handleMessagesBHQ.js');
 const { handleNewMessagesTasty} = require('./bots/handleMessagesTasty.js');
 const { handleNewMessagesTastyPuga} = require('./bots/handleMessagesPugaTasty.js');
 const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
+const { handleNewMessagesCNB2} = require('./bots/handleMessagesCNB2.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
 const { handleNewMessagesApel} = require('./bots/handleMessagesApel.js');
 const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
@@ -329,6 +330,7 @@ app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 const customHandlers = {
   '001': handleNewMessagesJuta2,
+  '020': handleNewMessagesCNB2,
   '042': handleNewMessagesZahinTravel,
   // Add more custom handlers for other bots as needed
 };
