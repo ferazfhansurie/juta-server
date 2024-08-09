@@ -451,7 +451,7 @@ async function handleNewMessagesCNB3(client, msg, botName) {
                             await messageDoc.set(sentMessageData, { merge: true });
 
                             if (check.includes('patience')) {
-                                await addtagbookedGHL(contactID, 'stop bot');
+                                await addtagbookedFirebase(contactID, 'stop bot');
                             } 
                             if(check.includes('get back to you as soon as possible')){
                                 console.log('check includes');
