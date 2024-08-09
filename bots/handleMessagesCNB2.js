@@ -70,7 +70,7 @@ async function handleNewMessagesCNB2(client, msg, botName) {
 
         // Initial fetch of config
         await fetchConfigFromDatabase();
-        client.sendMessage(msg.from, 'part');
+     //   client.sendMessage(msg.from, 'part');
         if (msg.fromMe) return;
 
         if(!msg.from.includes("whatsapp")){
@@ -92,136 +92,156 @@ async function handleNewMessagesCNB2(client, msg, botName) {
         let currentStep;
         const senderTo = sender.to;
         const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-        let contactPresent = await getContact(extractedNumber);
+        //let contactPresent = await getContact(extractedNumber);
         const chat = await msg.getChat();
         const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
         console.log(contactData)
-        if (contactPresent !== null) {
-            const stopTag = contactPresent.tags;
+   
+        if (contactData !== null) {
+            const stopTag = contactData.tags;
             console.log(stopTag);
             if (msg.fromMe){
                 if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
                 }
                 return;
             }
             if(stopTag.includes('stop bot')){
                 console.log('Bot stopped for this message');
                 return;
-            } else {
-                contactID = contactPresent.id;
-                contactName = contactPresent.fullNameLowerCase;
-                const threadIdField = contactPresent.customFields.find(field => field.id === 'DbZw9MHDm1CbViNrx2G1');
+            }else {
+                contactID = extractedNumber;
+                contactName = msg.notifyName ?? extractedNumber;
             
-                if (threadIdField) {
-                    threadID = threadIdField.value;
+                if (contactData.threadid) {
+                    threadID = contactData.threadid;
                 } else {
                     const thread = await createThread();
                     threadID = thread.id;
-                    await saveThreadIDGHL(contactID,threadID);
+                    await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                    //await saveThreadIDGHL(contactID,threadID);
                 }
             }
-        } else {
-            await createContact(sender.name,extractedNumber);
-            await customWait(2500);
-            contactPresent = await getContact(extractedNumber);
-            const stopTag = contactPresent.tags;
-            if (msg.fromMe){
-                if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
-                }
-                return;
-            }
-            console.log(stopTag);
+            
+        }else{
+            
+            await customWait(2500); 
 
-            contactID = contactPresent.id;
-            contactName = contactPresent.fullNameLowerCase;
-
-            const threadIdField = contactPresent.customFields.find(field => field.id === 'DbZw9MHDm1CbViNrx2G1');
-            if (threadIdField) {
-                threadID = threadIdField.value;
-            } else {
-                const thread = await createThread();
-                threadID = thread.id;
-                await saveThreadIDGHL(contactID,threadID);
-            }
+            contactID = extractedNumber;
+            contactName = msg.notifyName ?? extractedNumber;
+         
+            const thread = await createThread();
+            threadID = thread.id;
+            console.log(threadID);
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
             console.log('sent new contact to create new contact');
-        }   
-        contactPresent = await getContact(extractedNumber);
+
+            
+
+        }
         let firebaseTags = []
         if(contactData){
             firebaseTags = contactData.tags ?? [];
         }
         
-        const data = {
-            additionalEmails: [],
-            address1: null,
-            assignedTo: null,
-            businessId: null,
-            atriaCheck: contactData.atriaCheck ?? true,
-            phone: extractedNumber,
-            tags: firebaseTags,
-            chat: {
-                chat_pic: chat.profilePicUrl ?? "",
-                chat_pic_full: chat.profilePicUrl ?? "",
-                contact_id: contactPresent.id,
-                id: msg.from,
-                name: contactPresent.firstName,
-                not_spam: true,
-                tags: contactPresent.tags ?? [],
-                timestamp: msg.timestamp,
-                type: 'contact',
-                unreadCount: 0,
+        let type = '';
+            if(msg.type == 'chat'){
+                type ='text'
+              }else{
+                type = msg.type;
+              }
+              const contact = await chat.getContact();
+            
+            if(extractedNumber.includes('status')){
+                return;
+            }
+            const data = {
+                additionalEmails: [],
+                address1: null,
+                assignedTo: null,
+                businessId: null,
+                phone:extractedNumber,
+                tags:firebaseTags,
+                chat: {
+                    contact_id: extractedNumber,
+                    id: msg.from,
+                    name: contact.name || contact.pushname || extractedNumber,
+                    not_spam: true,
+                    tags: firebaseTags,
+                    timestamp: chat.timestamp || Date.now(),
+                    type: 'contact',
+                    unreadCount: 0,
+                    last_message: {
+                        chat_id: msg.from,
+                        from: msg.from ?? "",
+                        from_me: msg.fromMe ?? false,
+                        id: msg._data.id.id ?? "",
+                        source: chat.deviceType ?? "",
+                        status: "delivered",
+                        text: {
+                            body:msg.body ?? ""
+                        },
+                        timestamp: msg.timestamp ?? 0,
+                        type: type,
+                    },
+                },
+                chat_id: msg.from,
+                city: null,
+                companyName: null,
+                contactName: contact.name || contact.pushname ||  extractedNumber,
+                threadid: threadID ?? "",
                 last_message: {
                     chat_id: msg.from,
-                    device_id: msg.deviceType ?? "",
                     from: msg.from ?? "",
                     from_me: msg.fromMe ?? false,
-                    id: msg.id._serialized ?? "",
-                    source: msg.deviceType ?? "",
+                    id: msg._data.id.id ?? "",
+                    source: chat.deviceType ?? "",
                     status: "delivered",
-                    text: msg.body ?? "",
+                    text: {
+                        body:msg.body ?? ""
+                    },
                     timestamp: msg.timestamp ?? 0,
-                    type: msg.type ?? "",
+                    type: type,
                 },
-            },
-            chat_id: msg.from,
-            chat_pic: chat.profilePicUrl ?? "",
-            chat_pic_full: chat.profilePicUrl ?? "",
-            city: null,
-            companyName: null,
-            contactName: chat.name ?? extractedNumber,
-            country: contactPresent.country ?? "",
-            customFields: contactPresent.customFields ?? {},
-            last_message: {
+            };
+            const message =  {
                 chat_id: msg.from,
-                device_id: msg.deviceType ?? "",
+                from: msg.from ?? "",
+                from_me: msg.fromMe ?? false,
+                id: msg._data.id.id ?? "",
+                source: chat.deviceType ?? "",
+                status: "delivered",
+                text: {
+                    body:msg.body ?? ""
+                },
+                timestamp: msg.timestamp ?? 0,
+                type: type,
+            };
+            const messageData = {
+                chat_id: msg.from,
                 from: msg.from ?? "",
                 from_me: msg.fromMe ?? false,
                 id: msg.id._serialized ?? "",
-                source: msg.deviceType ?? "",
+                source: chat.deviceType ?? "",
                 status: "delivered",
-                text: msg.body ?? "",
+                text: {
+                    body:msg.body ?? ""
+                },
                 timestamp: msg.timestamp ?? 0,
-                type: msg.type ?? "",
-            },
-        };
-        
-        await addNotificationToUser('020', {
-            chat_id: msg.from,
-            from: msg.from ?? "",
-            from_me: msg.fromMe ?? false,
-            id: msg.id._serialized ?? "",
-            source: msg.deviceType ?? "",
-            status: "delivered",
-            text: {
-                body: msg.body ?? ""
-            },
-            timestamp: msg.timestamp ?? 0,
-            type: msg.type,
-        });
-        // Add the data to Firestore
-        await db.collection('companies').doc('020').collection('contacts').doc(extractedNumber).set(data);    
+                type: type,
+              };
+              
+              const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+              //await contactRef.set(contactData, { merge: true });
+              const messagesRef = contactRef.collection('messages');
+          
+              const messageDoc = messagesRef.doc(msg.id._serialized);
+              await messageDoc.set(messageData, { merge: true });
+            //   console.log(msg);
+           await addNotificationToUser(idSubstring, messageData);
+            
+            // Add the data to Firestore
+            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
+      
         if (msg.body.includes('/resetbot')) {
             const thread = await createThread();
             threadID = thread.id;
@@ -328,11 +348,12 @@ async function handleNewMessagesCNB2(client, msg, botName) {
                     const check = part.toLowerCase();
                     const carpetCheck = check.replace(/\s+/g, '');             
                     if (part) {
-                        await addtagbookedGHL(contactID, 'idle');
+                        await addtagbookedFirebase(contactID, 'idle');
                         const sentMessage = await client.sendMessage(msg.from, part);
                         console.log(sentMessage)
                         if (check.includes('patience')) {
-                            await addtagbookedGHL(contactID, 'stop bot');
+                            
+                            await addtagbookedFirebase(contactID, 'stop bot');
                         } 
                         if(check.includes('get back to you as soon as possible')){
                             console.log('check includes');
