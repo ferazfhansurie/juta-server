@@ -140,7 +140,7 @@ async function checkAndProcessNewRows(spreadsheetId, range, botName) {
 
         // Send the message to a designated number or group
         const designatedRecipient = process.env.DESIGNATED_RECIPIENT; // Set this in your .env file
-        await client.sendMessage(designatedRecipient, message);
+        await client.sendMessage('601121677522@c.us', message);
 
         console.log(`Processed row ${i + 1}: Message sent for ${name} (${phoneNumber})`);
         newLastProcessedRow = i;
