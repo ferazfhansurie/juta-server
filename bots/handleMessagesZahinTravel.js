@@ -32,6 +32,38 @@ async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
+let employeeAssignments = [];
+let currentAssignmentIndex = 0;
+
+async function fetchEmployeesFromFirebase(idSubstring) {
+    const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
+    const snapshot = await employeesRef.get();
+    employeeAssignments = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { id: doc.id, name: data.name };
+    });
+    console.log('Fetched employees:', employeeAssignments);
+}
+
+async function assignNewContactToEmployee(contactID, idSubstring) {
+    if (employeeAssignments.length === 0) {
+        await fetchEmployeesFromFirebase(idSubstring);
+    }
+
+    if (employeeAssignments.length === 0) {
+        console.log('No employees found for assignment');
+        return;
+    }
+
+    const assignedEmployee = employeeAssignments[currentAssignmentIndex];
+    currentAssignmentIndex = (currentAssignmentIndex + 1) % employeeAssignments.length;
+
+    const tag = assignedEmployee.name;
+    await addtagbookedFirebase(contactID, tag, idSubstring);
+    
+    console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
+}
+
 async function addNotificationToUser(companyId, message) {
     console.log('noti');
     try {
@@ -160,6 +192,9 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 console.log(threadID);
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 console.log('sent new contact to create new contact');
+
+                await assignNewContactToEmployee(contactID, idSubstring);
+
             }   
             let firebaseTags =['']
             if(contactData){
@@ -432,6 +467,37 @@ async function addtagbookedGHL(contactID, tag) {
         await axios.request(options);
     } catch (error) {
         console.error('Error adding tag to contact:', error);
+    }
+}
+
+async function addtagbookedFirebase(contactID, tag, idSubstring) {
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
+    try {
+        // Get the current document
+        const doc = await contactRef.get();
+        let currentTags = [];
+
+        if (doc.exists) {
+            currentTags = doc.data().tags || [];
+        }
+
+        // Add the new tag if it doesn't already exist
+        if (!currentTags.includes(tag)) {
+            currentTags.push(tag);
+
+            // Update the document with the new tags
+            await contactRef.set({
+                tags: currentTags
+            }, { merge: true });
+
+            console.log(`Tag "${tag}" added to contact ${contactID} in Firebase`);
+        } else {
+            console.log(`Tag "${tag}" already exists for contact ${contactID} in Firebase`);
+        }
+    } catch (error) {
+        console.error('Error adding tag to Firebase:', error);
     }
 }
 
