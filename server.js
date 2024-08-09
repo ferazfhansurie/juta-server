@@ -294,7 +294,7 @@ const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js'
 const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb.js');
 const { handleNewMessagesZahinTravel } = require('./bots/handleMessagesZahinTravel.js');
 const { handleNewMessagesJuta2 } = require('./bots/handleMessagesJuta2.js');
-
+const { handleApplyRadarBlast } = require('./blast/applyRadarBlast.js');
 
 
 
@@ -328,6 +328,7 @@ app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
+app.post('/applyradar/hook/blast', handleApplyRadarBlast);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 const customHandlers = {
   '001': handleNewMessagesJuta2,
