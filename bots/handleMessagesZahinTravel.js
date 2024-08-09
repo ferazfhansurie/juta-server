@@ -54,7 +54,7 @@ async function assignNewContactToEmployee(contactID, idSubstring) {
         console.log('No employees found for assignment');
         return;
     }
-
+    
     const assignedEmployee = employeeAssignments[currentAssignmentIndex];
     currentAssignmentIndex = (currentAssignmentIndex + 1) % employeeAssignments.length;
 
@@ -155,7 +155,6 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             const chat = await msg.getChat();
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             
-            console.log(contactData);
             if (contactData !== null) {
                 const stopTag = contactData.tags;
                 console.log(stopTag);
@@ -211,7 +210,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     firebaseTags.push('Small Trip');
                 }
             } else if (msg.body.toLowerCase().includes('trip')) {
-                if (!firebaseTags.includes('Big Trip')) {
+                if (!firebaseTags.includes('Big Trip') && !firebaseTags.includes('Small Trip')) {
                     firebaseTags.push('Big Trip');
                 }
             }
@@ -289,7 +288,6 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 timestamp: msg.timestamp ?? 0,
                 type: type,
             };
-            console.log(data);
             const messageData = {
                 chat_id: msg.from,
                 from: msg.from ?? "",
@@ -310,7 +308,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
           
               const messageDoc = messagesRef.doc(msg.id._serialized);
               await messageDoc.set(messageData, { merge: true });
-              console.log(msg);
+            //   console.log(msg);
            await addNotificationToUser(idSubstring, messageData);
             
             // Add the data to Firestore
