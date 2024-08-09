@@ -63,11 +63,12 @@ const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 
 // Function to save media locally
 async function saveMediaLocally(base64Data, mimeType, filename) {
+  const writeFileAsync = util.promisify(fs.writeFile);
   const buffer = Buffer.from(base64Data, 'base64');
   const uniqueFilename = `${uuidv4()}_${filename}`;
   const filePath = path.join(MEDIA_DIR, uniqueFilename);
   
-  await fs.writeFile(filePath, buffer);
+  await writeFileAsync(filePath, buffer);
 
   // Return the URL path to access this filez
   return `/media/${uniqueFilename}`;
