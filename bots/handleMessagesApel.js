@@ -472,7 +472,7 @@ const messageQueue = new Map();
 const processingThreads = new Set();
 
 async function handleOpenAIAssistant(message, threadID) {
-    const assistantId = 'asst_tqVuJyl8gR1ZmV7OdBdQBNEF';
+    const assistantId = 'asst_DJNa5IXYrMjRdGSCkgkJHhlE';
     
     // Add message to queue
     if (!messageQueue.has(threadID)) {
