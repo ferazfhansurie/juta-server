@@ -113,7 +113,7 @@ async function checkAndProcessNewRows(spreadsheetId, range, botName) {
     // Process new rows
     for (let i = lastProcessedRow + 1; i < rows.length; i++) {
       const row = rows[i];
-      const [name, phoneNumber, message, timestamp] = row; // Assuming timestamp is the 4th column
+      const [timestamp, leadsource, name, email, phoneNumber, icNumber, fieldOfStudy, levelOfQualification, nationality, modeOfStudy, articleName, colIssued] = row;
 
 
       // Check if this row is newer than the last processed timestamp
@@ -125,8 +125,24 @@ async function checkAndProcessNewRows(spreadsheetId, range, botName) {
           continue; // Skip this iteration and continue with the next row
         }
         const client = botData.client;
-        await client.sendMessage(`${phoneNumber}@c.us`, message);
-        console.log(`Processed row ${i + 1}: Message sent to ${name} (${phoneNumber})`);
+
+        // Construct the message
+        const message = `New lead received:
+        Name: ${name}
+        Email: ${email}
+        Phone: ${phoneNumber}
+        Field of Study: ${fieldOfStudy}
+        Level of Qualification: ${levelOfQualification}
+        Nationality: ${nationality}
+        Mode of Study: ${modeOfStudy}
+        Article Name: ${articleName}
+        COL Issued: ${colIssued}`;
+
+        // Send the message to a designated number or group
+        const designatedRecipient = process.env.DESIGNATED_RECIPIENT; // Set this in your .env file
+        await client.sendMessage(designatedRecipient, message);
+
+        console.log(`Processed row ${i + 1}: Message sent for ${name} (${phoneNumber})`);
         newLastProcessedRow = i;
       }
     }
