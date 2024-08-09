@@ -1173,7 +1173,7 @@ async function processChats(client, botName) {
 async function initializeBots(botNames) {
   for (let i = 0; i < botNames.length; i++) {
       const botName = botNames[i];
-    console.log('Initializing bot ${i + 1}/${botNames.length}: ${botName}');
+    console.log(`Initializing bot ${i + 1}/${botNames.length}: ${botName}`);
       await initializeBot(botName);
       console.log('Bot ${botName} initialized');
   }
