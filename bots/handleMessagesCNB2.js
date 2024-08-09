@@ -66,11 +66,11 @@ async function getChatMetadata(chatId,) {
 }
 async function handleNewMessagesCNB2(client, msg, botName) {
     try {
-        console.log('Handling new messages from CNB...');
+        console.log('Handling new messages from CNB2...');
 
         // Initial fetch of config
         await fetchConfigFromDatabase();
-
+        client.sendMessage(msg.from, 'part');
         if (msg.fromMe) return;
 
         if(!msg.from.includes("whatsapp")){
@@ -95,7 +95,7 @@ async function handleNewMessagesCNB2(client, msg, botName) {
         let contactPresent = await getContact(extractedNumber);
         const chat = await msg.getChat();
         const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
-        
+        console.log(contactData)
         if (contactPresent !== null) {
             const stopTag = contactPresent.tags;
             console.log(stopTag);
@@ -330,7 +330,7 @@ async function handleNewMessagesCNB2(client, msg, botName) {
                     if (part) {
                         await addtagbookedGHL(contactID, 'idle');
                         const sentMessage = await client.sendMessage(msg.from, part);
-                        
+                        console.log(sentMessage)
                         if (check.includes('patience')) {
                             await addtagbookedGHL(contactID, 'stop bot');
                         } 
