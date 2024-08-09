@@ -8,6 +8,8 @@
 
 const OpenAI = require('openai');
 const axios = require('axios').default;
+const { MessageMedia } = require('whatsapp-web.js');
+
 const { Client } = require('whatsapp-web.js');
 
 
