@@ -1177,7 +1177,7 @@ async function initializeBots(botNames) {
       const botName = botNames[i];
     console.log(`Initializing bot ${i + 1}/${botNames.length}: ${botName}`);
       await initializeBot(botName);
-      console.log('Bot ${botName} initialized');
+      console.log(`Bot ${botName} initialized`);
   }
 }
 
