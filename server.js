@@ -291,6 +291,8 @@ const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar
 const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js');
 const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb.js');
 const { handleNewMessagesZahinTravel } = require('./bots/handleMessagesZahinTravel.js');
+const { handleNewMessagesJuta2 } = require('./bots/handleMessagesJuta2.js');
+
 
 
 
@@ -326,6 +328,7 @@ app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 const customHandlers = {
+  '001': handleNewMessagesJuta2,
   '042': handleNewMessagesZahinTravel,
   // Add more custom handlers for other bots as needed
 };
