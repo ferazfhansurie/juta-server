@@ -285,8 +285,6 @@ const { handleNewMessagesBHQ } = require('./bots/handleMessagesBHQ.js');
 const { handleNewMessagesTasty} = require('./bots/handleMessagesTasty.js');
 const { handleNewMessagesTastyPuga} = require('./bots/handleMessagesPugaTasty.js');
 const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
-const { handleNewMessagesCNB2} = require('./bots/handleMessagesCNB2.js');
-const { handleNewMessagesCNB3} = require('./bots/handleMessagesCNB3.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
 const { handleNewMessagesApel} = require('./bots/handleMessagesApel.js');
 const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
@@ -324,14 +322,13 @@ app.post('/beverly/hook/messages', handleNewMessagesBeverly);
 app.post('/beverly/enquriry', handleNewEnquriryFormBeverly);
 app.post('/sunz/hook/messages', handleNewMessagesSunz);
 app.post('/bhq/hook/messages', handleNewMessagesBHQ);
-//app.post('/cnb/hook/messages', handleNewMessagesCNB);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 const customHandlers = {
   '001': handleNewMessagesJuta2,
-  '020': handleNewMessagesCNB3,
+  '020': handleNewMessagesCNB,
   '042': handleNewMessagesZahinTravel,
   // Add more custom handlers for other bots as needed
 };
