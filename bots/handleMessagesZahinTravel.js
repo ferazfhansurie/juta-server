@@ -190,8 +190,6 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
              
                 const thread = await createThread();
                 threadID = thread.id;
-                console.log(threadID);
-                await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 console.log('sent new contact to create new contact');
 
                 
@@ -218,7 +216,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
               }else{
                 type = msg.type;
               }
-              const contact = await chat.getContact();
+            const contact = await chat.getContact();
             
             if(extractedNumber.includes('status')){
                 return;
@@ -375,19 +373,18 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
 
                             await messageDoc.set(sentMessageData, { merge: true });
 
-                            if(check.includes('small trip')) {
+                            if (check.includes('small trip')) {
+                                if (await hasTag(contactID, 'Big Trip', idSubstring)) {
+                                    await removeTagFirebase(contactID, 'Big Trip', idSubstring);
+                                }
                                 await addtagbookedFirebase(contactID, 'Small Trip', idSubstring);
-                            } else if(check.includes('trip')){
-                                await addtagbookedFirebase(contactID, 'Big Trip', idSubstring);
+                            } else if (check.includes('trip')) {
+                                if (!(await hasTag(contactID, 'Small Trip', idSubstring))) {
+                                    await addtagbookedFirebase(contactID, 'Big Trip', idSubstring);
+                                }
                             }
-                            if (check.includes('patience')) {
-                                //await addtagbookedGHL(contactID, 'stop bot');
-                            } 
-                            if(check.includes('get back to you as soon as possible')){
-                                console.log('check includes');
+
                             
-                               await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
-                            }
                         }
                     }
                     console.log('Response sent.');
@@ -405,6 +402,43 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
     }
 }
 
+
+async function removeTagFirebase(contactID, tag, idSubstring) {
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
+    try {
+        const doc = await contactRef.get();
+        if (doc.exists) {
+            let currentTags = doc.data().tags || [];
+            const updatedTags = currentTags.filter(t => t !== tag);
+            
+            if (currentTags.length !== updatedTags.length) {
+                await contactRef.update({ tags: updatedTags });
+                console.log(`Tag "${tag}" removed from contact ${contactID} in Firebase`);
+            }
+        }
+    } catch (error) {
+        console.error('Error removing tag from Firebase:', error);
+    }
+}
+
+async function hasTag(contactID, tag, idSubstring) {
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
+    try {
+        const doc = await contactRef.get();
+        if (doc.exists) {
+            const currentTags = doc.data().tags || [];
+            return currentTags.includes(tag);
+        }
+        return false;
+    } catch (error) {
+        console.error('Error checking tag in Firebase:', error);
+        return false;
+    }
+}
 
 async function removeTagBookedGHL(contactID, tag) {
     const options = {
