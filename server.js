@@ -2213,9 +2213,9 @@ main().catch(error => {
 });
 
 // Then schedule it to run every 5 minutes
-cron.schedule('*/5 * * * *', () => {
+cron.schedule('*/5 * * * *', async () => {
   console.log('Checking for new rows in the spreadsheet...');
-  checkAndProcessNewRows('1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA','Sheet1!A:S','001');
+  await checkAndProcessNewRows('1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA','Sheet1!A:S','001');
 });
 
 
