@@ -59,9 +59,10 @@ async function assignNewContactToEmployee(contactID, idSubstring) {
     currentAssignmentIndex = (currentAssignmentIndex + 1) % employeeAssignments.length;
 
     const tag = assignedEmployee.name;
-    await addtagbookedFirebase(contactID, tag, idSubstring);
+    
     
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
+    return tag;
 }
 
 async function addNotificationToUser(companyId, message) {
@@ -179,6 +180,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                         //await saveThreadIDGHL(contactID,threadID);
                     }
                 }
+                
             }else{
                 
                 await customWait(2500); 
@@ -192,28 +194,23 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 console.log('sent new contact to create new contact');
 
-                await assignNewContactToEmployee(contactID, idSubstring);
+                
 
             }   
             let firebaseTags =['']
+
             if(contactData){
                 firebaseTags=   contactData.tags??[];
             } else {
                 if((sender.to).includes('@g.us')){
                     firebaseTags = ['stop bot']
+                }else{
+                    const tag = await assignNewContactToEmployee(contactID, idSubstring);
+                    firebaseTags = [tag];
                 }
             }
 
-            // Add trip tag based on message content
-            if (msg.body.toLowerCase().includes('small trip')) {
-                if (!firebaseTags.includes('Small Trip')) {
-                    firebaseTags.push('Small Trip');
-                }
-            } else if (msg.body.toLowerCase().includes('trip')) {
-                if (!firebaseTags.includes('Big Trip') && !firebaseTags.includes('Small Trip')) {
-                    firebaseTags.push('Big Trip');
-                }
-            }
+           
             
             let type = '';
             if(msg.type == 'chat'){
@@ -377,6 +374,12 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
 
                             await messageDoc.set(sentMessageData, { merge: true });
+
+                            if(check.includes('small trip')) {
+                                await addtagbookedFirebase(contactID, 'Small Trip', idSubstring);
+                            } else if(check.includes('trip')){
+                                await addtagbookedFirebase(contactID, 'Big Trip', idSubstring);
+                            }
                             if (check.includes('patience')) {
                                 //await addtagbookedGHL(contactID, 'stop bot');
                             } 
