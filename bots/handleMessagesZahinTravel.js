@@ -32,37 +32,98 @@ async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-let employeeAssignments = [];
-let currentAssignmentIndex = 0;
+let employeeGroups = {};
+let groupOrder = ['QueAD PRO v2', 'QueAD', 'KI-v2'];
+let currentGroupIndex = 0;
+let currentEmployeeIndices = {};
 
 async function fetchEmployeesFromFirebase(idSubstring) {
     const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
     const snapshot = await employeesRef.get();
-    employeeAssignments = snapshot.docs.map(doc => {
+    
+    employeeGroups = {};
+    
+    snapshot.forEach(doc => {
         const data = doc.data();
-        return { id: doc.id, name: data.name };
+        if (data.group && data.name) {
+            if (!employeeGroups[data.group]) {
+                employeeGroups[data.group] = [];
+            }
+            employeeGroups[data.group].push({
+                name: data.name,
+                email: data.email,
+                assignedContacts: data.assignedContacts || 0
+            });
+        }
     });
-    console.log('Fetched employees:', employeeAssignments);
+
+    console.log('Fetched employee groups:', employeeGroups);
+
+    // Load the previous assignment state
+    await loadAssignmentState(idSubstring);
+}
+
+async function loadAssignmentState(idSubstring) {
+    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    const doc = await stateRef.get();
+    if (doc.exists) {
+        const data = doc.data();
+        currentGroupIndex = data.currentGroupIndex;
+        currentEmployeeIndices = data.currentEmployeeIndices;
+        console.log('Assignment state loaded from Firebase:', data);
+    } else {
+        console.log('No previous assignment state found');
+    }
+}
+
+async function storeAssignmentState(idSubstring) {
+    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    await stateRef.set({
+        currentGroupIndex: currentGroupIndex,
+        currentEmployeeIndices: currentEmployeeIndices,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+    });
+    console.log('Assignment state stored in Firebase');
 }
 
 async function assignNewContactToEmployee(contactID, idSubstring) {
-    if (employeeAssignments.length === 0) {
+    if (Object.keys(employeeGroups).length === 0) {
         await fetchEmployeesFromFirebase(idSubstring);
     }
 
-    if (employeeAssignments.length === 0) {
-        console.log('No employees found for assignment');
+    if (Object.keys(employeeGroups).length === 0) {
+        console.log('No employee groups found for assignment');
         return;
     }
     
-    const assignedEmployee = employeeAssignments[currentAssignmentIndex];
-    currentAssignmentIndex = (currentAssignmentIndex + 1) % employeeAssignments.length;
+    const currentGroup = groupOrder[currentGroupIndex];
+    if (!currentEmployeeIndices[currentGroup]) {
+        currentEmployeeIndices[currentGroup] = 0;
+    }
 
-    const tag = assignedEmployee.name;
+    const employees = employeeGroups[currentGroup];
+    const assignedEmployee = employees[currentEmployeeIndices[currentGroup]];
     
+    console.log(`Before assignment - Group: ${currentGroup}, Employee Index: ${currentEmployeeIndices[currentGroup]}`);
+
+    // Move to the next employee in the current group
+    currentEmployeeIndices[currentGroup] = (currentEmployeeIndices[currentGroup] + 1) % employees.length;
     
-    console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
-    return tag;
+    // If we've cycled through all employees in the current group, move to the next group
+    if (currentEmployeeIndices[currentGroup] === 0) {
+        currentGroupIndex = (currentGroupIndex + 1) % groupOrder.length;
+    }
+
+    console.log(`After assignment - Next Group: ${groupOrder[currentGroupIndex]}, Next Employee Index: ${currentEmployeeIndices[groupOrder[currentGroupIndex]] || 0}`);
+
+    const tags = [currentGroup, assignedEmployee.name];
+    
+    console.log(`Contact ${contactID} assigned to ${assignedEmployee.name} in group ${currentGroup}`);
+
+    // Store the current state in Firebase
+    await storeAssignmentState(idSubstring);
+
+    return tags;
 }
 
 async function addNotificationToUser(companyId, message) {
@@ -156,68 +217,22 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             const chat = await msg.getChat();
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             
-            if (contactData !== null) {
-                const stopTag = contactData.tags;
-                console.log(stopTag);
-                if (msg.fromMe){
-                    if(stopTag.includes('idle')){
-                    }
-                    return;
+            let firebaseTags = [];
+
+            if (contactData === null) {
+                if ((sender.to).includes('@g.us')) {
+                    const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
+                    firebaseTags = [...tags, 'stop bot'];
+                    console.log(firebaseTags);
+                    // Add the new contact to Firebase with the assigned tags
+                    //await addNewContactToFirebase(extractedNumber, msg.notifyName, firebaseTags, idSubstring);
+                } else {
+                    firebaseTags = ['stop bot'];
                 }
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-                    return;
-                }else {
-                    contactID = extractedNumber;
-                    contactName = msg.notifyName ?? extractedNumber;
-                
-                    if (contactData.threadid) {
-                        threadID = contactData.threadid;
-                    } else {
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                        //await saveThreadIDGHL(contactID,threadID);
-                    }
-                }
-                
-            }else{
-                
-                await customWait(2500); 
-
-                contactID = extractedNumber;
-                contactName = msg.notifyName ?? extractedNumber;
-             
-                const thread = await createThread();
-                threadID = thread.id;
-                console.log('sent new contact to create new contact');
-
-                
-
-            }   
-            let firebaseTags =['']
-
-            if(contactData){
-                firebaseTags=   contactData.tags??[];
             } else {
-                if((sender.to).includes('@g.us')){
-                    firebaseTags = ['stop bot']
-                }else{
-                    const tag = await assignNewContactToEmployee(contactID, idSubstring);
-                    firebaseTags = [tag];
-                }
+                firebaseTags = contactData.tags ?? [];
             }
 
-           
-            
-            let type = '';
-            if(msg.type == 'chat'){
-                type ='text'
-              }else{
-                type = msg.type;
-              }
-            const contact = await chat.getContact();
-            
             if(extractedNumber.includes('status')){
                 return;
             }
@@ -231,7 +246,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 chat: {
                     contact_id: extractedNumber,
                     id: msg.from,
-                    name: contact.name || contact.pushname || extractedNumber,
+                    name: msg.notifyName ?? extractedNumber,
                     not_spam: true,
                     tags: firebaseTags,
                     timestamp: chat.timestamp || Date.now(),
@@ -248,13 +263,13 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                             body:msg.body ?? ""
                         },
                         timestamp: msg.timestamp ?? 0,
-                        type: type,
+                        type: msg.type == 'chat' ? 'text' : msg.type,
                     },
                 },
                 chat_id: msg.from,
                 city: null,
                 companyName: null,
-                contactName: contact.name || contact.pushname ||  extractedNumber,
+                contactName: msg.notifyName ?? extractedNumber,
                 threadid: threadID ?? "",
                 last_message: {
                     chat_id: msg.from,
@@ -267,7 +282,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                         body:msg.body ?? ""
                     },
                     timestamp: msg.timestamp ?? 0,
-                    type: type,
+                    type: msg.type == 'chat' ? 'text' : msg.type,
                 },
             };
             const message =  {
@@ -281,7 +296,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     body:msg.body ?? ""
                 },
                 timestamp: msg.timestamp ?? 0,
-                type: type,
+                type: msg.type == 'chat' ? 'text' : msg.type,
             };
             const messageData = {
                 chat_id: msg.from,
@@ -294,7 +309,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     body:msg.body ?? ""
                 },
                 timestamp: msg.timestamp ?? 0,
-                type: type,
+                type: msg.type == 'chat' ? 'text' : msg.type,
               };
               
               const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
@@ -339,7 +354,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 case steps.START:
                     var context = "";
 
-                    query = `${msg.body} user_name: ${contactName} `;
+                    query = `${msg.body} user_name: ${msg.notifyName} `;
                     
                     
                     answer= await handleOpenAIAssistant(query,threadID);
@@ -752,6 +767,24 @@ async function createContact(name,number){
         await axios.request(options);
     } catch (error) {
         console.error(error);
+    }
+}
+
+async function addNewContactToFirebase(phone, name, tags, idSubstring) {
+    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(phone);
+    
+    const newContactData = {
+        phone: phone,
+        contactName: name || phone,
+        tags: tags,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    try {
+        await contactRef.set(newContactData);
+        console.log(`New contact added to Firebase: ${phone}`);
+    } catch (error) {
+        console.error('Error adding new contact to Firebase:', error);
     }
 }
 
