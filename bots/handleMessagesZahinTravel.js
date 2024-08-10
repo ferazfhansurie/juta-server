@@ -78,12 +78,19 @@ async function loadAssignmentState(idSubstring) {
 
 async function storeAssignmentState(idSubstring) {
     const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
-    await stateRef.set({
+    const stateToStore = {
         currentGroupIndex: currentGroupIndex,
-        currentEmployeeIndices: currentEmployeeIndices,
+        currentEmployeeIndices: {},
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-    });
-    console.log('Assignment state stored in Firebase');
+    };
+
+    // Ensure all groups from groupOrder are included
+    for (const group of groupOrder) {
+        stateToStore.currentEmployeeIndices[group] = currentEmployeeIndices[group] || 0;
+    }
+
+    await stateRef.set(stateToStore);
+    console.log('Assignment state stored in Firebase:', stateToStore);
 }
 
 async function assignNewContactToEmployee(contactID, idSubstring) {
@@ -91,20 +98,47 @@ async function assignNewContactToEmployee(contactID, idSubstring) {
         await fetchEmployeesFromFirebase(idSubstring);
     }
 
+    console.log('Employee Groups:', employeeGroups);
+    console.log('Group Order:', groupOrder);
+
     if (Object.keys(employeeGroups).length === 0) {
         console.log('No employee groups found for assignment');
-        return;
+        return [];
     }
     
-    const currentGroup = groupOrder[currentGroupIndex];
-    if (!currentEmployeeIndices[currentGroup]) {
-        currentEmployeeIndices[currentGroup] = 0;
+    let currentGroup;
+    let employees;
+    let attempts = 0;
+    const maxAttempts = groupOrder.length;
+
+    while (attempts < maxAttempts) {
+        currentGroup = groupOrder[currentGroupIndex];
+        employees = employeeGroups[currentGroup];
+
+        console.log(`Attempting to assign from group: ${currentGroup}`);
+
+        if (employees && employees.length > 0) {
+            break;
+        }
+
+        console.log(`Group ${currentGroup} is empty or undefined, moving to next group`);
+        currentGroupIndex = (currentGroupIndex + 1) % groupOrder.length;
+        attempts++;
     }
 
-    const employees = employeeGroups[currentGroup];
+    if (!employees || employees.length === 0) {
+        console.log('No available employees in any group');
+        return [];
+    }
+
+    if (!currentEmployeeIndices[currentGroup]) {
+        currentEmployeeIndices[currentGroup] = 0;
+        console.log(`Initializing employee index for group ${currentGroup}`);
+    }
+
     const assignedEmployee = employees[currentEmployeeIndices[currentGroup]];
     
-    console.log(`Before assignment - Group: ${currentGroup}, Employee Index: ${currentEmployeeIndices[currentGroup]}`);
+    console.log(`Assigning employee: ${assignedEmployee.name} from group: ${currentGroup}`);
 
     // Move to the next employee in the current group
     currentEmployeeIndices[currentGroup] = (currentEmployeeIndices[currentGroup] + 1) % employees.length;
@@ -112,9 +146,8 @@ async function assignNewContactToEmployee(contactID, idSubstring) {
     // If we've cycled through all employees in the current group, move to the next group
     if (currentEmployeeIndices[currentGroup] === 0) {
         currentGroupIndex = (currentGroupIndex + 1) % groupOrder.length;
+        console.log(`Moving to next group. New group index: ${currentGroupIndex}`);
     }
-
-    console.log(`After assignment - Next Group: ${groupOrder[currentGroupIndex]}, Next Employee Index: ${currentEmployeeIndices[groupOrder[currentGroupIndex]] || 0}`);
 
     const tags = [currentGroup, assignedEmployee.name];
     
