@@ -58,6 +58,7 @@ async function fetchEmployeesFromFirebase(idSubstring) {
     });
 
     console.log('Fetched employee groups:', employeeGroups);
+    console.log('Group order:', groupOrder);
 
     // Load the previous assignment state
     await loadAssignmentState(idSubstring);
@@ -73,6 +74,13 @@ async function loadAssignmentState(idSubstring) {
         console.log('Assignment state loaded from Firebase:', data);
     } else {
         console.log('No previous assignment state found');
+    }
+
+    // Ensure all groups from groupOrder have an index
+    for (const group of groupOrder) {
+        if (currentEmployeeIndices[group] === undefined) {
+            currentEmployeeIndices[group] = 0;
+        }
     }
 }
 
@@ -100,53 +108,49 @@ async function assignNewContactToEmployee(contactID, idSubstring) {
 
     console.log('Employee Groups:', employeeGroups);
     console.log('Group Order:', groupOrder);
+    console.log('Current Group Index:', currentGroupIndex);
+    console.log('Current Employee Indices:', currentEmployeeIndices);
 
     if (Object.keys(employeeGroups).length === 0) {
         console.log('No employee groups found for assignment');
         return [];
     }
     
-    let currentGroup;
-    let employees;
-    let attempts = 0;
-    const maxAttempts = groupOrder.length;
+    let assignedEmployee = null;
+    let currentGroup = null;
 
-    while (attempts < maxAttempts) {
-        currentGroup = groupOrder[currentGroupIndex];
-        employees = employeeGroups[currentGroup];
+    // Iterate through all groups in order, starting from the current index
+    for (let i = 0; i < groupOrder.length; i++) {
+        const groupIndex = (currentGroupIndex + i) % groupOrder.length;
+        currentGroup = groupOrder[groupIndex];
+        const employees = employeeGroups[currentGroup];
 
-        console.log(`Attempting to assign from group: ${currentGroup}`);
+        console.log(`Checking group: ${currentGroup}`);
 
         if (employees && employees.length > 0) {
-            break;
-        }
+            if (currentEmployeeIndices[currentGroup] === undefined) {
+                currentEmployeeIndices[currentGroup] = 0;
+            }
 
-        console.log(`Group ${currentGroup} is empty or undefined, moving to next group`);
-        currentGroupIndex = (currentGroupIndex + 1) % groupOrder.length;
-        attempts++;
+            assignedEmployee = employees[currentEmployeeIndices[currentGroup]];
+            
+            // Move to the next employee in this group
+            currentEmployeeIndices[currentGroup] = (currentEmployeeIndices[currentGroup] + 1) % employees.length;
+            
+            // Update the current group index for the next assignment
+            currentGroupIndex = (groupIndex + 1) % groupOrder.length;
+            
+            console.log(`Assigned employee: ${assignedEmployee.name} from group: ${currentGroup}`);
+            console.log(`Next group index: ${currentGroupIndex}`);
+            break;
+        } else {
+            console.log(`Group ${currentGroup} is empty or undefined, moving to next group`);
+        }
     }
 
-    if (!employees || employees.length === 0) {
+    if (!assignedEmployee) {
         console.log('No available employees in any group');
         return [];
-    }
-
-    if (!currentEmployeeIndices[currentGroup]) {
-        currentEmployeeIndices[currentGroup] = 0;
-        console.log(`Initializing employee index for group ${currentGroup}`);
-    }
-
-    const assignedEmployee = employees[currentEmployeeIndices[currentGroup]];
-    
-    console.log(`Assigning employee: ${assignedEmployee.name} from group: ${currentGroup}`);
-
-    // Move to the next employee in the current group
-    currentEmployeeIndices[currentGroup] = (currentEmployeeIndices[currentGroup] + 1) % employees.length;
-    
-    // If we've cycled through all employees in the current group, move to the next group
-    if (currentEmployeeIndices[currentGroup] === 0) {
-        currentGroupIndex = (currentGroupIndex + 1) % groupOrder.length;
-        console.log(`Moving to next group. New group index: ${currentGroupIndex}`);
     }
 
     const tags = [currentGroup, assignedEmployee.name];
@@ -255,8 +259,8 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             if (contactData === null) {
                 if ((sender.to).includes('@g.us')) {
                     const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
-                    firebaseTags = [...tags, 'stop bot'];
-                    console.log(firebaseTags);
+                    firebaseTags = tags ? [...tags, 'stop bot'] : ['stop bot'];
+                    console.log('Firebase Tags:', firebaseTags);
                     // Add the new contact to Firebase with the assigned tags
                     //await addNewContactToFirebase(extractedNumber, msg.notifyName, firebaseTags, idSubstring);
                 } else {
@@ -662,14 +666,26 @@ async function checkingStatus(threadId, runId) {
     if(status == 'completed') {
         try{
             const messagesList = await openai.beta.threads.messages.list(threadId);
+            console.log("Messages list:", messagesList); // Add this line for debugging
+            
+            if (!messagesList.body || !messagesList.body.data || messagesList.body.data.length === 0) {
+                console.log("No messages found in the thread");
+                return null;
+            }
+            
             const latestMessage = messagesList.body.data[0].content;
-
+            
+            if (!latestMessage || latestMessage.length === 0) {
+                console.log("Latest message is empty");
+                return null;
+            }
+            
             console.log("Latest Message:");
             console.log(latestMessage[0].text.value);
             const answer = latestMessage[0].text.value;
             return answer;
         } catch(error){
-            console.log("error from handleNewMessagesZahinTravel: "+error)
+            console.log("Error in checkingStatus: ", error);
             throw error;
         }
     }
