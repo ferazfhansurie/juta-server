@@ -43,8 +43,12 @@ async function fetchEmployeesFromFirebase(idSubstring) {
     
     employeeGroups = {};
     
+    console.log(`Total documents in employee collection: ${snapshot.size}`);
+
     snapshot.forEach(doc => {
         const data = doc.data();
+        console.log(`Processing employee document:`, data);
+
         if (data.group && data.name) {
             if (!employeeGroups[data.group]) {
                 employeeGroups[data.group] = [];
@@ -54,11 +58,22 @@ async function fetchEmployeesFromFirebase(idSubstring) {
                 email: data.email,
                 assignedContacts: data.assignedContacts || 0
             });
+            console.log(`Added employee ${data.name} to group ${data.group}`);
+        } else {
+            console.log(`Skipped employee due to missing group or name:`, data);
         }
     });
 
     console.log('Fetched employee groups:', employeeGroups);
     console.log('Group order:', groupOrder);
+
+    // Ensure all groups from groupOrder exist in employeeGroups
+    groupOrder.forEach(group => {
+        if (!employeeGroups[group]) {
+            console.log(`Warning: Group ${group} from groupOrder not found in employee data`);
+            employeeGroups[group] = [];
+        }
+    });
 
     // Load the previous assignment state
     await loadAssignmentState(idSubstring);
