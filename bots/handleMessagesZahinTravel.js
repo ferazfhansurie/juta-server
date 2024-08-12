@@ -441,7 +441,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             case steps.START:
                 var context = "";
 
-                query = `${messageBody} user_name: ${contact.name} `;
+                query = `${messageBody} user_name: ${contact.pushname} `;
                 
                 answer = await handleOpenAIAssistant(query, threadID);
                 parts = answer.split(/\s*\|\|\s*/);
@@ -490,7 +490,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                             await customWait(10000);
                             await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
                             console.log('tags:'+tags);
-                            const sentMessage = await client.sendMessage(msg.from, `Hi ${contact.name}. Nama saya ${tags[1]}, perunding percutian Zahin Travel. Ini nombor ID saya ${tags[2]}.\nSaya akan uruskan permintaan sebut harga dengan operation team Zahin Travel. Kebiasaannya akan ambil masa di antara 1 hingga 3 hari waktu bekerja. Selepas siap, saya akan maklumkan segera.\n\nJika ada apa-apa soalan atau permintaan tambahan, boleh ajukan untuk saya bantu.\nTerima kasih ☺`);
+                            const sentMessage = await client.sendMessage(msg.from, `Hi ${contact.pushname}. Nama saya ${tags[1]}, perunding percutian Zahin Travel. Ini nombor ID saya ${tags[2]}.\nSaya akan uruskan permintaan sebut harga dengan operation team Zahin Travel. Kebiasaannya akan ambil masa di antara 1 hingga 3 hari waktu bekerja. Selepas siap, saya akan maklumkan segera.\n\nJika ada apa-apa soalan atau permintaan tambahan, boleh ajukan untuk saya bantu.\nTerima kasih ☺`);
 
                             // Save the message to Firebase
                             const sentMessageData = {
