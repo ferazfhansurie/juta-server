@@ -260,6 +260,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
         
         let firebaseTags = [];
+        let unreadCount = contactData.unreadCount ?? 0;
 
         if (contactData === null) {
             const thread = await createThread();
@@ -360,6 +361,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             city: null,
             companyName: null,
             contactName: msg.notifyName ?? extractedNumber,
+            unreadCount: unreadCount + 1,
             threadid: threadID ?? "",
             last_message: {
                 chat_id: msg.from,
