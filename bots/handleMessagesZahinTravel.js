@@ -156,7 +156,6 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
             currentGroupIndex = (groupIndex + 1) % groupOrder.length;
             
             console.log(`Assigned employee: ${assignedEmployee.name} from group: ${currentGroup}`);
-            await client.sendMessage('601121677672@c.us', `Assigned employee: ${assignedEmployee.name} from group: ${currentGroup}`);
 
             console.log(`Next group index: ${currentGroupIndex}`);
             break;
@@ -170,7 +169,7 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
         return [];
     }
 
-    const tags = [currentGroup, assignedEmployee.name];
+    const tags = [currentGroup, assignedEmployee.name, assignedEmployee.phoneNumber];
     
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name} in group ${currentGroup}`);
 
@@ -272,11 +271,8 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 //await saveThreadIDGHL(contactID,threadID);
             }
             if ((sender.to).includes('@g.us')) {
-                const tags = await assignNewContactToEmployee(extractedNumber, idSubstring, client);
-                firebaseTags = tags ? [...tags, 'stop bot'] : ['stop bot'];
-                console.log('Firebase Tags:', firebaseTags);
-            } else {
                 firebaseTags = ['stop bot'];
+                
             }
         } else {
             const thread = await createThread();
@@ -289,11 +285,11 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             return;
         }
 
-        // Handle audio messages (including PTT)
+        // Handle audio messages
         let messageBody = msg.body;
         let audioData = null;
 
-        if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+        if (msg.hasMedia && msg.type === 'audio') {
             console.log('Voice message detected');
             const media = await msg.downloadMedia();
             const transcription = await transcribeAudio(media.data);
@@ -324,7 +320,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     from: msg.from ?? "",
                     from_me: msg.fromMe ?? false,
                     id: msg._data.id.id ?? "",
-                    source: msg.deviceType ?? "",
+                    source: chat.deviceType ?? "",
                     status: "delivered",
                     text: {
                         body: messageBody ?? ""
@@ -343,7 +339,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 from: msg.from ?? "",
                 from_me: msg.fromMe ?? false,
                 id: msg._data.id.id ?? "",
-                source: msg.deviceType ?? "",
+                source: chat.deviceType ?? "",
                 status: "delivered",
                 text: {
                     body: messageBody ?? ""
@@ -358,7 +354,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             from: msg.from ?? "",
             from_me: msg.fromMe ?? false,
             id: msg.id._serialized ?? "",
-            source: msg.deviceType ?? "",
+            source: chat.deviceType ?? "",
             status: "delivered",
             text: {
                 body: messageBody ?? ""
@@ -367,11 +363,10 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             type: msg.type,
         };
 
-        if (msg.type === 'audio' || msg.type === 'ptt') {
+        if (msg.type === 'audio') {
             messageData.audio = {
                 mimetype: msg._data.mimetype || 'audio/ogg; codecs=opus',
-                data: audioData,
-                duration: msg.duration
+                data: audioData
             };
         }
 
@@ -452,6 +447,40 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                                 await addtagbookedFirebase(contactID, 'Big Trip', idSubstring);
                             }
                         }
+                        
+                        if(check.includes('Salah seorang perunding percutian Zahin Travel akan hubungi semula dengan secepat mungkin untuk proses selanjutnya. ')){
+                            const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
+                            for(let i=0;i<tags.length-1;i++){
+                                await addtagbookedFirebase(contactID, tags[i], idSubstring);
+                            }
+                            await customWait(10000);
+                            await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
+                            const sentMessage = await client.sendMessage(msg.from, `Hi ${msg.notifyName}. Nama saya ${tags[1]}, perunding percutian Zahin Travel. Ini nombor ID saya ${tags[2]}.\n
+                                Saya akan uruskan permintaan sebut harga dengan operation team Zahin Travel. Kebiasaannya akan ambil masa di antara 1 hingga 3 hari waktu bekerja. Selepas siap, saya akan maklumkan segera.\n\n
+                                Jika ada apa-apa soalan atau permintaan tambahan, boleh ajukan untuk saya bantu.\n
+                                Terima kasih ☺`);
+
+                            // Save the message to Firebase
+                            const sentMessageData = {
+                                chat_id: sentMessage.from,
+                                from: sentMessage.from ?? "",
+                                from_me: true,
+                                id: sentMessage.id._serialized ?? "",
+                                source: sentMessage.deviceType ?? "",
+                                status: "delivered",
+                                text: {
+                                    body: part
+                                },
+                                timestamp: sentMessage.timestamp ?? 0,
+                                type: 'text',
+                                ack: sentMessage.ack ?? 0,
+                            };
+
+                            const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+                            await messageDoc.set(sentMessageData, { merge: true });
+
+
+                        }
                     }
                 }
                 console.log('Response sent.');
@@ -467,31 +496,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         return(e.message);
     }
 }
-const FormData = require('form-data');
 
-async function transcribeAudio(audioData) {
-    try {
-        const formData = new FormData();
-        formData.append('file', Buffer.from(audioData, 'base64'), {
-            filename: 'audio.ogg',
-            contentType: 'audio/ogg',
-        });
-        formData.append('model', 'whisper-1');
-        formData.append('response_format', 'json');
-
-        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
-            headers: {
-                ...formData.getHeaders(),
-                'Authorization': `Bearer ${process.env.OPENAIKEY}`,
-            },
-        });
-
-        return response.data.text;
-    } catch (error) {
-        console.error('Error transcribing audio:', error);
-        return '';
-    }
-}
 async function removeTagFirebase(contactID, tag, idSubstring) {
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
     const contactRef = db.doc(docPath);
