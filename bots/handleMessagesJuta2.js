@@ -193,13 +193,28 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             if(extractedNumber.includes('status')){
                 return;
             }
+
+            // First, let's handle the transcription if it's an audio message
+            let messageBody = msg.body;
+            let audioData = null;
+
+            if (msg.hasMedia && msg.type === 'audio') {
+                console.log('Voice message detected');
+                const media = await msg.downloadMedia();
+                const transcription = await transcribeAudio(media.data);
+                console.log('Transcription:', transcription);
+                
+                messageBody = transcription;
+                audioData = media.data;
+            }
+
             const data = {
                 additionalEmails: [],
                 address1: null,
                 assignedTo: null,
                 businessId: null,
-                phone:extractedNumber,
-                tags:firebaseTags,
+                phone: extractedNumber,
+                tags: firebaseTags,
                 chat: {
                     contact_id: extractedNumber,
                     id: msg.from,
@@ -213,49 +228,36 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         chat_id: msg.from,
                         from: msg.from ?? "",
                         from_me: msg.fromMe ?? false,
-                        id: msg._data.id.id ?? "",
+                        id: msg.id._serialized ?? "",
                         source: chat.deviceType ?? "",
                         status: "delivered",
                         text: {
-                            body:msg.body ?? ""
+                            body: messageBody ?? ""
                         },
                         timestamp: msg.timestamp ?? 0,
-                        type: type,
+                        type: msg.type,
                     },
                 },
                 chat_id: msg.from,
                 city: null,
                 companyName: null,
-                contactName: contact.name || contact.pushname ||  extractedNumber,
+                contactName: contact.name || contact.pushname || extractedNumber,
                 threadid: threadID ?? "",
                 last_message: {
                     chat_id: msg.from,
                     from: msg.from ?? "",
                     from_me: msg.fromMe ?? false,
-                    id: msg._data.id.id ?? "",
+                    id: msg.id._serialized ?? "",
                     source: chat.deviceType ?? "",
                     status: "delivered",
                     text: {
-                        body:msg.body ?? ""
+                        body: messageBody ?? ""
                     },
                     timestamp: msg.timestamp ?? 0,
-                    type: type,
+                    type: msg.type,
                 },
             };
-            const message =  {
-                chat_id: msg.from,
-                from: msg.from ?? "",
-                from_me: msg.fromMe ?? false,
-                id: msg._data.id.id ?? "",
-                source: chat.deviceType ?? "",
-                status: "delivered",
-                text: {
-                    body:msg.body ?? ""
-                },
-                timestamp: msg.timestamp ?? 0,
-                type: type,
-            };
-            console.log(data);
+
             const messageData = {
                 chat_id: msg.from,
                 from: msg.from ?? "",
@@ -264,21 +266,29 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 source: chat.deviceType ?? "",
                 status: "delivered",
                 text: {
-                    body:msg.body ?? ""
+                    body: messageBody ?? ""
                 },
                 timestamp: msg.timestamp ?? 0,
-                type: type,
-              };
-              
-              const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-              //await contactRef.set(contactData, { merge: true });
-              const messagesRef = contactRef.collection('messages');
-          
-              const messageDoc = messagesRef.doc(msg.id._serialized);
-              await messageDoc.set(messageData, { merge: true });
-              console.log(msg);
-           await addNotificationToUser(idSubstring, messageData);
-            
+                type: msg.type,
+            };
+
+            if (msg.type === 'audio') {
+                messageData.audio = {
+                    mimetype: msg.mimetype,
+                    data: audioData // This is the base64 encoded audio data
+                };
+            }
+
+            console.log(data);
+
+            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+            const messagesRef = contactRef.collection('messages');
+
+            const messageDoc = messagesRef.doc(msg.id._serialized);
+            await messageDoc.set(messageData, { merge: true });
+            console.log(msg);
+            await addNotificationToUser(idSubstring, messageData);
+
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
             
@@ -313,14 +323,12 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 }
             }
 
-            
-
             currentStep = userState.get(sender.to) || steps.START;
             switch (currentStep) {
                 case steps.START:
                     var context = "";
 
-                    query = `${msg.body} user_name: ${contactName} `;
+                    query = `${messageBody} user_name: ${contactName} `;
                     
                     
                     answer= await handleOpenAIAssistant(query,threadID);
@@ -700,6 +708,27 @@ async function fetchConfigFromDatabase(idSubstring) {
     } catch (error) {
         console.error('Error fetching config:', error);
         throw error;
+    }
+}
+
+async function transcribeAudio(audioData) {
+    try {
+        const formData = new FormData();
+        formData.append('file', new Blob([Buffer.from(audioData, 'base64')]), 'audio.ogg');
+        formData.append('model', 'whisper-1');
+        formData.append('response_format', 'json');
+
+        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${process.env.OPENAIKEY}`,
+            },
+        });
+
+        return response.data.text;
+    } catch (error) {
+        console.error('Error transcribing audio:', error);
+        return '';
     }
 }
 
