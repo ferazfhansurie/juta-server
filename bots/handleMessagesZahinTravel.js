@@ -311,6 +311,9 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         let audioData = null;
         let type = '';
 
+        const contact = await chat.getContact();
+
+
         if(msg.type == 'chat'){
             type ='text'
         }else{
@@ -332,12 +335,12 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             address1: null,
             assignedTo: null,
             businessId: null,
-            phone: extractedNumber,
-            tags: firebaseTags,
+            phone:extractedNumber,
+            tags:firebaseTags,
             chat: {
                 contact_id: extractedNumber,
                 id: msg.from,
-                name: msg.notifyName ?? extractedNumber,
+                name: contact.name || contact.pushname || extractedNumber,
                 not_spam: true,
                 tags: firebaseTags,
                 timestamp: chat.timestamp || Date.now(),
@@ -348,19 +351,19 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     from: msg.from ?? "",
                     from_me: msg.fromMe ?? false,
                     id: msg._data.id.id ?? "",
-                    source: msg.deviceType ?? "",
+                    source: chat.deviceType ?? "",
                     status: "delivered",
                     text: {
-                        body: messageBody ?? ""
+                        body:msg.body ?? ""
                     },
                     timestamp: msg.timestamp ?? 0,
-                    type: msg.type,
+                    type: type,
                 },
             },
             chat_id: msg.from,
             city: null,
             companyName: null,
-            contactName: msg.notifyName ?? extractedNumber,
+            contactName: contact.name || contact.pushname ||  extractedNumber,
             unreadCount: unreadCount + 1,
             threadid: threadID ?? "",
             last_message: {
@@ -368,13 +371,13 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 from: msg.from ?? "",
                 from_me: msg.fromMe ?? false,
                 id: msg._data.id.id ?? "",
-                source: msg.deviceType ?? "",
+                source: chat.deviceType ?? "",
                 status: "delivered",
                 text: {
-                    body: messageBody ?? ""
+                    body:msg.body ?? ""
                 },
                 timestamp: msg.timestamp ?? 0,
-                type: msg.type,
+                type: type,
             },
         };
 
@@ -437,7 +440,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             case steps.START:
                 var context = "";
 
-                query = `${messageBody} user_name: ${msg.notifyName} `;
+                query = `${messageBody} user_name: ${contact.name} `;
                 
                 answer = await handleOpenAIAssistant(query, threadID);
                 parts = answer.split(/\s*\|\|\s*/);
@@ -485,10 +488,8 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                             }
                             await customWait(10000);
                             await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
-                            const sentMessage = await client.sendMessage(msg.from, `Hi ${msg.notifyName}. Nama saya ${tags[1]}, perunding percutian Zahin Travel. Ini nombor ID saya ${tags[2]}.\n
-                                Saya akan uruskan permintaan sebut harga dengan operation team Zahin Travel. Kebiasaannya akan ambil masa di antara 1 hingga 3 hari waktu bekerja. Selepas siap, saya akan maklumkan segera.\n\n
-                                Jika ada apa-apa soalan atau permintaan tambahan, boleh ajukan untuk saya bantu.\n
-                                Terima kasih ☺`);
+                            console.log('tags:'+tags);
+                            const sentMessage = await client.sendMessage(msg.from, `Hi ${contact.name}. Nama saya ${tags[1]}, perunding percutian Zahin Travel. Ini nombor ID saya ${tags[2]}.\nSaya akan uruskan permintaan sebut harga dengan operation team Zahin Travel. Kebiasaannya akan ambil masa di antara 1 hingga 3 hari waktu bekerja. Selepas siap, saya akan maklumkan segera.\n\nJika ada apa-apa soalan atau permintaan tambahan, boleh ajukan untuk saya bantu.\nTerima kasih ☺`);
 
                             // Save the message to Firebase
                             const sentMessageData = {
@@ -509,6 +510,18 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
                             await messageDoc.set(sentMessageData, { merge: true });
 
+                            // Get formatted information from the assistant
+                            const groupMessage = await getFormattedInfoFromAssistant(
+                                threadID, 
+                                tags[2], 
+                                tags[1], 
+                                chat.name, 
+                                extractedNumber
+                            );
+
+                            // Send message to group chat
+                            //const groupChatId = ghlConfig.groupChatId; // Assuming you have this in your config
+                            await client.sendMessage('601121677522@c.us', groupMessage);
 
                         }
                     }
@@ -525,6 +538,41 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         console.error('Error:', e.message);
         return(e.message);
     }
+}
+
+async function getFormattedInfoFromAssistant(threadId, agentId, agentName, customerName, customerPhone) {
+    const assistantId = ghlConfig.assistantId;
+    
+    // Add a message to the thread asking for the formatted information
+    await addMessage(threadId, `Please extract and format the following information from our conversation:
+    - Email
+    - Destination
+    - Travel Date
+    - Number of Participants
+    - How they learned about Zahin Travel
+
+    Then, format this information along with the provided details into the following template:
+
+    PERMINTAAN SEBUT HARGA
+
+    Nombor ID Ejen: ${agentId}
+    Nama Ejen: ${agentName}
+
+    Nama Prospek: ${customerName}
+    Nombor Telefon: ${customerPhone}
+    Emel: [extracted email]
+
+    Destinasi: [extracted destination]
+    Tarikh Perjalanan: [extracted travel date]
+    Bilangan Peserta: [extracted number of participants]
+
+    Bagaimana tahu tentang Zahin Travel: [extracted discovery method]
+
+    If any information is not available, please use "N/A".`);
+
+    // Run the assistant to process this request
+    const formattedInfo = await runAssistant(assistantId, threadId);
+    return formattedInfo;
 }
 
 async function removeTagFirebase(contactID, tag, idSubstring) {
