@@ -285,11 +285,11 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             return;
         }
 
-        // Handle audio messages
+        // Handle audio messages (including PTT)
         let messageBody = msg.body;
         let audioData = null;
 
-        if (msg.hasMedia && msg.type === 'audio') {
+        if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
             console.log('Voice message detected');
             const media = await msg.downloadMedia();
             const transcription = await transcribeAudio(media.data);
@@ -320,7 +320,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     from: msg.from ?? "",
                     from_me: msg.fromMe ?? false,
                     id: msg._data.id.id ?? "",
-                    source: chat.deviceType ?? "",
+                    source: msg.deviceType ?? "",
                     status: "delivered",
                     text: {
                         body: messageBody ?? ""
@@ -339,7 +339,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 from: msg.from ?? "",
                 from_me: msg.fromMe ?? false,
                 id: msg._data.id.id ?? "",
-                source: chat.deviceType ?? "",
+                source: msg.deviceType ?? "",
                 status: "delivered",
                 text: {
                     body: messageBody ?? ""
@@ -354,7 +354,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             from: msg.from ?? "",
             from_me: msg.fromMe ?? false,
             id: msg.id._serialized ?? "",
-            source: chat.deviceType ?? "",
+            source: msg.deviceType ?? "",
             status: "delivered",
             text: {
                 body: messageBody ?? ""
@@ -363,10 +363,11 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             type: msg.type,
         };
 
-        if (msg.type === 'audio') {
+        if (msg.type === 'audio' || msg.type === 'ptt') {
             messageData.audio = {
                 mimetype: msg._data.mimetype || 'audio/ogg; codecs=opus',
-                data: audioData
+                data: audioData,
+                duration: msg.duration
             };
         }
 
@@ -533,7 +534,31 @@ async function hasTag(contactID, tag, idSubstring) {
         return false;
     }
 }
+const FormData = require('form-data');
 
+async function transcribeAudio(audioData) {
+    try {
+        const formData = new FormData();
+        formData.append('file', Buffer.from(audioData, 'base64'), {
+            filename: 'audio.ogg',
+            contentType: 'audio/ogg',
+        });
+        formData.append('model', 'whisper-1');
+        formData.append('response_format', 'json');
+
+        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${process.env.OPENAIKEY}`,
+            },
+        });
+
+        return response.data.text;
+    } catch (error) {
+        console.error('Error transcribing audio:', error);
+        return '';
+    }
+}
 async function removeTagBookedGHL(contactID, tag) {
     const options = {
         method: 'DELETE',
