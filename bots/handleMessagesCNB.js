@@ -238,7 +238,6 @@ async function handleNewMessagesCNB(client, msg, botName) {
                     tags: firebaseTags,
                     timestamp: chat.timestamp || Date.now(),
                     type: 'contact',
-                    unreadCount: 0,
                     last_message: {
                         chat_id: msg.from,
                         from: msg.from ?? "",
