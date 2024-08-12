@@ -233,19 +233,11 @@ async function getChatMetadata(chatId,) {
 const RESPONSE_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Add this function at the top level of your file
-function setResponseTimer(chatId, client, idSubstring) {
+function setResponseTimer(chatId, client) {
     return setTimeout(async () => {
         const reminderMessage = "Maaf mengganggu. Adakah anda masih berminat untuk meneruskan perbualan? Jika ya, sila balas mesej ini. Jika tidak, tiada masalah. Terima kasih atas masa anda!";
         await client.sendMessage(chatId, reminderMessage);
-        
-        // Add a tag to indicate that a reminder was sent
-        await addtagbookedFirebase(chatId.split('@')[0], 'reminder_sent', idSubstring);
-        
-        // You might want to update the Firebase document to indicate that a reminder was sent
-        const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(chatId.split('@')[0]);
-        await contactRef.update({
-            lastReminderSent: admin.firestore.FieldValue.serverTimestamp()
-        });
+
     }, RESPONSE_TIMEOUT);
 }
 
@@ -517,7 +509,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                             }
                             
                             // Set a new timer
-                            const timer = setResponseTimer(contactID, client, idSubstring);
+                            const timer = setResponseTimer(msg.from, client, idSubstring);
                             responseTimers.set(msg.from, timer);
                         }
                         
