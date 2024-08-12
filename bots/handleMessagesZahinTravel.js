@@ -263,6 +263,14 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         let firebaseTags = [];
 
         if (contactData === null) {
+            if (contactData.threadid) {
+                threadID = contactData.threadid;
+            } else {
+                const thread = await createThread();
+                threadID = thread.id;
+                await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                //await saveThreadIDGHL(contactID,threadID);
+            }
             if ((sender.to).includes('@g.us')) {
                 const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
                 firebaseTags = tags ? [...tags, 'stop bot'] : ['stop bot'];
@@ -271,6 +279,9 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 firebaseTags = ['stop bot'];
             }
         } else {
+            const thread = await createThread();
+            threadID = thread.id;
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
             firebaseTags = contactData.tags ?? [];
         }
 
