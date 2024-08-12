@@ -138,7 +138,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         return;
                     }else {
                         contactID = extractedNumber;
-                        contactName = msg.notifyName ?? extractedNumber;
+                        contactName = contactData.contactName ?? msg.pushname ??extractedNumber;
                     
                         if (contactData.threadid) {
                             threadID = contactData.threadid;
@@ -185,16 +185,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 }
             }
 
-            // Add trip tag based on message content
-            if (msg.body.toLowerCase().includes('small trip')) {
-                if (!firebaseTags.includes('Small Trip')) {
-                    firebaseTags.push('Small Trip');
-                }
-            } else if (msg.body.toLowerCase().includes('trip')) {
-                if (!firebaseTags.includes('Big Trip')) {
-                    firebaseTags.push('Big Trip');
-                }
-            }
+        
             
             let type = '';
             if(msg.type === 'chat'){
