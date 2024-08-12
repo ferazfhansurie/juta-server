@@ -26,6 +26,8 @@ const openai = new OpenAI({
 const steps = {
     START: 'start',
 };
+const responseTimers = new Map();
+
 const userState = new Map();
 
 async function customWait(milliseconds) {
