@@ -476,7 +476,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                             }
                         }
                         
-                        if(check.includes('Salah seorang perunding percutian Zahin Travel akan hubungi semula dengan secepat mungkin untuk proses selanjutnya. ')){
+                        if(check.includes('salah seorang perunding percutian zahin travel akan hubungi semula')){
                             const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
                             for(let i=0;i<tags.length-1;i++){
                                 await addtagbookedFirebase(contactID, tags[i], idSubstring);
