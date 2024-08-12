@@ -233,96 +233,79 @@ const RATE_LIMIT_DELAY = 5000; // 5 seconds
 async function handleNewMessagesZahinTravel(client, msg, botName) {
     console.log('Handling new Messages '+botName);
 
-    //const url=req.originalUrl
-
-    // Find the positions of the '/' characters
-    //const firstSlash = url.indexOf('/');
-    //const secondSlash = url.indexOf('/', firstSlash + 1);
-
-    // Extract the substring between the first and second '/'
-    //const idSubstring = url.substring(firstSlash + 1, secondSlash);
     const idSubstring = botName;
     try {
-
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring);
 
-        //const receivedMessages = req.body.messages;
-            if (msg.fromMe){
-                return;
-            }
+        if (msg.fromMe){
+            return;
+        }
 
-            const sender = {
-                to: msg.from,
-                name:msg.notifyName,
-            };
+        const sender = {
+            to: msg.from,
+            name: msg.notifyName,
+        };
 
-            
-            let contactID;
-            let contactName;
-            let threadID;
-            let query;
-            let answer;
-            let parts;
-            let currentStep;
-            const extractedNumber = '+'+(sender.to).split('@')[0];
-            const chat = await msg.getChat();
-            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
-            
-            let firebaseTags = [];
+        let contactID;
+        let contactName;
+        let threadID;
+        let query;
+        let answer;
+        let parts;
+        let currentStep;
+        const extractedNumber = '+'+(sender.to).split('@')[0];
+        const chat = await msg.getChat();
+        const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
+        
+        let firebaseTags = [];
 
-            if (contactData === null) {
-                if ((sender.to).includes('@g.us')) {
-                    const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
-                    firebaseTags = tags ? [...tags, 'stop bot'] : ['stop bot'];
-                    console.log('Firebase Tags:', firebaseTags);
-                    // Add the new contact to Firebase with the assigned tags
-                    //await addNewContactToFirebase(extractedNumber, msg.notifyName, firebaseTags, idSubstring);
-                } else {
-                    firebaseTags = ['stop bot'];
-                }
+        if (contactData === null) {
+            if ((sender.to).includes('@g.us')) {
+                const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
+                firebaseTags = tags ? [...tags, 'stop bot'] : ['stop bot'];
+                console.log('Firebase Tags:', firebaseTags);
             } else {
-                firebaseTags = contactData.tags ?? [];
+                firebaseTags = ['stop bot'];
             }
+        } else {
+            firebaseTags = contactData.tags ?? [];
+        }
 
-            if(extractedNumber.includes('status')){
-                return;
-            }
-            const data = {
-                additionalEmails: [],
-                address1: null,
-                assignedTo: null,
-                businessId: null,
-                phone:extractedNumber,
-                tags:firebaseTags,
-                chat: {
-                    contact_id: extractedNumber,
-                    id: msg.from,
-                    name: msg.notifyName ?? extractedNumber,
-                    not_spam: true,
-                    tags: firebaseTags,
-                    timestamp: chat.timestamp || Date.now(),
-                    type: 'contact',
-                    unreadCount: 0,
-                    last_message: {
-                        chat_id: msg.from,
-                        from: msg.from ?? "",
-                        from_me: msg.fromMe ?? false,
-                        id: msg._data.id.id ?? "",
-                        source: chat.deviceType ?? "",
-                        status: "delivered",
-                        text: {
-                            body:msg.body ?? ""
-                        },
-                        timestamp: msg.timestamp ?? 0,
-                        type: msg.type == 'chat' ? 'text' : msg.type,
-                    },
-                },
-                chat_id: msg.from,
-                city: null,
-                companyName: null,
-                contactName: msg.notifyName ?? extractedNumber,
-                threadid: threadID ?? "",
+        if(extractedNumber.includes('status')){
+            return;
+        }
+
+        // Handle audio messages
+        let messageBody = msg.body;
+        let audioData = null;
+
+        if (msg.hasMedia && msg.type === 'audio') {
+            console.log('Voice message detected');
+            const media = await msg.downloadMedia();
+            const transcription = await transcribeAudio(media.data);
+            console.log('Transcription:', transcription);
+            
+            messageBody = transcription;
+            audioData = media.data;
+        }
+
+        const data = {
+            additionalEmails: [],
+            address1: null,
+            assignedTo: null,
+            businessId: null,
+            phone: extractedNumber,
+            tags: firebaseTags,
+            chat: {
+                contact_id: extractedNumber,
+                id: msg.from,
+                name: msg.notifyName ?? extractedNumber,
+                not_spam: true,
+                tags: firebaseTags,
+                timestamp: chat.timestamp || Date.now(),
+                type: 'contact',
+                unreadCount: 0,
                 last_message: {
                     chat_id: msg.from,
                     from: msg.from ?? "",
@@ -331,13 +314,18 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     source: chat.deviceType ?? "",
                     status: "delivered",
                     text: {
-                        body:msg.body ?? ""
+                        body: messageBody ?? ""
                     },
                     timestamp: msg.timestamp ?? 0,
-                    type: msg.type == 'chat' ? 'text' : msg.type,
+                    type: msg.type,
                 },
-            };
-            const message =  {
+            },
+            chat_id: msg.from,
+            city: null,
+            companyName: null,
+            contactName: msg.notifyName ?? extractedNumber,
+            threadid: threadID ?? "",
+            last_message: {
                 chat_id: msg.from,
                 from: msg.from ?? "",
                 from_me: msg.fromMe ?? false,
@@ -345,130 +333,126 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 source: chat.deviceType ?? "",
                 status: "delivered",
                 text: {
-                    body:msg.body ?? ""
+                    body: messageBody ?? ""
                 },
                 timestamp: msg.timestamp ?? 0,
-                type: msg.type == 'chat' ? 'text' : msg.type,
+                type: msg.type,
+            },
+        };
+
+        const messageData = {
+            chat_id: msg.from,
+            from: msg.from ?? "",
+            from_me: msg.fromMe ?? false,
+            id: msg.id._serialized ?? "",
+            source: chat.deviceType ?? "",
+            status: "delivered",
+            text: {
+                body: messageBody ?? ""
+            },
+            timestamp: msg.timestamp ?? 0,
+            type: msg.type,
+        };
+
+        if (msg.type === 'audio') {
+            messageData.audio = {
+                mimetype: msg._data.mimetype || 'audio/ogg; codecs=opus',
+                data: audioData
             };
-            const messageData = {
-                chat_id: msg.from,
-                from: msg.from ?? "",
-                from_me: msg.fromMe ?? false,
-                id: msg.id._serialized ?? "",
-                source: chat.deviceType ?? "",
-                status: "delivered",
-                text: {
-                    body:msg.body ?? ""
-                },
-                timestamp: msg.timestamp ?? 0,
-                type: msg.type == 'chat' ? 'text' : msg.type,
-              };
-              
-              const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-              //await contactRef.set(contactData, { merge: true });
-              const messagesRef = contactRef.collection('messages');
-          
-              const messageDoc = messagesRef.doc(msg.id._serialized);
-              await messageDoc.set(messageData, { merge: true });
-            //   console.log(msg);
-           await addNotificationToUser(idSubstring, messageData);
-            
-            // Add the data to Firestore
-            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-            
-            //reset bot command
-            if (msg.body.includes('/resetbot')) {
-                const thread = await createThread();
-                threadID = thread.id;
-                await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                //await saveThreadIDGHL(contactID,threadID);
-                client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
-                //await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+        }
+
+        const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+        const messagesRef = contactRef.collection('messages');
+
+        const messageDoc = messagesRef.doc(msg.id._serialized);
+        await messageDoc.set(messageData, { merge: true });
+        console.log(msg);
+        await addNotificationToUser(idSubstring, messageData);
+        
+        // Add the data to Firestore
+        await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
+        
+        //reset bot command
+        if (msg.body.includes('/resetbot')) {
+            const thread = await createThread();
+            threadID = thread.id;
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
+            client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
+            return;
+        }
+        if(ghlConfig.stopbot){
+            if(ghlConfig.stopbot == true){
+                console.log('bot stop all');
                 return;
             }
-            if(ghlConfig.stopbot){
-                if(ghlConfig.stopbot == true){
-                    console.log('bot stop all');
-                    return;
-                }
+        }
+        if(firebaseTags !== undefined){
+            if(firebaseTags.includes('stop bot')){
+                console.log('bot stop');
+            return;
             }
-            if(firebaseTags !== undefined){
-                if(firebaseTags.includes('stop bot')){
-                    console.log('bot stop');
-                return;
-                }
-            }
+        }
 
-            
+        currentStep = userState.get(sender.to) || steps.START;
+        switch (currentStep) {
+            case steps.START:
+                var context = "";
 
-            currentStep = userState.get(sender.to) || steps.START;
-            switch (currentStep) {
-                case steps.START:
-                    var context = "";
+                query = `${messageBody} user_name: ${msg.notifyName} `;
+                
+                answer = await handleOpenAIAssistant(query, threadID);
+                parts = answer.split(/\s*\|\|\s*/);
+                
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i].trim();   
+                    const check = part.toLowerCase();
+                    if (part) {
+                        const sentMessage = await client.sendMessage(msg.from, part);
 
-                    query = `${msg.body} user_name: ${msg.notifyName} `;
-                    
-                    
-                    answer= await handleOpenAIAssistant(query,threadID);
-                    parts = answer.split(/\s*\|\|\s*/);
-                    
-                    for (let i = 0; i < parts.length; i++) {
-                        const part = parts[i].trim();   
-                        const check = part.toLowerCase();
-                        if (part) {
-                            //await addtagbookedGHL(contactID, 'idle');
-                            //await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            const sentMessage = await client.sendMessage(msg.from, part);
+                        // Save the message to Firebase
+                        const sentMessageData = {
+                            chat_id: sentMessage.from,
+                            from: sentMessage.from ?? "",
+                            from_me: true,
+                            id: sentMessage.id._serialized ?? "",
+                            source: sentMessage.deviceType ?? "",
+                            status: "delivered",
+                            text: {
+                                body: part
+                            },
+                            timestamp: sentMessage.timestamp ?? 0,
+                            type: 'text',
+                            ack: sentMessage.ack ?? 0,
+                        };
 
-                            // Save the message to Firebase
-                            const sentMessageData = {
-                                chat_id: sentMessage.from,
-                                from: sentMessage.from ?? "",
-                                from_me: true,
-                                id: sentMessage.id._serialized ?? "",
-                                source: sentMessage.deviceType ?? "",
-                                status: "delivered",
-                                text: {
-                                    body: part
-                                },
-                                timestamp: sentMessage.timestamp ?? 0,
-                                type: 'text',
-                                ack: sentMessage.ack ?? 0,
-                            };
+                        const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+                        await messageDoc.set(sentMessageData, { merge: true });
 
-                            const messageDoc = messagesRef.doc(sentMessage.id._serialized);
-
-                            await messageDoc.set(sentMessageData, { merge: true });
-
-                            if (check.includes('small trip')) {
-                                if (await hasTag(contactID, 'Big Trip', idSubstring)) {
-                                    await removeTagFirebase(contactID, 'Big Trip', idSubstring);
-                                }
-                                await addtagbookedFirebase(contactID, 'Small Trip', idSubstring);
-                            } else if (check.includes('trip')) {
-                                if (!(await hasTag(contactID, 'Small Trip', idSubstring))) {
-                                    await addtagbookedFirebase(contactID, 'Big Trip', idSubstring);
-                                }
+                        if (check.includes('small trip')) {
+                            if (await hasTag(contactID, 'Big Trip', idSubstring)) {
+                                await removeTagFirebase(contactID, 'Big Trip', idSubstring);
                             }
-
-                            
+                            await addtagbookedFirebase(contactID, 'Small Trip', idSubstring);
+                        } else if (check.includes('trip')) {
+                            if (!(await hasTag(contactID, 'Small Trip', idSubstring))) {
+                                await addtagbookedFirebase(contactID, 'Big Trip', idSubstring);
+                            }
                         }
                     }
-                    console.log('Response sent.');
-                    userState.set(sender.to, steps.START);
-                    break;
-                default:
-                    // Handle unrecognized step
-                    console.error('Unrecognized step:', currentStep);
-                    break;
-            }
+                }
+                console.log('Response sent.');
+                userState.set(sender.to, steps.START);
+                break;
+            default:
+                console.error('Unrecognized step:', currentStep);
+                break;
+        }
         return('All messages processed');
     } catch (e) {
         console.error('Error:', e.message);
         return(e.message);
     }
 }
-
 
 async function removeTagFirebase(contactID, tag, idSubstring) {
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
@@ -645,9 +629,6 @@ async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
         if (!phoneNumber) {
             throw new Error("Phone number is undefined or null");
         }
-
-        // Initial fetch of config
-        //await fetchConfigFromDatabase(idSubstring);
 
         let threadID;
         let contactName;
