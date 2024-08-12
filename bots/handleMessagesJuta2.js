@@ -712,10 +712,15 @@ async function fetchConfigFromDatabase(idSubstring) {
     }
 }
 
+const FormData = require('form-data');
+
 async function transcribeAudio(audioData) {
     try {
         const formData = new FormData();
-        formData.append('file', new Blob([Buffer.from(audioData, 'base64')]), 'audio.ogg');
+        formData.append('file', Buffer.from(audioData, 'base64'), {
+            filename: 'audio.ogg',
+            contentType: 'audio/ogg',
+        });
         formData.append('model', 'whisper-1');
         formData.append('response_format', 'json');
 
