@@ -288,6 +288,11 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         // Handle audio messages (including PTT)
         let messageBody = msg.body;
         let audioData = null;
+        if(msg.type == 'chat'){
+            type ='text'
+        }else{
+            type = msg.type;
+        }
 
         if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
             console.log('Voice message detected');
