@@ -308,6 +308,8 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         // Handle audio messages (including PTT)
         let messageBody = msg.body;
         let audioData = null;
+        let type = '';
+
         if(msg.type == 'chat'){
             type ='text'
         }else{
