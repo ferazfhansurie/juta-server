@@ -122,6 +122,8 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             const extractedNumber = '+'+(sender.to).split('@')[0];
             const chat = await msg.getChat();
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
+            let unreadCount = contactData.unreadCount ?? 0;
+
             
             console.log(contactData);
             if (contactData !== null) {
@@ -138,7 +140,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         return;
                     }else {
                         contactID = extractedNumber;
-                        contactName = contactData.contactName ?? msg.pushname ??extractedNumber;
+                        contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
                     
                         if (contactData.threadid) {
                             threadID = contactData.threadid;
@@ -224,7 +226,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 chat: {
                     contact_id: extractedNumber,
                     id: msg.from,
-                    name: contact.name || contact.pushname || extractedNumber,
+                    name: contactName || contact.name || contact.pushname || extractedNumber,
                     not_spam: true,
                     tags: firebaseTags,
                     timestamp: chat.timestamp || Date.now(),
@@ -247,7 +249,8 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 chat_id: msg.from,
                 city: null,
                 companyName: null,
-                contactName: contact.name || contact.pushname || extractedNumber,
+                contactName: contactName || contact.name || contact.pushname || extractedNumber,
+                unreadCount: unreadCount + 1,
                 threadid: threadID ?? "",
                 last_message: {
                     chat_id: msg.from,
