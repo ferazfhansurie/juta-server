@@ -369,7 +369,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             chat: {
                 contact_id: extractedNumber,
                 id: msg.from,
-                name: contact.name || contact.pushname || extractedNumber,
+                name: contactName || contact.name || contact.pushname || extractedNumber,
                 not_spam: true,
                 tags: firebaseTags,
                 timestamp: chat.timestamp || Date.now(),
@@ -392,7 +392,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             chat_id: msg.from,
             city: null,
             companyName: null,
-            contactName: contact.name || contact.pushname ||  extractedNumber,
+            contactName: contactName || contact.name || contact.pushname || extractedNumber,
             unreadCount: unreadCount + 1,
             threadid: threadID ?? "",
             last_message: {
