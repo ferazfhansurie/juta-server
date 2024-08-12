@@ -206,8 +206,9 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 
                 messageBody = transcription;
                 audioData = media.data;
+                console.log(msg);
             }
-
+         
             const data = {
                 additionalEmails: [],
                 address1: null,
@@ -274,12 +275,12 @@ async function handleNewMessagesJuta2(client, msg, botName) {
 
             if (msg.type === 'audio') {
                 messageData.audio = {
-                    mimetype: msg.mimetype,
+                    mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
                     data: audioData // This is the base64 encoded audio data
                 };
             }
 
-            console.log(data);
+          
 
             const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
             const messagesRef = contactRef.collection('messages');
