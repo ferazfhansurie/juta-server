@@ -56,6 +56,7 @@ async function fetchEmployeesFromFirebase(idSubstring) {
             employeeGroups[data.group].push({
                 name: data.name,
                 email: data.email,
+                phoneNumber: data.phoneNumber,
                 assignedContacts: data.assignedContacts || 0
             });
             console.log(`Added employee ${data.name} to group ${data.group}`);
@@ -514,9 +515,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                             const groupMessage = await getFormattedInfoFromAssistant(
                                 threadID, 
                                 tags[2], 
-                                tags[1], 
-                                chat.name, 
-                                extractedNumber
+                                tags[1]
                             );
 
                             // Send message to group chat
@@ -540,7 +539,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
     }
 }
 
-async function getFormattedInfoFromAssistant(threadId, agentId, agentName, customerName, customerPhone) {
+async function getFormattedInfoFromAssistant(threadId, agentId, agentName) {
     const assistantId = ghlConfig.assistantId;
     
     // Add a message to the thread asking for the formatted information
@@ -558,8 +557,8 @@ async function getFormattedInfoFromAssistant(threadId, agentId, agentName, custo
     Nombor ID Ejen: ${agentId}
     Nama Ejen: ${agentName}
 
-    Nama Prospek: ${customerName}
-    Nombor Telefon: ${customerPhone}
+    Nama Prospek: [extracted customer name]
+    Nombor Telefon: [extracted phone number]
     Emel: [extracted email]
 
     Destinasi: [extracted destination]
@@ -568,11 +567,13 @@ async function getFormattedInfoFromAssistant(threadId, agentId, agentName, custo
 
     Bagaimana tahu tentang Zahin Travel: [extracted discovery method]
 
-    If any information is not available, please use "N/A".`);
+    If any information is not available, please use "N/A".
+    
+    Provide ONLY the formatted output without any additional text or explanations.`);
 
     // Run the assistant to process this request
     const formattedInfo = await runAssistant(assistantId, threadId);
-    return formattedInfo;
+    return formattedInfo.trim(); // Trim any leading or trailing whitespace
 }
 
 async function removeTagFirebase(contactID, tag, idSubstring) {
