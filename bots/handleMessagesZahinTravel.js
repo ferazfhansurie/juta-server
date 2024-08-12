@@ -116,7 +116,7 @@ async function storeAssignmentState(idSubstring) {
     console.log('Assignment state stored in Firebase:', stateToStore);
 }
 
-async function assignNewContactToEmployee(contactID, idSubstring) {
+async function assignNewContactToEmployee(contactID, idSubstring, client) {
     if (Object.keys(employeeGroups).length === 0) {
         await fetchEmployeesFromFirebase(idSubstring);
     }
@@ -156,6 +156,8 @@ async function assignNewContactToEmployee(contactID, idSubstring) {
             currentGroupIndex = (groupIndex + 1) % groupOrder.length;
             
             console.log(`Assigned employee: ${assignedEmployee.name} from group: ${currentGroup}`);
+            await client.sendMessage('601121677672@c.us', `Assigned employee: ${assignedEmployee.name} from group: ${currentGroup}`);
+
             console.log(`Next group index: ${currentGroupIndex}`);
             break;
         } else {
@@ -273,7 +275,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
 
             if (contactData === null) {
                 if ((sender.to).includes('@g.us')) {
-                    const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
+                    const tags = await assignNewContactToEmployee(extractedNumber, idSubstring, client);
                     firebaseTags = tags ? [...tags, 'stop bot'] : ['stop bot'];
                     console.log('Firebase Tags:', firebaseTags);
                     // Add the new contact to Firebase with the assigned tags
