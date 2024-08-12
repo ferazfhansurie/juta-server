@@ -262,23 +262,43 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         let firebaseTags = [];
 
         if (contactData === null) {
-            if (contactData.threadid) {
-                threadID = contactData.threadid;
-            } else {
-                const thread = await createThread();
-                threadID = thread.id;
-                await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                //await saveThreadIDGHL(contactID,threadID);
-            }
+            const thread = await createThread();
+            threadID = thread.id;
+            contactID = extractedNumber;
+            contactName = msg.notifyName ?? extractedNumber;
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
+            
+
             if ((sender.to).includes('@g.us')) {
                 firebaseTags = ['stop bot'];
                 
             }
         } else {
-            const thread = await createThread();
-            threadID = thread.id;
-            await saveThreadIDFirebase(contactID, threadID, idSubstring)
-            firebaseTags = contactData.tags ?? [];
+            const stopTag = contactData.tags;
+                console.log(stopTag);
+                if (msg.fromMe){
+                    if(stopTag.includes('idle')){
+                    }
+                    return;
+                }
+                if(stopTag.includes('stop bot')){
+                    console.log('Bot stopped for this message');
+                    return;
+                }else {
+                    contactID = extractedNumber;
+                    contactName = msg.notifyName ?? extractedNumber;
+                    if (contactData.threadid) {
+                        threadID = contactData.threadid;
+                    } else {
+                        const thread = await createThread();
+                        threadID = thread.id;
+                        await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                        //await saveThreadIDGHL(contactID,threadID);
+                    }
+                    
+                    firebaseTags = contactData.tags ?? [];
+                }
+            
         }
 
         if(extractedNumber.includes('status')){
