@@ -171,7 +171,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
                     return;
                 }else {
                     contactID = extractedNumber;
-                    contactName = msg.notifyName ?? extractedNumber;
+                    contactName = contactData.contactName ?? msg.notifyName ?? extractedNumber;
                 
                     if (contactData.threadid) {
                         threadID = contactData.threadid;

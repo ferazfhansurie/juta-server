@@ -138,7 +138,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
              
                 }else {
                     contactID = extractedNumber;
-                    contactName = msg.notifyName ?? extractedNumber;
+                    contactName = contactData.contactName ?? msg.notifyName ?? extractedNumber;
                 
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
