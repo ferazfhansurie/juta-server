@@ -125,20 +125,33 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             
             console.log(contactData);
             if (contactData !== null) {
-                const stopTag = contactData.tags;
-                console.log(stopTag);
-                if (msg.fromMe){
-                    if(stopTag.includes('idle')){
+                if(contactData.tags){
+                    const stopTag = contactData.tags;
+                    console.log(stopTag);
+                    if (msg.fromMe){
+                        if(stopTag.includes('idle')){
+                        }
+                        return;
                     }
-                    return;
-                }
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-                    return;
-                }else {
+                    if(stopTag.includes('stop bot')){
+                        console.log('Bot stopped for this message');
+                        return;
+                    }else {
+                        contactID = extractedNumber;
+                        contactName = msg.notifyName ?? extractedNumber;
+                    
+                        if (contactData.threadid) {
+                            threadID = contactData.threadid;
+                        } else {
+                            const thread = await createThread();
+                            threadID = thread.id;
+                            await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                            //await saveThreadIDGHL(contactID,threadID);
+                        }
+                    }
+                }else{
                     contactID = extractedNumber;
                     contactName = msg.notifyName ?? extractedNumber;
-                
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
                     } else {
@@ -146,8 +159,9 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         threadID = thread.id;
                         await saveThreadIDFirebase(contactID, threadID, idSubstring)
                         //await saveThreadIDGHL(contactID,threadID);
-                    }
+                    } 
                 }
+         
             }else{
                 
                 await customWait(2500); 
@@ -183,7 +197,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             }
             
             let type = '';
-            if(msg.type == 'chat'){
+            if(msg.type === 'chat'){
                 type ='text'
               }else{
                 type = msg.type;
@@ -236,7 +250,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                             body: messageBody ?? ""
                         },
                         timestamp: msg.timestamp ?? 0,
-                        type: msg.type,
+                        type:type,
                     },
                 },
                 chat_id: msg.from,
@@ -255,7 +269,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         body: messageBody ?? ""
                     },
                     timestamp: msg.timestamp ?? 0,
-                    type: msg.type,
+                    type: type,
                 },
             };
 
@@ -270,7 +284,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     body: messageBody ?? ""
                 },
                 timestamp: msg.timestamp ?? 0,
-                type: msg.type,
+                type: type,
             };
 
             if (msg.type === 'audio') {

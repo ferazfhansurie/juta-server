@@ -393,7 +393,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 body: messageBody ?? ""
             },
             timestamp: msg.timestamp ?? 0,
-            type: msg.type,
+            type: type,
         };
 
         if (msg.type === 'audio' || msg.type === 'ptt') {
