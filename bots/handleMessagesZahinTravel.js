@@ -249,32 +249,6 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             name: msg.notifyName,
         };
 
-<<<<<<< HEAD
-            
-            let contactID;
-            let contactName;
-            let threadID;
-            let query;
-            let answer;
-            let parts;
-            let currentStep;
-            const extractedNumber = '+'+(sender.to).split('@')[0];
-            const chat = await msg.getChat();
-            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
-            
-            let firebaseTags = [];
-
-            if (contactData === null) {
-                if ((sender.to).includes('@g.us')) {
-                    const tags = await assignNewContactToEmployee(extractedNumber, idSubstring, client);
-                    firebaseTags = tags ? [...tags, 'stop bot'] : ['stop bot'];
-                    console.log('Firebase Tags:', firebaseTags);
-                    // Add the new contact to Firebase with the assigned tags
-                    //await addNewContactToFirebase(extractedNumber, msg.notifyName, firebaseTags, idSubstring);
-                } else {
-                    firebaseTags = ['stop bot'];
-                }
-=======
         let contactID;
         let contactName;
         let threadID;
@@ -293,7 +267,6 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 const tags = await assignNewContactToEmployee(extractedNumber, idSubstring);
                 firebaseTags = tags ? [...tags, 'stop bot'] : ['stop bot'];
                 console.log('Firebase Tags:', firebaseTags);
->>>>>>> f36a11b61eb8430448fe842f3bef53f07a814839
             } else {
                 firebaseTags = ['stop bot'];
             }
