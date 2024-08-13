@@ -35,6 +35,34 @@ async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
     const jsonResponse = await response.json();
     return jsonResponse;
 }
+const axios = require('axios');
+
+async function saveThreadIDGHL(contactID, threadID) {
+    console.log('saving thread');
+    const options = {
+        method: 'PUT',
+        url: `https://services.leadconnectorhq.com/contacts/${contactID}`,
+        headers: {
+            Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
+            Version: '2021-07-28',
+            'Content-Type': 'application/json',
+            Accept: 'application/json'
+        },
+        data: {
+            customFields: [
+                {key: 'threadid', field_value: threadID}
+            ],
+        }
+    };
+
+    try {
+        await axios.request(options);
+        console.log(`Thread ID ${threadID} saved for contact ${contactID}`);
+    } catch (error) {
+        console.error('Error saving thread ID:', error);
+    }
+}
+
 async function handleApplyRadarBlast(req, res) {
     console.log('blasting apply radar');
     console.log(req.body);
@@ -45,10 +73,20 @@ async function handleApplyRadarBlast(req, res) {
         return res.status(500).json({ error: 'Whapi token not found in configuration' });
     }
 
-    const { phone, first_name, threadid } = req.body;
+    const { phone, first_name, threadid, contactId } = req.body;
 
-    if (!phone || !first_name || !threadid) {
-        return res.status(400).json({ error: 'Phone number, name, and threadID are required' });
+    if (!phone || !first_name || !contactId) {
+        return res.status(400).json({ error: 'Phone number, name, and contactId are required' });
+    }
+
+    let currentThreadId = threadid || "";
+
+    if (!currentThreadId) {
+        console.log('creating thread');
+        const thread = await openai.beta.threads.create();
+        currentThreadId = thread.id;
+        console.log('New thread created:', currentThreadId);
+        await saveThreadIDGHL(contactId, currentThreadId);
     }
 
     const chatId = `${phone.replace(/^\+/, '')}@s.whatsapp.net`;
@@ -58,9 +96,9 @@ async function handleApplyRadarBlast(req, res) {
         const message = createMessage(first_name);
         const result = await sendWhapiRequest('messages/text', { to: chatId, body: message });
         // Add message to assistant
-        await addMessageAssistant(threadid, `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`);
+        await addMessageAssistant(currentThreadId, `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`);
         
-        res.json({ phone, first_name, success: true, result });
+        res.json({ phone, first_name, success: true, result, threadId: currentThreadId });
     } catch (error) {
         console.error(`Error sending message to ${phone}:`, error);
         res.status(500).json({ phone, first_name, success: false, error: error.message });
