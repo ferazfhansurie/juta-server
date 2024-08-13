@@ -171,11 +171,15 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 console.log('sent new contact to create new contact');
             }   
-            let firebaseTags =['']
-            if(contactData){
-                firebaseTags=   contactData.tags??[];
+            let firebaseTags = ['']
+            if (contactData) {
+                firebaseTags = contactData.tags ?? [];
+                // Remove 'snooze' tag if present
+                if(firebaseTags.includes('snooze')){
+                    firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+                }
             } else {
-                if((sender.to).includes('@g.us')){
+                if ((sender.to).includes('@g.us')) {
                     firebaseTags = ['stop bot']
                 }
             }
@@ -293,7 +297,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
 
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-            
+           
             if (msg.fromMe){
                 if(stopTag.includes('idle')){
                 }
