@@ -156,12 +156,10 @@ async function processMessage(message) {
     const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
     const chat = await getChatMetadata(message.chat_id);
     let firebaseTags = [''];
-    if (contactPresent.tags) {
-        firebaseTags = contactPresent.tags ?? [''];
-    }
    
     if (contactPresent !== null) {
-        const stopTag = contactPresent.tags;
+        firebaseTags = contactPresent.tags ?? [''];
+        const stopTag = contactPresent.tags ?? [];
         console.log(stopTag);
         if (stopTag.includes('stop bot')) {
             console.log('Bot stopped for this message');
