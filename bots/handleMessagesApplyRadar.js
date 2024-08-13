@@ -155,14 +155,11 @@ async function processMessage(message) {
     const contactPresent = await getContact(extractedNumber);
     const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
     const chat = await getChatMetadata(message.chat_id);
-    let firebaseTags = [];
-    if (contactData) {
-        firebaseTags = contactData.tags ?? [];
+    let firebaseTags = [''];
+    if (contactPresent.tags) {
+        firebaseTags = contactPresent.tags ?? [''];
     }
-    const idleTag = contactPresent.tags
-    if (idleTag && idleTag.includes('idle')) {
-        await removeTagBookedGHL(contactPresent.id, 'idle');
-    }
+   
     if (contactPresent !== null) {
         const stopTag = contactPresent.tags;
         console.log(stopTag);
@@ -211,7 +208,6 @@ async function processMessage(message) {
     }
 
     let contactPresent2 = await getContact(extractedNumber);
-    const stopTag = contactPresent2.tags;
     console.log(message)
     const data = {
         additionalEmails: [],
