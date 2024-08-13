@@ -122,7 +122,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             const extractedNumber = '+'+(sender.to).split('@')[0];
             const chat = await msg.getChat();
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
-            let unreadCount = contactData.unreadCount ?? 0;
+            let unreadCount = 0;
 
             
             console.log(contactData);
@@ -139,6 +139,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         console.log('Bot stopped for this message');
                         return;
                     }else {
+                        unreadCount = contactData.unreadCount ?? 0;
                         contactID = extractedNumber;
                         contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
                     
