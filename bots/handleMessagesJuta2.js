@@ -130,15 +130,6 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 if(contactData.tags){
                     const stopTag = contactData.tags;
                     console.log(stopTag);
-                    if (msg.fromMe){
-                        if(stopTag.includes('idle')){
-                        }
-                        return;
-                    }
-                    if(stopTag.includes('stop bot')){
-                        console.log('Bot stopped for this message');
-                        return;
-                    }else {
                         unreadCount = contactData.unreadCount ?? 0;
                         contactID = extractedNumber;
                         contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
@@ -151,7 +142,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                             await saveThreadIDFirebase(contactID, threadID, idSubstring)
                             //await saveThreadIDGHL(contactID,threadID);
                         }
-                    }
+                    
                 }else{
                     contactID = extractedNumber;
                     contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
@@ -302,6 +293,16 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
             
+            if (msg.fromMe){
+                if(stopTag.includes('idle')){
+                }
+                return;
+            }
+            if(stopTag.includes('stop bot')){
+                console.log('Bot stopped for this message');
+                return;
+            }
+
             //reset bot command
             if (msg.body.includes('/resetbot')) {
                 const thread = await createThread();

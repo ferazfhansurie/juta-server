@@ -137,10 +137,17 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     let assignedEmployee = null;
     let currentGroup = null;
 
+    // Check if the contact has the 'Big Trip' tag
+    const contactData = await getContactDataFromDatabaseByPhone(contactID, idSubstring);
+    const hasBigTripTag = contactData && contactData.tags && contactData.tags.includes('Big Trip');
+
+    // If 'Big Trip' tag is present, only consider 'QueAD PRO v2' group
+    const groupsToConsider = hasBigTripTag ? ['QueAD PRO v2'] : groupOrder;
+
     // Iterate through all groups in order, starting from the current index
-    for (let i = 0; i < groupOrder.length; i++) {
-        const groupIndex = (currentGroupIndex + i) % groupOrder.length;
-        currentGroup = groupOrder[groupIndex];
+    for (let i = 0; i < groupsToConsider.length; i++) {
+        const groupIndex = hasBigTripTag ? 0 : (currentGroupIndex + i) % groupsToConsider.length;
+        currentGroup = groupsToConsider[groupIndex];
         const employees = employeeGroups[currentGroup];
 
         console.log(`Checking group: ${currentGroup}`);
@@ -156,7 +163,9 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
             currentEmployeeIndices[currentGroup] = (currentEmployeeIndices[currentGroup] + 1) % employees.length;
             
             // Update the current group index for the next assignment
-            currentGroupIndex = (groupIndex + 1) % groupOrder.length;
+            if (!hasBigTripTag) {
+                currentGroupIndex = (groupIndex + 1) % groupOrder.length;
+            }
             
             console.log(`Assigned employee: ${assignedEmployee.name} from group: ${currentGroup}`);
 
@@ -298,15 +307,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         } else {
             const stopTag = contactData.tags;
                 console.log(stopTag);
-                if (msg.fromMe){
-                    if(stopTag.includes('idle')){
-                    }
-                    return;
-                }
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-                    return;
-                }else {
+                
                     unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
                     contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
@@ -320,7 +321,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     }
                     
                     firebaseTags = contactData.tags ?? [];
-                }
+                
             
         }
 
@@ -436,6 +437,15 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         // Add the data to Firestore
         await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
         
+        if (msg.fromMe){
+            if(stopTag.includes('idle')){
+            }
+            return;
+        }
+        if(stopTag.includes('stop bot')){
+            console.log('Bot stopped for this message');
+            return;
+        }
         //reset bot command
         if (msg.body.includes('/resetbot')) {
             const thread = await createThread();

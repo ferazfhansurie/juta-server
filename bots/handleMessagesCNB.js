@@ -161,15 +161,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
             if (contactData !== null) {
                 const stopTag = contactData.tags;
                 console.log(stopTag);
-                if (msg.fromMe){
-                    if(stopTag.includes('idle')){
-                    }
-                    return;
-                }
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-                    return;
-                }else {
+                
                     unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
                     contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
@@ -182,7 +174,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
                         await saveThreadIDFirebase(contactID, threadID, idSubstring)
                         //await saveThreadIDGHL(contactID,threadID);
                     }
-                }
+                
                 
             }else{
                 
@@ -311,7 +303,15 @@ async function handleNewMessagesCNB(client, msg, botName) {
             
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-            
+            if (msg.fromMe){
+                if(stopTag.includes('idle')){
+                }
+                return;
+            }
+            if(stopTag.includes('stop bot')){
+                console.log('Bot stopped for this message');
+                return;
+            }
             //reset bot command
             if (msg.body.includes('/resetbot')) {
                 const thread = await createThread();
@@ -319,6 +319,15 @@ async function handleNewMessagesCNB(client, msg, botName) {
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 //await saveThreadIDGHL(contactID,threadID);
                 client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
+                //await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+                return;
+            }
+
+            //reset bot command
+            if (msg.body.includes('/stopbot')) {
+                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
+                //await saveThreadIDGHL(contactID,threadID);
+                client.sendMessage(msg.from, 'Bot has been stopped.');
                 //await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
                 return;
             }

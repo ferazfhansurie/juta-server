@@ -128,15 +128,6 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             if (contactData !== null) {
                 const stopTag = contactData.tags;
                 console.log(stopTag);
-                if (msg.fromMe){
-                    if(stopTag.includes('idle')){
-                    }
-                    return;
-                }
-                if(stopTag.includes('stop bot')){
-                    console.log('Bot stopped for this message');
-             
-                }else {
                     unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
                     contactName = contactData.contactName ?? msg.notifyName ?? extractedNumber;
@@ -149,7 +140,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                         await saveThreadIDFirebase(contactID, threadID, idSubstring)
                         //await saveThreadIDGHL(contactID,threadID);
                     }
-                }
+                
             }else{
                 
                 await customWait(2500); 
@@ -274,7 +265,15 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-            
+            if (msg.fromMe){
+                if(stopTag.includes('idle')){
+                }
+                return;
+            }
+            if(stopTag.includes('stop bot')){
+                console.log('Bot stopped for this message');
+                return;
+            }
             //reset bot command
             if (msg.body.includes('/resetbot')) {
                 const thread = await createThread();

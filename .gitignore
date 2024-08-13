@@ -17,7 +17,7 @@ config/secret-config.json
 
 # Ignore all files in the temp directory
 temp/
-
+last_processed_row.json
 sa_firebase.json
 service_account.json
 jutaCRM.code-workspace
