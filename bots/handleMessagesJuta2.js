@@ -154,7 +154,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     }
                 }else{
                     contactID = extractedNumber;
-                    contactName = msg.notifyName ?? extractedNumber;
+                    contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
                     } else {
@@ -170,7 +170,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 await customWait(2500); 
 
                 contactID = extractedNumber;
-                contactName = msg.notifyName ?? extractedNumber;
+                contactName = msg.pushname ?? extractedNumber;
                 client.sendMessage('601121677522@c.us', 'New Lead '+contactName +' '+contactID);
 
                 const thread = await createThread();

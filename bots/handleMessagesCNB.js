@@ -157,7 +157,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
             const extractedNumber = '+'+(sender.to).split('@')[0];
             const chat = await msg.getChat();
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
-            let unreadCount = contactData.unreadCount ?? 0;
+            let unreadCount = 0;
             if (contactData !== null) {
                 const stopTag = contactData.tags;
                 console.log(stopTag);
@@ -170,8 +170,9 @@ async function handleNewMessagesCNB(client, msg, botName) {
                     console.log('Bot stopped for this message');
                     return;
                 }else {
+                    unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
-                    contactName = contactData.contactName ?? msg.notifyName ?? extractedNumber;
+                    contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
                 
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
@@ -188,13 +189,13 @@ async function handleNewMessagesCNB(client, msg, botName) {
                 await customWait(2500); 
 
                 contactID = extractedNumber;
-                contactName = msg.notifyName ?? extractedNumber;
-             
+                contactName = msg.pushname ?? extractedNumber;
+
                 const thread = await createThread();
                 threadID = thread.id;
+                console.log(threadID);
+                await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 console.log('sent new contact to create new contact');
-
-                
 
             }   
             let firebaseTags =['']
@@ -451,7 +452,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
                             await messageDoc.set(sentMessageData, { merge: true });
 
                             if (check.includes('patience')) {
-                                await addtagbookedFirebase(contactID, 'stop bot');
+                                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
                             } 
                             if(check.includes('get back to you as soon as possible')){
                                 console.log('check includes');

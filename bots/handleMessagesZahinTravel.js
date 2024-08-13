@@ -281,13 +281,13 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
         
         let firebaseTags = [];
-        let unreadCount = contactData.unreadCount ?? 0;
+        let unreadCount = 0;
 
         if (contactData === null) {
             const thread = await createThread();
             threadID = thread.id;
             contactID = extractedNumber;
-            contactName = msg.notifyName ?? extractedNumber;
+            contactName = msg.pushname ?? extractedNumber;
             await saveThreadIDFirebase(contactID, threadID, idSubstring)
             
 
@@ -307,8 +307,9 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     console.log('Bot stopped for this message');
                     return;
                 }else {
+                    unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
-                    contactName = contactData.contactName ?? msg.notifyName ?? extractedNumber;
+                    contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
                     } else {
