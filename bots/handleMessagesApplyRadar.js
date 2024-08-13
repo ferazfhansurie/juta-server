@@ -184,29 +184,30 @@ async function processMessage(message) {
             }
         }
     } else {
-        await createContact(sender.name, extractedNumber);
-        await customWait(2500);
-        const contactPresent = await getContact(extractedNumber);
-        const stopTag = contactPresent.tags;
-        console.log(stopTag);
-        if (stopTag.includes('stop bot')) {
-            console.log('Bot stopped for this message');
-            return;
-        } else {
-            contactID = contactPresent.id;
-            contactName = contactPresent.fullNameLowerCase;
-            console.log(contactID);
-            console.log(contactPresent.id);
-            const threadIdField = contactPresent.customFields.find(field => field.id === 'iXKFr1fQXsjAsrqLmjDD');
-            if (threadIdField) {
-                threadID = threadIdField.value;
-            } else {
-                const thread = await createThread();
-                threadID = thread.id;
-                await saveThreadIDGHL(contactID, threadID);
-            }
-        }
-        console.log('sent new contact to create new contact');
+        // await createContact(sender.name, extractedNumber);
+        // await customWait(2500);
+        // const contactPresent = await getContact(extractedNumber);
+        // const stopTag = contactPresent.tags;
+        // console.log(stopTag);
+        // if (stopTag.includes('stop bot')) {
+        //     console.log('Bot stopped for this message');
+        //     return;
+        // } else {
+        //     contactID = contactPresent.id;
+        //     contactName = contactPresent.fullNameLowerCase;
+        //     console.log(contactID);
+        //     console.log(contactPresent.id);
+        //     const threadIdField = contactPresent.customFields.find(field => field.id === 'iXKFr1fQXsjAsrqLmjDD');
+        //     if (threadIdField) {
+        //         threadID = threadIdField.value;
+        //     } else {
+        //         const thread = await createThread();
+        //         threadID = thread.id;
+        //         await saveThreadIDGHL(contactID, threadID);
+        //     }
+        // }
+        console.log('No contact available');
+        return;
     }
 
     let contactPresent2 = await getContact(extractedNumber);
