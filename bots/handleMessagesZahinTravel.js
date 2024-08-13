@@ -291,7 +291,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         
         let firebaseTags = [];
         let unreadCount = 0;
-        const stopTag = contactData?.tags || [];
+        let stopTag = contactData?.tags || [];
 
         if (contactData === null) {
             const thread = await createThread();

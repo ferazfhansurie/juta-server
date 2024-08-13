@@ -158,7 +158,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
             const chat = await msg.getChat();
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             let unreadCount = 0;
-            const stopTag = contactData?.tags || [];
+            let stopTag = contactData?.tags || [];
             if (contactData !== null) {
                 stopTag = contactData.tags;
                 console.log(stopTag);
