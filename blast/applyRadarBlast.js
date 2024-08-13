@@ -37,11 +37,11 @@ async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
 }
 const axios = require('axios');
 
-async function saveThreadIDGHL(contactID, threadID) {
+async function saveThreadIDGHL(contact_id, threadID) {
     console.log('saving thread');
     const options = {
         method: 'PUT',
-        url: `https://services.leadconnectorhq.com/contacts/${contactID}`,
+        url: `https://services.leadconnectorhq.com/contacts/${contact_id}`,
         headers: {
             Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
             Version: '2021-07-28',
@@ -57,7 +57,7 @@ async function saveThreadIDGHL(contactID, threadID) {
 
     try {
         await axios.request(options);
-        console.log(`Thread ID ${threadID} saved for contact ${contactID}`);
+        console.log(`Thread ID ${threadID} saved for contact ${contact_id}`);
     } catch (error) {
         console.error('Error saving thread ID:', error);
     }
@@ -73,10 +73,10 @@ async function handleApplyRadarBlast(req, res) {
         return res.status(500).json({ error: 'Whapi token not found in configuration' });
     }
 
-    const { phone, first_name, threadid, contactId } = req.body;
+    const { phone, first_name, threadid, contact_id } = req.body;
 
-    if (!phone || !first_name || !contactId) {
-        return res.status(400).json({ error: 'Phone number, name, and contactId are required' });
+    if (!phone || !first_name || !contact_id) {
+        return res.status(400).json({ error: 'Phone number, name, and contact_id are required' });
     }
 
     let currentThreadId = threadid || "";
@@ -86,7 +86,7 @@ async function handleApplyRadarBlast(req, res) {
         const thread = await openai.beta.threads.create();
         currentThreadId = thread.id;
         console.log('New thread created:', currentThreadId);
-        await saveThreadIDGHL(contactId, currentThreadId);
+        await saveThreadIDGHL(contact_id, currentThreadId);
     }
 
     const chatId = `${phone.replace(/^\+/, '')}@s.whatsapp.net`;
