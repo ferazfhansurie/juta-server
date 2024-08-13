@@ -64,7 +64,7 @@ async function getContactDataFromDatabaseByPhone(phoneNumber) {
         let threadID;
         let contactName;
         let bot_status;
-        const contactsRef = db.collection('companies').doc('018').collection('contacts');
+        const contactsRef = db.collection('companies').doc('021').collection('contacts');
         const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
 
         if (querySnapshot.empty) {
