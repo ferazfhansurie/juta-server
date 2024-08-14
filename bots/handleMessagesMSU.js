@@ -270,15 +270,6 @@ async function processMessage(message) {
     await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data);
 
     currentStep = userState.get(sender.to) || steps.START;
-
-    if (message.text.body.includes('/resetbot')) {
-        const thread = await createThread();
-        threadID = thread.id;
-        await saveThreadIDGHL(contactID, threadID);
-        await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-        return;
-    }
-
     switch (currentStep) {
         case steps.START:
             if (message.type === 'text') {
@@ -351,10 +342,11 @@ async function processMessage(message) {
 }
 async function handleImageMessage(message, sender, threadID) {
     let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
-    const imageUrl = message.image.link;
     if(message.image.caption){
         query = query + `\n\n${message.image.caption}`;
     }
+    const imageUrl = message.image.link;
+
     try {
         // Create a message with the image attachment
         const response = await openai.beta.threads.messages.create(
@@ -408,7 +400,13 @@ async function handleTextMessage(message, sender, extractedNumber, contactName, 
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
-        
+        if (message.text.body.includes('/resetbot')) {
+            const thread = await createThread();
+            threadID = thread.id;
+            await saveThreadIDGHL(contactID, threadID);
+            await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+            return;
+        }
 
         const query = `${message.text.body} user_name: ${contactName}`;
         const brochureFilePaths = {
@@ -435,57 +433,29 @@ async function handleDocumentMessage(message, sender, threadID) {
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
-        let query = "The document you just received is a document containing my examination results. Please check my eligibility for MSU based on the results.";
-        const documentUrl = message.document.link;
-        if(message.document.caption){
-            query = query + `\n\n${message.document.caption}`;
-        }
         try {
-            // Create a message with the document attachment
-            const response = await openai.beta.threads.messages.create(
-                threadID,
-                {
-                    role: "user",
-                    content: [
-                        {
-                            type: "text",
-                            text: query
-                        },
-                        {
-                            type: "file_url",
-                            file_url: {
-                                url: documentUrl
-                            }
-                        }
-                    ]
-                }
-            );
-
-            // Run the assistant to get a response
-            const run = await openai.beta.threads.runs.create(
-                threadID,
-                { 
-                    assistant_id: "asst_tqVuJyl8gR1ZmV7OdBdQBNEF" // Replace with your actual assistant ID
-                }
-            );
-
-            // Wait for the run to complete
-            let runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
-            while (runStatus.status !== "completed") {
-                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
-                runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
+            let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
+            if(message.document.caption){
+                query = query + `\n\n${message.image.caption}`;
             }
-
-            // Retrieve the assistant's response
-            const messages = await openai.beta.threads.messages.list(threadID);
-            const assistantResponse = messages.data[0].content[0].text.value;
-
-            await sendResponseParts(assistantResponse, sender.to);
+            
+            const documentDetails = {
+                id: message.document.id,
+                mime_type: message.document.mime_type,
+                file_size: message.document.file_size,
+                sha256: message.document.sha256,
+                file_name: message.document.file_name,
+                link: message.document.link,
+                caption: message.document.caption
+            };
+            
+            const answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
+            await sendResponseParts(answer, sender.to);
         } catch (error) {
-            console.error("Error in document processing:", error);
+            console.error('Error in handleDocumentMessage:', error);
             await sendWhapiRequest('messages/text', { 
                 to: sender.to, 
-                body: "Sorry, I couldn't analyze that document. Could you try sending it again or asking a different question?" 
+                body: "Sorry, I couldn't process that document. Could you try sending it again or asking a different question?" 
             });
         }
     }, { timeout: 60000 }); // 60 seconds timeout
@@ -844,7 +814,22 @@ async function runAssistant(assistantID, threadId) {
     return answer;
 }
 
+async function runAssistantFile(assistantID, threadId) {
+    console.log('Running assistant for thread: ' + threadId);
+    const response = await openai.beta.threads.runs.create(
+        threadId,
+        {
+            assistant_id: assistantID,
+            instructions: "The file you just received is a document containing my examination results. Please check my eligibility for MSU based on the results."
+        }
+    );
 
+    const runId = response.id;
+    console.log('Run ID:', runId);
+
+    const answer = await waitForCompletion(threadId, runId);
+    return answer;
+}
 
 const rateLimitMap = new Map();
 const messageQueue = new Map();
@@ -876,7 +861,12 @@ async function handleOpenAIAssistant(message, threadID) {
     return processQueue(threadID, assistantId);
 }
 
-
+async function handleOpenAIAssistantFile(message, threadID, documentDetails = null) {
+    const assistantId = 'asst_tqVuJyl8gR1ZmV7OdBdQBNEF';
+    await addMessage(threadID, message, documentDetails);
+    const answer = await runAssistantFile(assistantId, threadID);
+    return answer;
+}
 
 async function processQueue(threadID, assistantId) {
     while (messageQueue.get(threadID).length > 0) {
