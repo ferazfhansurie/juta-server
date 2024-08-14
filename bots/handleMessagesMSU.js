@@ -350,9 +350,11 @@ async function processMessage(message) {
     }
 }
 async function handleImageMessage(message, sender, threadID) {
-    const query = message.image.caption ?? "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
+    let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
     const imageUrl = message.image.link;
-
+    if(message.image.caption){
+        query = query + `\n\n${message.image.caption}`;
+    }
     try {
         // Create a message with the image attachment
         const response = await openai.beta.threads.messages.create(
@@ -430,24 +432,61 @@ async function handleTextMessage(message, sender, extractedNumber, contactName, 
 }
 
 async function handleDocumentMessage(message, sender, threadID) {
-    const lockKey = `thread_${threadID}`;
+    let query = "The document you just received contains my examination results. Please check my eligibility for MSU based on the results.";
+    const documentUrl = message.document.link;
+    if(message.document.caption){
+        query = query + `\n\n${message.document.caption}`;
+    }
+    try {
+        // Create a message with the document attachment
+        const response = await openai.beta.threads.messages.create(
+            threadID,
+            {
+                role: "user",
+                content: [
+                    {
+                        type: "text",
+                        text: query
+                    },
+                    {
+                        type: "file_url",
+                        file_url: {
+                            url: documentUrl,
+                            name: message.document.file_name
+                        }
+                    }
+                ]
+            }
+        );
 
-    return lock.acquire(lockKey, async () => {
-        const query = message.document.caption ?? "";
-        const documentDetails = {
-            id: message.document.id,
-            mime_type: message.document.mime_type,
-            file_size: message.document.file_size,
-            sha256: message.document.sha256,
-            file_name: message.document.file_name,
-            link: message.document.link,
-            caption: message.document.caption
-        };
-        const answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
-        await sendResponseParts(answer, sender.to);
-    }, { timeout: 60000 }); // 60 seconds timeout
+        // Run the assistant to get a response
+        const run = await openai.beta.threads.runs.create(
+            threadID,
+            { 
+                assistant_id: "asst_tqVuJyl8gR1ZmV7OdBdQBNEF" // Replace with your actual assistant ID
+            }
+        );
+
+        // Wait for the run to complete
+        let runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
+        while (runStatus.status !== "completed") {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+            runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
+        }
+
+        // Retrieve the assistant's response
+        const messages = await openai.beta.threads.messages.list(threadID);
+        const assistantResponse = messages.data[0].content[0].text.value;
+
+        await sendResponseParts(assistantResponse, sender.to);
+    } catch (error) {
+        console.error("Error in document processing:", error);
+        await sendWhapiRequest('messages/text', { 
+            to: sender.to, 
+            body: "Sorry, I couldn't analyze that document. Could you try sending it again or asking a different question?" 
+        });
+    }
 }
-
 async function sendResponseParts(answer, to, brochureFilePaths = {}) {
     const parts = answer.split(/\s*\|\|\s*/);
     for (const part of parts) {
