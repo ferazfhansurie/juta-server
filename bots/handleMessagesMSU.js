@@ -361,7 +361,7 @@ async function handleImageMessage(message, sender, threadID) {
         const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', imageUrl, sender.to, sender.name);
 
         // Use the webhook response as part of the query
-        query += `\n\nWebhook analysis: ${webhookResponse}`;
+        query += `\n\nExamination Results: ${webhookResponse}`;
 
         // Create a message with the image attachment and updated query
         const response = await openai.beta.threads.messages.create(
