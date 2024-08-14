@@ -278,7 +278,7 @@ async function processMessage(message) {
         await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
         return;
     }
-    
+
     switch (currentStep) {
         case steps.START:
             if (message.type === 'text') {
@@ -504,12 +504,12 @@ async function sendResponseParts(answer, to, brochureFilePaths = {}) {
 
 async function handleSpecialResponses(part, to, brochureFilePaths) {
     if (part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')) {
-        const vidPath = './media/msu/msucampusvideo.mp4';
+        const vidPath = '../media/msu/msucampusvideo.mp4';
         await sendWhapiRequest('messages/video', { to, media: vidPath });
 
     }
     if (part.includes('Check out our food video!') || part.includes('Jom makan makan!')) {
-        const vidPath2 = './media/msu/msufoodvideo.mp4';
+        const vidPath2 = '../media/msu/msufoodvideo.mp4';
         await sendWhapiRequest('messages/video', { to, media: vidPath2 });
     }
     if (part.includes('enjoy reading about the exciting')) {
