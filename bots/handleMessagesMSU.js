@@ -4,10 +4,9 @@ const axios = require('axios').default;
 const path = require('path');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
-const fs = require('fs').promises;
+const fs = require('fs');
 const AsyncLock = require('async-lock');
 const lock = new AsyncLock();
-const pdf = require('pdf-poppler');
 
 const db = admin.firestore();
 
@@ -437,13 +436,16 @@ async function handleDocumentMessage(message, sender, threadID) {
         if (message.document.caption) {
             query += `\n\n${message.document.caption}`;
         }
+
         try {
             // Convert document to image
-            const imageData = await convertDocumentToImage(message.document.link);
+
             // Call the webhook with the image data
-            const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', imageData, sender.to, sender.name);
+            const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', message.document.link, sender.to, sender.name);
+
             // Use the webhook response as part of the query
             query += `\n\nExamination Result: ${webhookResponse}`;
+
             // Process the query with OpenAI
             const answer = await handleOpenAIAssistant(query, threadID);
             await sendResponseParts(answer, sender.to);
@@ -559,45 +561,7 @@ async function downloadFile(fileUrl, outputLocationPath) {
         writer.on('error', reject);
     });
 }
-async function convertDocumentToImage(documentUrl) {
-    try {
-        // Download the document
-        const response = await axios({
-            method: 'get',
-            url: documentUrl,
-            responseType: 'arraybuffer'
-        });
 
-        // Save the document temporarily
-        const tempDocPath = path.join(__dirname, 'temp_document.pdf');
-        await fs.writeFile(tempDocPath, response.data);
-
-        // Set options for pdf-poppler
-        const options = {
-            format: 'png',
-            out_dir: __dirname,
-            out_prefix: 'converted_image',
-            page: 1
-        };
-
-        // Convert PDF to image
-        await pdf.convert(tempDocPath, options);
-
-        // Read the converted image
-        const imagePath = path.join(__dirname, 'converted_image-1.png');
-        const imageBuffer = await fs.readFile(imagePath);
-
-        // Clean up temporary files
-        await fs.unlink(tempDocPath);
-        await fs.unlink(imagePath);
-
-        // Return base64 encoded image
-        return `data:image/png;base64,${imageBuffer.toString('base64')}`;
-    } catch (error) {
-        console.error("Error converting document to image:", error);
-        throw error;
-    }
-}
 async function uploadFile(filePath, purpose) {
     try {
         const response = await openai.files.create({
