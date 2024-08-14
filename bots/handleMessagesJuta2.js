@@ -90,61 +90,68 @@ const RATE_LIMIT_DELAY = 5000; // 5 seconds
 // Add this function to create a Google Calendar event using service account
 async function createGoogleCalendarEvent(summary, description, startDateTime, endDateTime) {
     try {
-        console.log('Initializing Google Auth...');
-        const auth = new google.auth.GoogleAuth({
-          keyFile: './service_account.json',
-          scopes: ['https://www.googleapis.com/auth/calendar'],
-          subject: 'juta@juta.com'
-        });
-    
-        console.log('Creating calendar client...');
-        const calendar = google.calendar({ version: 'v3', auth });
-    
-        const event = {
-          summary,
-          description,
-          start: {
-            dateTime: startDateTime,
-            timeZone: 'Asia/Kuala_Lumpur', // e.g., 'America/New_York'
-          },
-          end: {
-            dateTime: endDateTime,
-            timeZone: 'Asia/Kuala_Lumpur', // e.g., 'America/New_York'
-          },
-          conferenceData: {
-            createRequest: {
-              requestId: `meet-${Date.now()}`,
-              conferenceSolutionKey: { type: 'hangoutsMeet' },
-            },
-          },
-        };
-    
-        console.log('Sending request to create event...');
-        const response = await calendar.events.insert({
-          calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com', // or use a specific calendar ID
-          resource: event,
-          conferenceDataVersion: 1,
-        });
-    
-        console.log('Event created successfully:', response.data.htmlLink);
-        const meetLink = response.data.conferenceData?.entryPoints?.[0]?.uri || 'No meet link available';
-        return {
-          eventLink: response.data.htmlLink,
-          meetLink: meetLink,
-        };      
+      console.log('Initializing Google Auth...');
+      const auth = new google.auth.GoogleAuth({
+        keyFile: './service_account.json',
+        scopes: ['https://www.googleapis.com/auth/calendar'],
+      });
+  
+      console.log('Creating calendar client...');
+      const calendar = google.calendar({ version: 'v3', auth });
+  
+      const event = {
+        summary,
+        description,
+        start: {
+          dateTime: startDateTime,
+          timeZone: 'Asia/Kuala_Lumpur',
+        },
+        end: {
+          dateTime: endDateTime,
+          timeZone: 'Asia/Kuala_Lumpur',
+        },
+      };
+  
+      console.log('Sending request to create event...');
+      const response = await calendar.events.insert({
+        calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
+        resource: event,
+      });
+  
+      console.log('Event created successfully:', response.data.htmlLink);
+  
+      // Generate a Google Meet link
+      const meetLink = `https://meet.google.com/${Math.random().toString(36).substring(2, 15)}`;
+  
+      // Update the event description to include the Meet link
+      const updatedDescription = `${description}\n\nJoin the meeting: ${meetLink}`;
+      await calendar.events.patch({
+        calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
+        eventId: response.data.id,
+        resource: {
+          description: updatedDescription,
+        },
+      });
+  
+      return {
+        eventLink: response.data.htmlLink,
+        meetLink: meetLink,
+      };
     } catch (error) {
-        console.error('Error in createGoogleCalendarEvent:');
-        if (error.response) {
-          console.error('Response error data:', error.response.data);
-          console.error('Response error status:', error.response.status);
-        } else if (error.request) {
-          console.error('Request error:', error.request);
-        } else {  console.error('Error message:', error.message);
-        }
-        console.error('Error stack:', error.stack);
-        throw new Error(`Failed to create Google Calendar event: ${error.message}`);
+      console.error('Error in createGoogleCalendarEvent:');
+      if (error.response) {
+        console.error('Response error data:', error.response.data);
+        console.error('Response error status:', error.response.status);
+      } else if (error.request) {
+        console.error('Request error:', error.request);
+      } else {
+        console.error('Error message:', error.message);
       }
-}
+      console.error('Error stack:', error.stack);
+      throw new Error(`Failed to create Google Calendar event: ${error.message}`);
+    }
+  }
+  
 async function saveMediaLocally(base64Data, mimeType, filename) {
     const writeFileAsync = util.promisify(fs.writeFile);
     const buffer = Buffer.from(base64Data, 'base64');
