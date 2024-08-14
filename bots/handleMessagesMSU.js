@@ -270,6 +270,15 @@ async function processMessage(message) {
     await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data);
 
     currentStep = userState.get(sender.to) || steps.START;
+
+    if (message.text.body.includes('/resetbot')) {
+        const thread = await createThread();
+        threadID = thread.id;
+        await saveThreadIDGHL(contactID, threadID);
+        await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+        return;
+    }
+    
     switch (currentStep) {
         case steps.START:
             if (message.type === 'text') {
@@ -399,13 +408,7 @@ async function handleTextMessage(message, sender, extractedNumber, contactName, 
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
-        if (message.text.body.includes('/resetbot')) {
-            const thread = await createThread();
-            threadID = thread.id;
-            await saveThreadIDGHL(contactID, threadID);
-            await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-            return;
-        }
+        
 
         const query = `${message.text.body} user_name: ${contactName}`;
         const brochureFilePaths = {
