@@ -85,39 +85,50 @@ const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
 // Add this function to create a Google Calendar event using service account
 async function createGoogleCalendarEvent(summary, description, startDateTime, endDateTime) {
-  
-    const auth = new google.auth.GoogleAuth({
-      keyFile: '../service_account.json',
-      scopes: ['https://www.googleapis.com/auth/calendar'],
-    });
-  
-    const calendar = google.calendar({ version: 'v3', auth });
-  
-    const event = {
-      summary,
-      description,
-      start: {
-        dateTime: startDateTime,
-        timeZone: 'Your_Timezone', // e.g., 'America/New_York'
-      },
-      end: {
-        dateTime: endDateTime,
-        timeZone: 'Your_Timezone', // e.g., 'America/New_York'
-      },
-    };
-  
     try {
-      const response = await calendar.events.insert({
-        calendarId: 'primary', // or use a specific calendar ID
-        resource: event,
-      });
-      console.log('Event created: %s', response.data.htmlLink);
-      return response.data;
-    } catch (error) {
-      console.error('Error creating Google Calendar event:', error);
-      throw error;
-    }
-  }
+        console.log('Initializing Google Auth...');
+        const auth = new google.auth.GoogleAuth({
+          keyFile: GOOGLE_PRIVATE_KEY,
+          scopes: SCOPES,
+        });
+    
+        console.log('Creating calendar client...');
+        const calendar = google.calendar({ version: 'v3', auth });
+    
+        const event = {
+          summary,
+          description,
+          start: {
+            dateTime: startDateTime,
+            timeZone: 'Your_Timezone', // e.g., 'America/New_York'
+          },
+          end: {
+            dateTime: endDateTime,
+            timeZone: 'Your_Timezone', // e.g., 'America/New_York'
+          },
+        };
+    
+        console.log('Sending request to create event...');
+        const response = await calendar.events.insert({
+          calendarId: 'primary', // or use a specific calendar ID
+          resource: event,
+        });
+    
+        console.log('Event created successfully:', response.data.htmlLink);
+        return response.data;
+      } catch (error) {
+        console.error('Error in createGoogleCalendarEvent:');
+        if (error.response) {
+          console.error('Response error data:', error.response.data);
+          console.error('Response error status:', error.response.status);
+        } else if (error.request) {
+          console.error('Request error:', error.request);
+        } else {  console.error('Error message:', error.message);
+        }
+        console.error('Error stack:', error.stack);
+        throw new Error(`Failed to create Google Calendar event: ${error.message}`);
+      }
+}
 
 async function handleNewMessagesJuta2(client, msg, botName) {
     console.log('Handling new Messages '+botName);
@@ -611,9 +622,13 @@ async function waitForCompletion(threadId, runId) {
             resolve(latestMessage);
           } else if (runObject.status === 'requires_action') {
             clearInterval(pollingInterval);
+            console.log('Run requires action, handling tool calls...');
             const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
             const toolOutputs = await handleToolCalls(toolCalls);
+            console.log('Submitting tool outputs...');
             await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
+            console.log('Tool outputs submitted, restarting wait for completion...');
+            resolve(await waitForCompletion(threadId, runId));
           } else if (attempts >= maxAttempts) {
             clearInterval(pollingInterval);
             reject(new Error("Timeout: Assistant did not complete in time"));
@@ -645,25 +660,38 @@ async function runAssistant(assistantID, threadId, tools) {
   }
 
   // Add this function to handle tool calls
-async function handleToolCalls(toolCalls) {
+  async function handleToolCalls(toolCalls) {
+    console.log('Handling tool calls...');
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
+      console.log(`Processing tool call: ${toolCall.function.name}`);
       if (toolCall.function.name === 'createGoogleCalendarEvent') {
-        const args = JSON.parse(toolCall.function.arguments);
         try {
+          console.log('Parsing arguments for createGoogleCalendarEvent...');
+          const args = JSON.parse(toolCall.function.arguments);
+          console.log('Arguments:', args);
+  
+          console.log('Calling createGoogleCalendarEvent...');
           const result = await createGoogleCalendarEvent(args.summary, args.description, args.startDateTime, args.endDateTime);
+          
+          console.log('Event created successfully, preparing tool output...');
           toolOutputs.push({
             tool_call_id: toolCall.id,
             output: JSON.stringify(result),
           });
         } catch (error) {
+          console.error('Error in handleToolCalls for createGoogleCalendarEvent:');
+          console.error(error);
           toolOutputs.push({
             tool_call_id: toolCall.id,
             output: JSON.stringify({ error: error.message }),
           });
         }
+      } else {
+        console.warn(`Unknown function called: ${toolCall.function.name}`);
       }
     }
+    console.log('Finished handling tool calls');
     return toolOutputs;
   }
 
