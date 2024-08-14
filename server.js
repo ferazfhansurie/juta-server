@@ -133,7 +133,7 @@ async function checkAndProcessNewRows(spreadsheetId, range, botName) {
 
 
       // Check if this row is newer than the last processed timestamp
-      if (new Date(timestamp).getTime() > lastProcessedTimestamp) {
+      if (new Date(timestamp).getTime() >= lastProcessedTimestamp) {
         console.log(`Processing row ${i + 1}: ${name} (${phoneNumber})`);
         
         // Send WhatsApp message
