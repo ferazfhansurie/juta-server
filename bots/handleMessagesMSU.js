@@ -350,7 +350,7 @@ async function processMessage(message) {
     }
 }
 async function handleImageMessage(message, sender, threadID) {
-    const query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
+    let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
     const imageUrl = message.image.link;
     if(message.image.caption){
         query = query + `\n\n${message.image.caption}`;
@@ -435,7 +435,7 @@ async function handleDocumentMessage(message, sender, threadID) {
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
-        const query = "The document you just received is a document containing my examination results. Please check my eligibility for MSU based on the results.";
+        let query = "The document you just received is a document containing my examination results. Please check my eligibility for MSU based on the results.";
         const documentUrl = message.document.link;
         if(message.document.caption){
             query = query + `\n\n${message.document.caption}`;
