@@ -1030,6 +1030,8 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
               ack: message.ack ?? 0,
             };
 
+            
+
             // Handle different message types
             switch (type2) {
               case 'text':
@@ -1038,29 +1040,38 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
               case 'image':
               case 'video':
               case 'document':
-                if (message.hasMedia) {
+                if (message.hasMedia && message.type !== 'audio') {
                   try {
                     const media = await message.downloadMedia();
                     if (media) {
-                      const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${type2}.${media.mimetype.split('/')[1]}`);
-                      messageData[type2] = {
-                        mimetype: media.mimetype,
-                        url: url,
-                        filename: media.filename ?? "",
-                        caption: message.body ?? "",
-                      };
-                      if (type2 === 'image') {
-                        messageData[type2].width = message._data.width;
-                        messageData[type2].height = message._data.height;
-                      }
+                        if (message.type === 'image') {
+                            messageData.image = {
+                                mimetype: media.mimetype,
+                                data: media.data,  // This is the base64-encoded data
+                                filename: media.filename ?? "",
+                                caption: message.body ?? "",
+                                width: message._data.width,
+                                height: message._data.height
+                            };
+                        } else {
+                            messageData[message.type] = {
+                                mimetype: media.mimetype,
+                                data: media.data,  // This is the base64-encoded data
+                                filename: media.filename ?? "",
+                                caption: message.body ?? "",
+                            };
+                        }
+                        if (media.filesize) {
+                            messageData[message.type].filesize = media.filesize;
+                        }
                     } else {
-                      console.log(`Failed to download media for message: ${message.id._serialized}`);
-                      messageData.text = { body: "Media not available" };
+                        console.log(`Failed to download media for message: ${message.id._serialized}`);
+                        messageData.text = { body: "Media not available" };
                     }
-                  } catch (error) {
+                } catch (error) {
                     console.error(`Error handling media for message ${message.id._serialized}:`, error);
                     messageData.text = { body: "Error handling media" };
-                  }
+                }
                 } else {
                   messageData.text = { body: "Media not available" };
                 }
@@ -1087,11 +1098,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
           if (count > 0) {
             await batch.commit();
           }
-          if(phoneNumber == '601121677522'){
-      
-            //console.log(sortedMessages);
-  
-          }
+          
           //console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
         }
         
