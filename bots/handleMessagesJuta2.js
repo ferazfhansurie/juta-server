@@ -5,7 +5,7 @@
 //2. CHANGE all idSubstring to firebase collection name
 //3. CHANGE all <assistant> to openai assistant id
 //4. CHANGE all Template to your <YourBotName>
-
+const uuid = require('uuid');
 const OpenAI = require('openai');
 const axios = require('axios').default;
 const { google } = require('googleapis');
