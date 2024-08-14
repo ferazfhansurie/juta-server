@@ -162,6 +162,9 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
       throw new Error(`Failed to create Google Calendar event: ${error.message}`);
     }
   }
+  function base64ToDataUrl(mimetype, base64) {
+    return `data:${mimetype};base64,${base64}`;
+}
 
 async function saveMediaLocally(base64Data, mimeType, filename) {
     const writeFileAsync = util.promisify(fs.writeFile);
@@ -380,10 +383,11 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 try {
                     const media = await msg.downloadMedia();
                     if (media) {
+                        const dataUrl = base64ToDataUrl(media.mimetype, media.data);
                         if (msg.type === 'image') {
                             messageData.image = {
                                 mimetype: media.mimetype,
-                                data: media.data,  // This is the base64-encoded data
+                                url: dataUrl,
                                 filename: media.filename ?? "",
                                 caption: msg.body ?? "",
                                 width: msg._data?.width,
@@ -392,7 +396,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         } else {
                             messageData[msg.type] = {
                                 mimetype: media.mimetype,
-                                data: media.data,  // This is the base64-encoded data
+                                url: dataUrl,
                                 filename: media.filename ?? "",
                                 caption: msg.body ?? "",
                             };
@@ -400,7 +404,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         if (media.filesize) {
                             messageData[msg.type].filesize = media.filesize;
                         }
-                    } else {
+                    }  else {
                         console.log(`Failed to download media for message: ${msg.id._serialized}`);
                         messageData.text = { body: "Media not available" };
                     }
