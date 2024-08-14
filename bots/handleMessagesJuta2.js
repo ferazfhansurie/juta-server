@@ -367,11 +367,10 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 try {
                     const media = await msg.downloadMedia();
                     if (media) {
-                        const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${msg.type}.${media.mimetype.split('/')[1]}`);
                         if (msg.type === 'image') {
                             messageData.image = {
                                 mimetype: media.mimetype,
-                                url: url,
+                                data: media.data,  // This is the base64-encoded data
                                 filename: media.filename ?? "",
                                 caption: msg.body ?? "",
                                 width: msg._data.width,
@@ -380,10 +379,13 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         } else {
                             messageData[msg.type] = {
                                 mimetype: media.mimetype,
-                                url: url,
+                                data: media.data,  // This is the base64-encoded data
                                 filename: media.filename ?? "",
                                 caption: msg.body ?? "",
                             };
+                        }
+                        if (media.filesize) {
+                            messageData[msg.type].filesize = media.filesize;
                         }
                     } else {
                         console.log(`Failed to download media for message: ${msg.id._serialized}`);
