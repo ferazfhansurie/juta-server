@@ -349,6 +349,14 @@ async function processMessage(message) {
             break;
     }
 }
+function stripMarkdownLink(text) {
+    const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const match = regex.exec(text);
+    if (match && match[2]) {
+        return match[2];
+    }
+    return text;
+}
 async function handleImageMessage(message, sender, threadID) {
     const imageUrl = message.image.link;
     let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please suggest one that i am.";
@@ -431,7 +439,7 @@ async function handleTextMessage(message, sender, extractedNumber, contactName, 
 async function handleDocumentMessage(message, sender, threadID) {
     const lockKey = `thread_${threadID}`;
     return lock.acquire(lockKey, async () => {
-        let query = "The file you just received is a file containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please suggest one that i am..";
+        let query = "The file you just received is a file containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please similar suggest one that i am.";
         if (message.document.caption) {
             query += `\n\n${message.document.caption}`;
         }
@@ -461,8 +469,9 @@ async function sendResponseParts(answer, to, brochureFilePaths = {}) {
     for (const part of parts) {
         if (part.trim()) {
             const cleanedPart = await removeTextInsideDelimiters(part);
-            await sendWhapiRequest('messages/text', { to, body: cleanedPart });
-            await handleSpecialResponses(part, to, brochureFilePaths);
+            const strippedPart = stripMarkdownLink(cleanedPart);
+            await sendWhapiRequest('messages/text', { to, body: strippedPart });
+            await handleSpecialResponses(strippedPart, to, brochureFilePaths);
         }
     }
 }
