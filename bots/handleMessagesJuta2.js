@@ -110,28 +110,39 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
           dateTime: endDateTime,
           timeZone: 'Asia/Kuala_Lumpur',
         },
+        conferenceData: {
+          createRequest: {
+            requestId: uuid.v4(),
+            conferenceSolutionKey: { type: 'hangoutsMeet' },
+          },
+        },
       };
   
       console.log('Sending request to create event...');
       const response = await calendar.events.insert({
         calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
         resource: event,
+        conferenceDataVersion: 1,
       });
   
       console.log('Event created successfully:', response.data.htmlLink);
   
-      // Generate a Google Meet link
-      const meetLink = `https://meet.google.com/${Math.random().toString(36).substring(2, 15)}`;
+      let meetLink = 'No meet link available';
+      if (response.data.conferenceData && response.data.conferenceData.entryPoints) {
+        meetLink = response.data.conferenceData.entryPoints.find(e => e.entryPointType === 'video').uri;
+      }
   
-      // Update the event description to include the Meet link
-      const updatedDescription = `${description}\n\nJoin the meeting: ${meetLink}`;
-      await calendar.events.patch({
-        calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
-        eventId: response.data.id,
-        resource: {
-          description: updatedDescription,
-        },
-      });
+      // If no meet link was created, update the description with a note
+      if (meetLink === 'No meet link available') {
+        const updatedDescription = `${description}\n\nNote: A Google Meet link could not be automatically created. Please create one manually if needed.`;
+        await calendar.events.patch({
+          calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
+          eventId: response.data.id,
+          resource: {
+            description: updatedDescription,
+          },
+        });
+      }
   
       return {
         eventLink: response.data.htmlLink,
@@ -151,7 +162,7 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
       throw new Error(`Failed to create Google Calendar event: ${error.message}`);
     }
   }
-  
+
 async function saveMediaLocally(base64Data, mimeType, filename) {
     const writeFileAsync = util.promisify(fs.writeFile);
     const buffer = Buffer.from(base64Data, 'base64');
