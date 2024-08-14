@@ -458,12 +458,12 @@ async function sendResponseParts(answer, to, brochureFilePaths = {}) {
 
 async function handleSpecialResponses(part, to, brochureFilePaths) {
     if (part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')) {
-        const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
+        const vidPath = './media/msu/msucampusvideo.mp4';
         await sendWhapiRequest('messages/video', { to, media: vidPath });
 
     }
     if (part.includes('Check out our food video!') || part.includes('Jom makan makan!')) {
-        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=0b7131c0-ca99-4fe2-8260-fe0004f9ee96';
+        const vidPath2 = './media/msu/msufoodvideo.mp4';
         await sendWhapiRequest('messages/video', { to, media: vidPath2 });
     }
     if (part.includes('enjoy reading about the exciting')) {
@@ -804,7 +804,7 @@ async function runAssistantFile(assistantID, threadId) {
         threadId,
         {
             assistant_id: assistantID,
-            instructions: "The file you just received is a document containing my examination results. Please check my eligibility for MSU based on the results."
+            query: "The file you just received is a document containing my examination results. Please check my eligibility for MSU based on the results."
         }
     );
 
