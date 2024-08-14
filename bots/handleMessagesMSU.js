@@ -351,7 +351,7 @@ async function processMessage(message) {
 }
 async function handleImageMessage(message, sender, threadID) {
     const imageUrl = message.image.link;
-    let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
+    let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please suggest one that i am.";
     if (message.image.caption) {
         query += `\n\n${message.image.caption}`;
     }
@@ -430,16 +430,13 @@ async function handleTextMessage(message, sender, extractedNumber, contactName, 
 
 async function handleDocumentMessage(message, sender, threadID) {
     const lockKey = `thread_${threadID}`;
-
     return lock.acquire(lockKey, async () => {
-        let query = "The file you just received is a file containing my examination results. Please check my eligibility for MSU based on the results.";
+        let query = "The file you just received is a file containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please suggest one that i am..";
         if (message.document.caption) {
             query += `\n\n${message.document.caption}`;
         }
-
         try {
             // Convert document to image
-
             // Call the webhook with the image data
             const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', message.document.link, sender.to, sender.name);
 
