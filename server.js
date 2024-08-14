@@ -964,7 +964,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             chat: {
                 contact_id: '+'+phoneNumber,
                 id: msg.from || contact.id.user + '@c.us',
-                name: contact.name || contact.pushname || phoneNumber,
+                name: chat.name || contact.pushname || contact.pushname || phoneNumber,
                 not_spam: true,
                 tags: ['stop bot'], // You might want to populate this with actual tags if available
                 timestamp: chat.timestamp || Date.now(),
@@ -987,7 +987,8 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             chat_id: contact.id.user + '@c.us',
             city: null,
             companyName: null,
-            contactName: contact.name || contact.pushname || phoneNumber,
+            contactName: chat.name || contact.name || contact.pushname || phoneNumber,
+            unreadCount: chat.unreadCount || 0,
             threadid: '', // You might want to generate or retrieve this
             last_message: {
                 chat_id:contact.id.user + '@c.us',
