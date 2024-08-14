@@ -142,7 +142,18 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
         throw new Error(`Failed to create Google Calendar event: ${error.message}`);
       }
 }
-
+async function saveMediaLocally(base64Data, mimeType, filename) {
+    const writeFileAsync = util.promisify(fs.writeFile);
+    const buffer = Buffer.from(base64Data, 'base64');
+    const uniqueFilename = `${uuidv4()}_${filename}`;
+    const filePath = path.join(MEDIA_DIR, uniqueFilename);
+    
+    await writeFileAsync(filePath, buffer);
+  
+    // Return the URL path to access this filez
+    return `/media/${uniqueFilename}`;
+  }
+  
 async function handleNewMessagesJuta2(client, msg, botName) {
     console.log('Handling new Messages '+botName);
 
@@ -344,7 +355,37 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 };
             }
 
-          
+            if (msg.hasMedia &&  msg.type !== 'audio') {
+                try {
+                    const media = await msg.downloadMedia();
+                    if (media) {
+                        const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${msg.type}.${media.mimetype.split('/')[1]}`);
+                        if (msg.type === 'image') {
+                            messageData.image = {
+                                mimetype: media.mimetype,
+                                url: url,
+                                filename: media.filename ?? "",
+                                caption: msg.body ?? "",
+                                width: msg._data.width,
+                                height: msg._data.height
+                            };
+                        } else {
+                            messageData[msg.type] = {
+                                mimetype: media.mimetype,
+                                url: url,
+                                filename: media.filename ?? "",
+                                caption: msg.body ?? "",
+                            };
+                        }
+                    } else {
+                        console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                        messageData.text = { body: "Media not available" };
+                    }
+                } catch (error) {
+                    console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+                    messageData.text = { body: "Error handling media" };
+                }
+            }
 
             const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
             const messagesRef = contactRef.collection('messages');
