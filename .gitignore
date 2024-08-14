@@ -14,10 +14,10 @@ public/
 public
 # Ignore specific configuration files
 config/secret-config.json
+last_processed_row.json
 
 # Ignore all files in the temp directory
 temp/
-last_processed_row.json
 sa_firebase.json
 service_account.json
 jutaCRM.code-workspace
@@ -26,4 +26,5 @@ firestore.rules
 firestore.indexes.json
 firebase.json
 config.json
+last_processed_row.json
 config.js
