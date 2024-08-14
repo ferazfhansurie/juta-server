@@ -376,27 +376,29 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 };
             }
 
-            if (msg.hasMedia &&  msg.type !== 'audio') {
+            if (msg.hasMedia && msg.type !== 'audio') {
                 try {
                     const media = await msg.downloadMedia();
                     if (media) {
-                        const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${msg.type}.${media.mimetype.split('/')[1]}`);
                         if (msg.type === 'image') {
                             messageData.image = {
                                 mimetype: media.mimetype,
-                                url: url,
+                                data: media.data,  // This is the base64-encoded data
                                 filename: media.filename ?? "",
                                 caption: msg.body ?? "",
-                                width: msg._data.width,
-                                height: msg._data.height
+                                width: msg._data?.width,
+                                height: msg._data?.height
                             };
                         } else {
                             messageData[msg.type] = {
                                 mimetype: media.mimetype,
-                                url: url,
+                                data: media.data,  // This is the base64-encoded data
                                 filename: media.filename ?? "",
                                 caption: msg.body ?? "",
                             };
+                        }
+                        if (media.filesize) {
+                            messageData[msg.type].filesize = media.filesize;
                         }
                     } else {
                         console.log(`Failed to download media for message: ${msg.id._serialized}`);
@@ -406,7 +408,18 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     console.error(`Error handling media for message ${msg.id._serialized}:`, error);
                     messageData.text = { body: "Error handling media" };
                 }
+                  // Update other fields in messageData
+            messageData.chat_id = msg.from;
+            messageData.from = msg.from ?? "";
+            messageData.from_me = msg.fromMe ?? false;
+            messageData.id = msg.id._serialized ?? "";
+            messageData.source = msg.deviceType ?? "";
+            messageData.status = "delivered";
+            messageData.timestamp = msg.timestamp ?? 0;
+            messageData.type = msg.type;
             }
+            
+          
 
             const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
             const messagesRef = contactRef.collection('messages');
