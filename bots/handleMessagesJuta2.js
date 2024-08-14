@@ -135,7 +135,6 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
   
       return {
         eventLink: response.data.htmlLink,
-        meetLink: meetLink,
       };
     } catch (error) {
       console.error('Error in createGoogleCalendarEvent:');
