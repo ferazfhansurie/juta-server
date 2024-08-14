@@ -74,38 +74,12 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
   return `/media/${uniqueFilename}`;
 }
 
-async function loadLastProcessedRow() {
-  try {
-    const data = await readFileAsync(LAST_PROCESSED_ROW_FILE, 'utf8');
-    const parsedData = JSON.parse(data);
-    console.log(`Loaded last processed row: ${parsedData.lastProcessedRow}, timestamp: ${parsedData.lastProcessedTimestamp}`);
-    return parsedData;
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      console.log('No saved state found, starting from the beginning.');
-      return { lastProcessedRow: 0, lastProcessedTimestamp: 0 };
-    }
-    console.error('Error loading last processed row:', error);
-    throw error;
-  }
-}
-
-async function saveLastProcessedRow(lastProcessedRow, lastProcessedTimestamp) {
-  try {
-    const data = JSON.stringify({ lastProcessedRow, lastProcessedTimestamp });
-    await writeFileAsync(LAST_PROCESSED_ROW_FILE, data, 'utf8');
-    console.log(`Saved last processed row: ${lastProcessedRow}, timestamp: ${lastProcessedTimestamp}`);
-  } catch (error) {
-    console.error('Error saving last processed row:', error);
-    throw error;
-  }
-}
 
 async function checkAndProcessNewRows(spreadsheetId, range, botName) {
   try {
     console.log(`Starting to check for new rows for bot ${botName}`);
-    const { lastProcessedRow, lastProcessedTimestamp } = await loadLastProcessedRow();
-    console.log(`Last processed row: ${lastProcessedRow}, timestamp: ${lastProcessedTimestamp}`);
+    const { lastProcessedRow } = await loadLastProcessedRow();
+    console.log(`Last processed row: ${lastProcessedRow}`);
 
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId,
@@ -124,70 +98,80 @@ async function checkAndProcessNewRows(spreadsheetId, range, botName) {
     console.log(`Total rows in spreadsheet: ${rows.length}`);
 
     let newLastProcessedRow = lastProcessedRow;
-    const currentTimestamp = Date.now();
 
     // Process new rows
     for (let i = lastProcessedRow + 1; i < rows.length; i++) {
       const row = rows[i];
       const [timestamp, leadsource, name, email, phoneNumber, icNumber, fieldOfStudy, levelOfQualification, nationality, modeOfStudy, articleName, colIssued] = row;
 
-
-      const parsedTimestamp = await parseTimestamp(timestamp);
-
-      // Check if this row is newer than the last processed timestamp
-      if (parsedTimestamp >= lastProcessedTimestamp) {
-        console.log(`Processing row ${i + 1}: ${name} (${phoneNumber})`);
-        
-        // Send WhatsApp message
-        const botData = botMap.get(botName);
-        if (!botData || !botData.client) {
-          console.log(`WhatsApp client not found for bot ${botName}`);
-          continue; // Skip this iteration and continue with the next row
-        }
-        const client = botData.client;
-
-        // Construct the message
-        const message = `New lead received:
-        Name: ${name}
-        Email: ${email}
-        Phone: ${phoneNumber}
-        Field of Study: ${fieldOfStudy}
-        Level of Qualification: ${levelOfQualification}
-        Nationality: ${nationality}
-        Mode of Study: ${modeOfStudy}
-        Article Name: ${articleName}
-        COL Issued: ${colIssued}`;
-
-        // Send the message to a designated number or group
-        const designatedRecipient = process.env.DESIGNATED_RECIPIENT; // Set this in your .env file
-        try {
-          await client.sendMessage('601121677522@c.us', message);
-          console.log(`Message sent for ${name} (${phoneNumber})`);
-        } catch (error) {
-          console.error(`Error sending message for ${name} (${phoneNumber}):`, error);
-        }
-
-        newLastProcessedRow = i;
+      console.log(`Processing row ${i + 1}: ${name} (${phoneNumber})`);
+      
+      // Send WhatsApp message
+      const botData = botMap.get(botName);
+      if (!botData || !botData.client) {
+        console.log(`WhatsApp client not found for bot ${botName}`);
+        continue; // Skip this iteration and continue with the next row
       }
+      const client = botData.client;
+
+      // Construct the message
+      const message = `New lead received:
+      Name: ${name}
+      Email: ${email}
+      Phone: ${phoneNumber}
+      Field of Study: ${fieldOfStudy}
+      Level of Qualification: ${levelOfQualification}
+      Nationality: ${nationality}
+      Mode of Study: ${modeOfStudy}
+      Article Name: ${articleName}
+      COL Issued: ${colIssued}`;
+
+      // Send the message to a designated number or group
+      const designatedRecipient = process.env.DESIGNATED_RECIPIENT; // Set this in your .env file
+      try {
+        await client.sendMessage('601121677522@c.us', message);
+        console.log(`Message sent for ${name} (${phoneNumber})`);
+      } catch (error) {
+        console.error(`Error sending message for ${name} (${phoneNumber}):`, error);
+      }
+
+      newLastProcessedRow = i;
     }
 
-    // Update the last processed row and timestamp
-    await saveLastProcessedRow(newLastProcessedRow, currentTimestamp);
-    console.log(`Updated last processed row to ${newLastProcessedRow}, timestamp: ${currentTimestamp}`);
+    // Update the last processed row
+    await saveLastProcessedRow(newLastProcessedRow);
+    console.log(`Updated last processed row to ${newLastProcessedRow}`);
   } catch (error) {
     console.error('Error processing spreadsheet:', error);
   }
 }
-// Helper function to parse the timestamp
-function parseTimestamp(timestampString) {
-  // Remove the timezone offset for simplicity
-  const cleanTimestamp = timestampString.split(' +')[0];
-  // Parse the date
-  const date = new Date(cleanTimestamp);
-  // Return the timestamp in milliseconds
-  return date.getTime();
+
+async function loadLastProcessedRow() {
+  try {
+    const data = await readFileAsync(LAST_PROCESSED_ROW_FILE, 'utf8');
+    const parsedData = JSON.parse(data);
+    console.log(`Loaded last processed row: ${parsedData.lastProcessedRow}`);
+    return parsedData;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log('No saved state found, starting from the beginning.');
+      return { lastProcessedRow: 0 };
+    }
+    console.error('Error loading last processed row:', error);
+    throw error;
+  }
 }
 
+async function saveLastProcessedRow(lastProcessedRow) {
+  try {
+    const data = JSON.stringify({ lastProcessedRow });
+    await writeFileAsync(LAST_PROCESSED_ROW_FILE, data, 'utf8');
+    console.log(`Saved last processed row: ${lastProcessedRow}`);
+  } catch (error) {
+    console.error('Error saving last processed row:', error);
+    throw error;
+  }
+}
 
 wss.on('connection', (ws,req) => {
     console.log('Client connected');
