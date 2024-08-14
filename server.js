@@ -132,8 +132,10 @@ async function checkAndProcessNewRows(spreadsheetId, range, botName) {
       const [timestamp, leadsource, name, email, phoneNumber, icNumber, fieldOfStudy, levelOfQualification, nationality, modeOfStudy, articleName, colIssued] = row;
 
 
+      const parsedTimestamp = await parseTimestamp(timestamp);
+
       // Check if this row is newer than the last processed timestamp
-      if (new Date(timestamp).getTime() >= lastProcessedTimestamp) {
+      if (parsedTimestamp >= lastProcessedTimestamp) {
         console.log(`Processing row ${i + 1}: ${name} (${phoneNumber})`);
         
         // Send WhatsApp message
@@ -176,6 +178,16 @@ async function checkAndProcessNewRows(spreadsheetId, range, botName) {
     console.error('Error processing spreadsheet:', error);
   }
 }
+// Helper function to parse the timestamp
+function parseTimestamp(timestampString) {
+  // Remove the timezone offset for simplicity
+  const cleanTimestamp = timestampString.split(' +')[0];
+  // Parse the date
+  const date = new Date(cleanTimestamp);
+  // Return the timestamp in milliseconds
+  return date.getTime();
+}
+
 
 wss.on('connection', (ws,req) => {
     console.log('Client connected');
