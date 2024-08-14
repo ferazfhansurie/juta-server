@@ -6,7 +6,6 @@ const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
 const fs = require('fs').promises;
 
-const fs = require('fs');
 const AsyncLock = require('async-lock');
 const lock = new AsyncLock();
 
