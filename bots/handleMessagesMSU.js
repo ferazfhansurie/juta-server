@@ -370,7 +370,6 @@ async function handleImageMessage(message, sender, threadID) {
                 role: "user",
                 content: [
                     { type: "text", text: query },
-                    { type: "image_url", image_url: { url: imageUrl } }
                 ]
             }
         );
