@@ -341,10 +341,7 @@ async function processMessage(message) {
     }
 }
 async function handleImageMessage(message, sender, threadID) {
-    let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
-    if(message.image.caption){
-        query = query + `\n\n${message.image.caption}`;
-    }
+    const query = message.image.caption ?? "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
     const imageUrl = message.image.link;
 
     try {
@@ -433,31 +430,18 @@ async function handleDocumentMessage(message, sender, threadID) {
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
-        try {
-            let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
-            if(message.document.caption){
-                query = query + `\n\n${message.image.caption}`;
-            }
-            
-            const documentDetails = {
-                id: message.document.id,
-                mime_type: message.document.mime_type,
-                file_size: message.document.file_size,
-                sha256: message.document.sha256,
-                file_name: message.document.file_name,
-                link: message.document.link,
-                caption: message.document.caption
-            };
-            
-            const answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
-            await sendResponseParts(answer, sender.to);
-        } catch (error) {
-            console.error('Error in handleDocumentMessage:', error);
-            await sendWhapiRequest('messages/text', { 
-                to: sender.to, 
-                body: "Sorry, I couldn't process that document. Could you try sending it again or asking a different question?" 
-            });
-        }
+        const query = message.document.caption ?? "";
+        const documentDetails = {
+            id: message.document.id,
+            mime_type: message.document.mime_type,
+            file_size: message.document.file_size,
+            sha256: message.document.sha256,
+            file_name: message.document.file_name,
+            link: message.document.link,
+            caption: message.document.caption
+        };
+        const answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
+        await sendResponseParts(answer, sender.to);
     }, { timeout: 60000 }); // 60 seconds timeout
 }
 
