@@ -93,6 +93,7 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
         const auth = new google.auth.GoogleAuth({
           keyFile: './service_account.json',
           scopes: ['https://www.googleapis.com/auth/calendar'],
+          subject: 'juta@juta.com'
         });
     
         console.log('Creating calendar client...');
