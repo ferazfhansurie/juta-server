@@ -5,7 +5,7 @@
 //2. CHANGE all idSubstring to firebase collection name
 //3. CHANGE all <assistant> to openai assistant id
 //4. CHANGE all Template to your <YourBotName>
-const uuid = require('uuid');
+
 const OpenAI = require('openai');
 const axios = require('axios').default;
 const { google } = require('googleapis');
@@ -110,39 +110,28 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
           dateTime: endDateTime,
           timeZone: 'Asia/Kuala_Lumpur',
         },
-        conferenceData: {
-          createRequest: {
-            requestId: uuid.v4(),
-            conferenceSolutionKey: { type: 'hangoutsMeet' },
-          },
-        },
       };
   
       console.log('Sending request to create event...');
       const response = await calendar.events.insert({
         calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
         resource: event,
-        conferenceDataVersion: 1,
       });
   
       console.log('Event created successfully:', response.data.htmlLink);
   
-      let meetLink = 'No meet link available';
-      if (response.data.conferenceData && response.data.conferenceData.entryPoints) {
-        meetLink = response.data.conferenceData.entryPoints.find(e => e.entryPointType === 'video').uri;
-      }
+      // Generate a Google Meet link
+      const meetLink = `no link`;
   
-      // If no meet link was created, update the description with a note
-      if (meetLink === 'No meet link available') {
-        const updatedDescription = `${description}\n\nNote: A Google Meet link could not be automatically created. Please create one manually if needed.`;
-        await calendar.events.patch({
-          calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
-          eventId: response.data.id,
-          resource: {
-            description: updatedDescription,
-          },
-        });
-      }
+      // Update the event description to include the Meet link
+      const updatedDescription = `${description}\n\nJoin the meeting: ${meetLink}`;
+      await calendar.events.patch({
+        calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
+        eventId: response.data.id,
+        resource: {
+          description: updatedDescription,
+        },
+      });
   
       return {
         eventLink: response.data.htmlLink,
@@ -162,10 +151,6 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
       throw new Error(`Failed to create Google Calendar event: ${error.message}`);
     }
   }
-  function base64ToDataUrl(mimetype, base64) {
-    return `data:${mimetype};base64,${base64}`;
-}
-
 async function saveMediaLocally(base64Data, mimeType, filename) {
     const writeFileAsync = util.promisify(fs.writeFile);
     const buffer = Buffer.from(base64Data, 'base64');
@@ -379,29 +364,27 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 };
             }
 
-            if (msg.hasMedia && msg.type !== 'audio') {
+            if (msg.hasMedia &&  msg.type !== 'audio') {
                 try {
                     const media = await msg.downloadMedia();
                     if (media) {
+                        const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${msg.type}.${media.mimetype.split('/')[1]}`);
                         if (msg.type === 'image') {
                             messageData.image = {
                                 mimetype: media.mimetype,
-                                data: media.data,  // This is the base64-encoded data
+                                url: url,
                                 filename: media.filename ?? "",
                                 caption: msg.body ?? "",
-                                width: msg._data?.width,
-                                height: msg._data?.height
+                                width: msg._data.width,
+                                height: msg._data.height
                             };
                         } else {
                             messageData[msg.type] = {
                                 mimetype: media.mimetype,
-                                data: media.data,  // This is the base64-encoded data
+                                url: url,
                                 filename: media.filename ?? "",
                                 caption: msg.body ?? "",
                             };
-                        }
-                        if (media.filesize) {
-                            messageData[msg.type].filesize = media.filesize;
                         }
                     } else {
                         console.log(`Failed to download media for message: ${msg.id._serialized}`);
@@ -411,18 +394,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     console.error(`Error handling media for message ${msg.id._serialized}:`, error);
                     messageData.text = { body: "Error handling media" };
                 }
-                  // Update other fields in messageData
-            messageData.chat_id = msg.from;
-            messageData.from = msg.from ?? "";
-            messageData.from_me = msg.fromMe ?? false;
-            messageData.id = msg.id._serialized ?? "";
-            messageData.source = msg.deviceType ?? "";
-            messageData.status = "delivered";
-            messageData.timestamp = msg.timestamp ?? 0;
-            messageData.type = msg.type;
             }
-            
-          
 
             const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
             const messagesRef = contactRef.collection('messages');
