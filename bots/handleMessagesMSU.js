@@ -4,10 +4,10 @@ const axios = require('axios').default;
 const path = require('path');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
-const fs = require('fs').promises;;
+const fs = require('fs').promises;
 const AsyncLock = require('async-lock');
 const lock = new AsyncLock();
-const { fromPath } = require('pdf2pic');
+const pdf = require('pdf-poppler');
 
 const db = admin.firestore();
 
@@ -572,30 +572,26 @@ async function convertDocumentToImage(documentUrl) {
         const tempDocPath = path.join(__dirname, 'temp_document.pdf');
         await fs.writeFile(tempDocPath, response.data);
 
-        // Convert PDF to image
+        // Set options for pdf-poppler
         const options = {
-            density: 100,
-            saveFilename: "converted_image",
-            savePath: __dirname,
-            format: "png",
-            width: 600,
-            height: 600
+            format: 'png',
+            out_dir: __dirname,
+            out_prefix: 'converted_image',
+            page: 1
         };
 
-        const convert = fromPath(tempDocPath, options);
-        const pageToConvert = 1;
-
-        const result = await convert(pageToConvert);
+        // Convert PDF to image
+        await pdf.convert(tempDocPath, options);
 
         // Read the converted image
-        const imageBuffer = await fs.readFile(result.path);
+        const imagePath = path.join(__dirname, 'converted_image-1.png');
+        const imageBuffer = await fs.readFile(imagePath);
 
         // Clean up temporary files
         await fs.unlink(tempDocPath);
-        await fs.unlink(result.path);
+        await fs.unlink(imagePath);
 
-        // Here, you would typically upload this image to your storage service
-        // and return the URL. For this example, we'll return a base64 string.
+        // Return base64 encoded image
         return `data:image/png;base64,${imageBuffer.toString('base64')}`;
     } catch (error) {
         console.error("Error converting document to image:", error);
