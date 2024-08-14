@@ -13,6 +13,7 @@ const path = require('path');
 const { Client } = require('whatsapp-web.js');
 const util = require('util');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
