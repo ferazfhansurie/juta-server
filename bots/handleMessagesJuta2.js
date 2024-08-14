@@ -90,7 +90,7 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
     try {
         console.log('Initializing Google Auth...');
         const auth = new google.auth.GoogleAuth({
-          keyFile: '../service_account.json',
+          keyFile: './service_account.json',
           scopes: ['https://www.googleapis.com/auth/calendar'],
         });
     
