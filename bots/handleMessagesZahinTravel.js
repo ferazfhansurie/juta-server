@@ -322,6 +322,10 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                     }
                     
                     firebaseTags = contactData.tags ?? [];
+                    // Remove 'snooze' tag if present
+                if(firebaseTags.includes('snooze')){
+                    firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+                }
                 
             
         }

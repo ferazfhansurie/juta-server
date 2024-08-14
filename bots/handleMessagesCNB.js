@@ -195,6 +195,10 @@ async function handleNewMessagesCNB(client, msg, botName) {
 
             if(contactData){
                 firebaseTags=   contactData.tags??[];
+                // Remove 'snooze' tag if present
+                if(firebaseTags.includes('snooze')){
+                    firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+                }
             } else {
                 if((sender.to).includes('@g.us')){
                     firebaseTags = ['stop bot']
