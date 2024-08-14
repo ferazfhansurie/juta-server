@@ -132,7 +132,8 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
           description: updatedDescription,
         },
       });
-  
+      
+
       return {
         eventLink: response.data.htmlLink,
       };
