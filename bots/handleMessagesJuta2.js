@@ -102,11 +102,11 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
           description,
           start: {
             dateTime: startDateTime,
-            timeZone: 'Your_Timezone', // e.g., 'America/New_York'
+            timeZone: 'Asia/Kuala_Lumpur', // e.g., 'America/New_York'
           },
           end: {
             dateTime: endDateTime,
-            timeZone: 'Your_Timezone', // e.g., 'America/New_York'
+            timeZone: 'Asia/Kuala_Lumpur', // e.g., 'America/New_York'
           },
         };
     
