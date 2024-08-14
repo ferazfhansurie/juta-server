@@ -4,9 +4,10 @@ const axios = require('axios').default;
 const path = require('path');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
-const fs = require('fs');
+const fs = require('fs').promises;;
 const AsyncLock = require('async-lock');
 const lock = new AsyncLock();
+const { fromPath } = require('pdf2pic');
 
 const db = admin.firestore();
 
@@ -432,21 +433,27 @@ async function handleDocumentMessage(message, sender, threadID) {
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
-        let query = message.document.caption ?? "";
-        if(message.document.caption){
-            query = query + `\n\n${message.document.caption}`;
+        let query = "The file you just received is a file containing my examination results. Please check my eligibility for MSU based on the results.";
+        if (message.document.caption) {
+            query += `\n\n${message.document.caption}`;
         }
-        const documentDetails = {
-            id: message.document.id,
-            mime_type: message.document.mime_type,
-            file_size: message.document.file_size,
-            sha256: message.document.sha256,
-            file_name: message.document.file_name,
-            link: message.document.link,
-            caption: message.document.caption
-        };
-        const answer = await handleOpenAIAssistantFile(query, threadID, documentDetails);
-        await sendResponseParts(answer, sender.to);
+        try {
+            // Convert document to image
+            const imageData = await convertDocumentToImage(message.document.link);
+            // Call the webhook with the image data
+            const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', imageData, sender.to, sender.name);
+            // Use the webhook response as part of the query
+            query += `\n\nExamination Result: ${webhookResponse}`;
+            // Process the query with OpenAI
+            const answer = await handleOpenAIAssistant(query, threadID);
+            await sendResponseParts(answer, sender.to);
+        } catch (error) {
+            console.error("Error in document processing:", error);
+            await sendWhapiRequest('messages/text', { 
+                to: sender.to, 
+                body: "Sorry, I couldn't analyze that document. Could you try sending it again or asking a different question?" 
+            });
+        }
     }, { timeout: 60000 }); // 60 seconds timeout
 }
 
@@ -552,7 +559,49 @@ async function downloadFile(fileUrl, outputLocationPath) {
         writer.on('error', reject);
     });
 }
+async function convertDocumentToImage(documentUrl) {
+    try {
+        // Download the document
+        const response = await axios({
+            method: 'get',
+            url: documentUrl,
+            responseType: 'arraybuffer'
+        });
 
+        // Save the document temporarily
+        const tempDocPath = path.join(__dirname, 'temp_document.pdf');
+        await fs.writeFile(tempDocPath, response.data);
+
+        // Convert PDF to image
+        const options = {
+            density: 100,
+            saveFilename: "converted_image",
+            savePath: __dirname,
+            format: "png",
+            width: 600,
+            height: 600
+        };
+
+        const convert = fromPath(tempDocPath, options);
+        const pageToConvert = 1;
+
+        const result = await convert(pageToConvert);
+
+        // Read the converted image
+        const imageBuffer = await fs.readFile(result.path);
+
+        // Clean up temporary files
+        await fs.unlink(tempDocPath);
+        await fs.unlink(result.path);
+
+        // Here, you would typically upload this image to your storage service
+        // and return the URL. For this example, we'll return a base64 string.
+        return `data:image/png;base64,${imageBuffer.toString('base64')}`;
+    } catch (error) {
+        console.error("Error converting document to image:", error);
+        throw error;
+    }
+}
 async function uploadFile(filePath, purpose) {
     try {
         const response = await openai.files.create({
