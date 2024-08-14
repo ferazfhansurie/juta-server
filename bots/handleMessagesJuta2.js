@@ -13,13 +13,14 @@ const path = require('path');
 const { Client } = require('whatsapp-web.js');
 const util = require('util');
 const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
 const db = admin.firestore();
 
 let ghlConfig = {};
-
+const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 // Schedule the task to run every 12 hours
 
 const openai = new OpenAI({
