@@ -350,28 +350,27 @@ async function processMessage(message) {
     }
 }
 async function handleImageMessage(message, sender, threadID) {
-    let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
     const imageUrl = message.image.link;
-    if(message.image.caption){
-        query = query + `\n\n${message.image.caption}`;
+    let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results.";
+    if (message.image.caption) {
+        query += `\n\n${message.image.caption}`;
     }
+
     try {
-        // Create a message with the image attachment
+        // Call the webhook with the image URL
+        const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', imageUrl, sender.to, sender.name);
+
+        // Use the webhook response as part of the query
+        query += `\n\nWebhook analysis: ${webhookResponse}`;
+
+        // Create a message with the image attachment and updated query
         const response = await openai.beta.threads.messages.create(
             threadID,
             {
                 role: "user",
                 content: [
-                    {
-                        type: "text",
-                        text: query
-                    },
-                    {
-                        type: "image_url",
-                        image_url: {
-                            url: imageUrl
-                        }
-                    }
+                    { type: "text", text: query },
+                    { type: "image_url", image_url: { url: imageUrl } }
                 ]
             }
         );
@@ -379,15 +378,13 @@ async function handleImageMessage(message, sender, threadID) {
         // Run the assistant to get a response
         const run = await openai.beta.threads.runs.create(
             threadID,
-            { 
-                assistant_id: "asst_tqVuJyl8gR1ZmV7OdBdQBNEF" // Replace with your actual assistant ID
-            }
+            { assistant_id: "asst_tqVuJyl8gR1ZmV7OdBdQBNEF" }
         );
 
         // Wait for the run to complete
         let runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
         while (runStatus.status !== "completed") {
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+            await new Promise(resolve => setTimeout(resolve, 1000));
             runStatus = await openai.beta.threads.runs.retrieve(threadID, run.id);
         }
 
@@ -404,6 +401,7 @@ async function handleImageMessage(message, sender, threadID) {
         });
     }
 }
+
 async function handleTextMessage(message, sender, extractedNumber, contactName, threadID) {
     const lockKey = `thread_${threadID}`;
 
@@ -670,25 +668,23 @@ async function removeTextInsideDelimiters(text) {
     return cleanedText;
 }
 
-async function callWebhook(webhook, senderText, senderNumber, senderName) {
+async function callWebhook(webhook,senderText,senderNumber,senderName) {
     console.log('Calling webhook...');
     const webhookUrl = webhook;
-    const body = JSON.stringify({ senderText, senderNumber, senderName }); // Include sender's text in the request body
+    const body = JSON.stringify({ senderText,senderNumber,senderName }); // Include sender's text in the request body
     const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
         body: body
-    });
-    let responseData = "";
-    if (response.status === 200) {
-        responseData = await response.text(); // Dapatkan respons sebagai teks
-    } else {
+    });  let responseData =""
+    if(response.status === 200){
+        responseData= await response.text(); // Dapatkan respons sebagai teks
+    }else{
         responseData = 'stop'
     }
-    console.log('Webhook response:', responseData); // Log raw response
-    return responseData;
+ return responseData;
 }
 
 async function checkingNameStatus(threadId, runId) {
