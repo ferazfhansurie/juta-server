@@ -268,7 +268,13 @@ async function processMessage(message) {
     await addNotificationToUser('021', message);
     // Add the data to Firestore
     await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data);
-
+    if (message.text.body.includes('/resetbot')) {
+        const thread = await createThread();
+        threadID = thread.id;
+        await saveThreadIDGHL(contactID, threadID);
+        await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+        return;
+    }
     currentStep = userState.get(sender.to) || steps.START;
     switch (currentStep) {
         case steps.START:
@@ -397,13 +403,7 @@ async function handleTextMessage(message, sender, extractedNumber, contactName, 
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
-        if (message.text.body.includes('/resetbot')) {
-            const thread = await createThread();
-            threadID = thread.id;
-            await saveThreadIDGHL(contactID, threadID);
-            await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-            return;
-        }
+        
 
         const query = `${message.text.body} user_name: ${contactName}`;
         const brochureFilePaths = {
