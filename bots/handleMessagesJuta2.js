@@ -83,6 +83,41 @@ async function getChatMetadata(chatId,) {
 const messageQueue = new Map();
 const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
+// Add this function to create a Google Calendar event using service account
+async function createGoogleCalendarEvent(summary, description, startDateTime, endDateTime) {
+  
+    const auth = new google.auth.GoogleAuth({
+      keyFile: '../service_account.json',
+      scopes: ['https://www.googleapis.com/auth/calendar'],
+    });
+  
+    const calendar = google.calendar({ version: 'v3', auth });
+  
+    const event = {
+      summary,
+      description,
+      start: {
+        dateTime: startDateTime,
+        timeZone: 'Your_Timezone', // e.g., 'America/New_York'
+      },
+      end: {
+        dateTime: endDateTime,
+        timeZone: 'Your_Timezone', // e.g., 'America/New_York'
+      },
+    };
+  
+    try {
+      const response = await calendar.events.insert({
+        calendarId: 'primary', // or use a specific calendar ID
+        resource: event,
+      });
+      console.log('Event created: %s', response.data.htmlLink);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating Google Calendar event:', error);
+      throw error;
+    }
+  }
 
 async function handleNewMessagesJuta2(client, msg, botName) {
     console.log('Handling new Messages '+botName);
@@ -560,51 +595,108 @@ async function checkingStatus(threadId, runId) {
     return null; // Return null if not completed
 }
 
+// Modify the waitForCompletion function to handle tool calls
 async function waitForCompletion(threadId, runId) {
     return new Promise((resolve, reject) => {
-        const maxAttempts = 30; // Maximum number of attempts
-        let attempts = 0;
-        const pollingInterval = setInterval(async () => {
-            attempts++;
-            try {
-                const answer = await checkingStatus(threadId, runId);
-                if (answer) {
-                    clearInterval(pollingInterval);
-                    resolve(answer);
-                } else if (attempts >= maxAttempts) {
-                    clearInterval(pollingInterval);
-                    reject(new Error("Timeout: Assistant did not complete in time"));
-                }
-            } catch (error) {
-                clearInterval(pollingInterval);
-                reject(error);
-            }
-        }, 2000); // Poll every 2 seconds
+      const maxAttempts = 30;
+      let attempts = 0;
+      const pollingInterval = setInterval(async () => {
+        attempts++;
+        try {
+          const runObject = await openai.beta.threads.runs.retrieve(threadId, runId);
+          if (runObject.status === 'completed') {
+            clearInterval(pollingInterval);
+            const messagesList = await openai.beta.threads.messages.list(threadId);
+            const latestMessage = messagesList.data[0].content[0].text.value;
+            resolve(latestMessage);
+          } else if (runObject.status === 'requires_action') {
+            clearInterval(pollingInterval);
+            const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
+            const toolOutputs = await handleToolCalls(toolCalls);
+            await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
+          } else if (attempts >= maxAttempts) {
+            clearInterval(pollingInterval);
+            reject(new Error("Timeout: Assistant did not complete in time"));
+          }
+        } catch (error) {
+          clearInterval(pollingInterval);
+          reject(error);
+        }
+      }, 2000);
     });
-}
+  }
 
-async function runAssistant(assistantID,threadId) {
+
+// Modify the runAssistant function to handle tool calls
+async function runAssistant(assistantID, threadId, tools) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
-        threadId,
-        {
-            assistant_id: assistantID
-        }
+      threadId,
+      {
+        assistant_id: assistantID,
+        tools: tools,
+      }
     );
-
+  
     const runId = response.id;
-
+  
     const answer = await waitForCompletion(threadId, runId);
     return answer;
-}
+  }
 
+  // Add this function to handle tool calls
+async function handleToolCalls(toolCalls) {
+    const toolOutputs = [];
+    for (const toolCall of toolCalls) {
+      if (toolCall.function.name === 'createGoogleCalendarEvent') {
+        const args = JSON.parse(toolCall.function.arguments);
+        try {
+          const result = await createGoogleCalendarEvent(args.summary, args.description, args.startDateTime, args.endDateTime);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify(result),
+          });
+        } catch (error) {
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: error.message }),
+          });
+        }
+      }
+    }
+    return toolOutputs;
+  }
+
+// Modify the handleOpenAIAssistant function to include the new tool
 async function handleOpenAIAssistant(message, threadID) {
     console.log(ghlConfig.assistantId);
     const assistantId = ghlConfig.assistantId;
     await addMessage(threadID, message);
-    const answer = await runAssistant(assistantId,threadID);
+    
+    // Add the custom function as a tool for the assistant
+    const tools = [
+      {
+        type: "function",
+        function: {
+          name: "createGoogleCalendarEvent",
+          description: "Schedule a meeting in Google Calendar",
+          parameters: {
+            type: "object",
+            properties: {
+              summary: { type: "string", description: "Title of the event" },
+              description: { type: "string", description: "Description of the event" },
+              startDateTime: { type: "string", description: "Start date and time in ISO 8601 format" },
+              endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
+            },
+            required: ["summary", "startDateTime", "endDateTime"],
+          },
+        },
+      },
+    ];
+  
+    const answer = await runAssistant(assistantId, threadID, tools);
     return answer;
-}
+  }
 
 async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
     console.log('Sending request to Whapi.Cloud...');
