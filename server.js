@@ -362,6 +362,12 @@ app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
 app.post('/applyradar/hook/blast', handleApplyRadarBlast);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
+
+//spreadsheet
+const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
+
+
+
 const customHandlers = {
   '001': handleNewMessagesJuta2,
   '020': handleNewMessagesCNB,
@@ -1255,8 +1261,9 @@ async function main(reinitialize = false) {
   
   // Run the check immediately when the server starts
   console.log('Checking for new rows msu...');
-  await checkAndProcessNewRows('1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA','Sheet1!A:S','001');
-  
+  const msuAutomation = new msuSpreadsheet(botMap);
+  msuAutomation.initialize();
+
   console.log('Initializing bots...');
   await initializeBots(botNames);
 
@@ -2237,10 +2244,6 @@ main().catch(error => {
   process.exit(1);
 });
 
-// Then schedule it to run every 5 minutes
-cron.schedule('*/5 * * * *', async () => {
-  console.log('Checking for new rows in the spreadsheet...');
-  await checkAndProcessNewRows('1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA','Sheet1!A:S','001');
-});
+
 
 
