@@ -108,17 +108,28 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
             dateTime: endDateTime,
             timeZone: 'Asia/Kuala_Lumpur', // e.g., 'America/New_York'
           },
+          conferenceData: {
+            createRequest: {
+              requestId: `meet-${Date.now()}`,
+              conferenceSolutionKey: { type: 'hangoutsMeet' },
+            },
+          },
         };
     
         console.log('Sending request to create event...');
         const response = await calendar.events.insert({
-          calendarId: 'primary', // or use a specific calendar ID
+          calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com', // or use a specific calendar ID
           resource: event,
+          conferenceDataVersion: 1,
         });
     
         console.log('Event created successfully:', response.data.htmlLink);
-        return response.data;
-      } catch (error) {
+        const meetLink = response.data.conferenceData?.entryPoints?.[0]?.uri || 'No meet link available';
+        return {
+          eventLink: response.data.htmlLink,
+          meetLink: meetLink,
+        };      
+    } catch (error) {
         console.error('Error in createGoogleCalendarEvent:');
         if (error.response) {
           console.error('Response error data:', error.response.data);
