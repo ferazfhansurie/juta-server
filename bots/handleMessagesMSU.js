@@ -4,8 +4,7 @@ const axios = require('axios').default;
 const path = require('path');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
-const fs = require('fs').promises;
-
+const fs = require('fs');
 const AsyncLock = require('async-lock');
 const lock = new AsyncLock();
 
@@ -505,13 +504,13 @@ async function sendResponseParts(answer, to, brochureFilePaths = {}) {
 
 async function handleSpecialResponses(part, to, brochureFilePaths) {
     if (part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')) {
-        const vidPath = './media/msu/msucampusvideo.mp4';
-        await sendVideoMessage(to, vidPath);
+        const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
+        await sendWhapiRequest('messages/video', { to, media: vidPath });
 
     }
     if (part.includes('Check out our food video!') || part.includes('Jom makan makan!')) {
-        const vidPath2 = './media/msu/msufoodvideo.mp4';
-        await sendVideoMessage(to, vidPath2);
+        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=d84ad725-ffd6-42f7-92e8-4491399e52bb';
+        await sendWhapiRequest('messages/video', { to, media: vidPath2 });
     }
     if (part.includes('enjoy reading about the exciting')) {
         // Add 'idle' tag to GHL
@@ -535,23 +534,6 @@ async function handleSpecialResponses(part, to, brochureFilePaths) {
             await sendWhapiRequest('messages/document', { to, media: filePath, filename: `${key}.pdf` });
             break;
         }
-    }
-}
-
-async function sendVideoMessage(to, filePath) {
-    try {
-        const fileContent = await fs.readFile(filePath);
-        const base64File = fileContent.toString('base64');
-        
-        await sendWhapiRequest('messages/video', {
-            to,
-            media: base64File,
-            filename: path.basename(filePath)
-        });
-        
-        console.log(`Video sent successfully: ${filePath}`);
-    } catch (error) {
-        console.error(`Error sending video ${filePath}:`, error);
     }
 }
 
