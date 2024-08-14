@@ -274,7 +274,6 @@ async function processMessage(message) {
     switch (currentStep) {
         case steps.START:
             if (message.type === 'text') {
-                await handleTextMessage(message, sender, extractedNumber, contactName, threadID);
                 if (message.text.body.includes('/resetbot')) {
                     const thread = await createThread();
                     threadID = thread.id;
@@ -282,6 +281,8 @@ async function processMessage(message) {
                     await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
                     return;
                 }
+                await handleTextMessage(message, sender, extractedNumber, contactName, threadID);
+                
             } else if (message.type === 'document' ) {
                 await handleDocumentMessage(message, sender, threadID);
             }else if (message.type === 'image') {
