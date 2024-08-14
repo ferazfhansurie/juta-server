@@ -16,7 +16,7 @@ class msuSpreadsheet {
 
     this.auth = new google.auth.GoogleAuth({
       keyFile: './service_account.json',
-      scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
     this.sheets = google.sheets({ version: 'v4', auth: this.auth });
@@ -59,37 +59,51 @@ class msuSpreadsheet {
   }
 
   async processRow(row) {
-    const [timestamp, leadsource, name, email, phoneNumber, icNumber, fieldOfStudy, levelOfQualification, nationality, modeOfStudy, articleName, colIssued] = row;
-
+    const [timestamp, leadsource, name, email, phoneNumber, icNumber, fieldOfStudy, levelOfQualification, nationality, modeOfStudy, articleName, colIssued, distributed, noName1, noName2, counselor, waSent, noName3, jutasWaSent, rowIndex] = row;
+  
+    if (waSent === 'Sent') {
+      console.log(`Row ${rowIndex} already processed. Skipping.`);
+      return;
+    }
+  
     console.log(`Processing row: ${name} (${phoneNumber})`);
     
-    // Send WhatsApp message
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData.client) {
       console.log(`WhatsApp client not found for bot ${this.botName}`);
       return;
     }
     const client = botData.client;
-
+  
     // Construct the message
-    const message = `New lead received:
-    Name: ${name}
-    Email: ${email}
-    Phone: ${phoneNumber}
-    Field of Study: ${fieldOfStudy}
-    Level of Qualification: ${levelOfQualification}
-    Nationality: ${nationality}
-    Mode of Study: ${modeOfStudy}
-    Article Name: ${articleName}
-    COL Issued: ${colIssued}`;
-
-    // Send the message to a designated number or group
-    const designatedRecipient = process.env.DESIGNATED_RECIPIENT;
+    const message = `Hello ${name},\n\nThank you for your interest in our programs. We have received your inquiry regarding:\n\nField of Study: ${fieldOfStudy}\nLevel of Qualification: ${levelOfQualification}\nMode of Study: ${modeOfStudy}\n\nOur team will contact you shortly with more information. If you have any immediate questions, please don't hesitate to reply to this message.\n\nBest regards,\nYour Education Team`;
+  
+    // Send the message to the phone number from the row
     try {
-      await client.sendMessage('601121677522@c.us', message);
-      console.log(`Message sent for ${name} (${phoneNumber})`);
+      const formattedPhoneNumber = phoneNumber.startsWith('60') ? phoneNumber : `60${phoneNumber}`;
+      await client.sendMessage(`${formattedPhoneNumber}@c.us`, message);
+      console.log(`Message sent to ${name} (${phoneNumber})`);
+      
+      // Mark the row as sent
+      await this.markRowAsSent(rowIndex);
     } catch (error) {
-      console.error(`Error sending message for ${name} (${phoneNumber}):`, error);
+      console.error(`Error sending message to ${name} (${phoneNumber}):`, error);
+    }
+  }
+  
+  async markRowAsSent(rowIndex) {
+    try {
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `Sheet1!Q${rowIndex}`, // Column Q is for "WA Sent"
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+          values: [['Sent']]
+        }
+      });
+      console.log(`Marked row ${rowIndex} as sent in "WA Sent" column`);
+    } catch (error) {
+      console.error(`Error marking row ${rowIndex} as sent:`, error);
     }
   }
 

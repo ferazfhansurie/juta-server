@@ -370,7 +370,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 id: msg.from,
                 name: contactName || contact.name || contact.pushname || extractedNumber,
                 not_spam: true,
-                tags: firebaseTags,
+                tags: ['stop bot'],
                 timestamp: chat.timestamp || Date.now(),
                 type: 'contact',
                 unreadCount: 0,
