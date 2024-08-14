@@ -268,18 +268,20 @@ async function processMessage(message) {
     await addNotificationToUser('021', message);
     // Add the data to Firestore
     await db.collection('companies').doc('021').collection('contacts').doc(extractedNumber).set(data);
-    if (message.text.body.includes('/resetbot')) {
-        const thread = await createThread();
-        threadID = thread.id;
-        await saveThreadIDGHL(contactID, threadID);
-        await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-        return;
-    }
+    
+    
     currentStep = userState.get(sender.to) || steps.START;
     switch (currentStep) {
         case steps.START:
             if (message.type === 'text') {
                 await handleTextMessage(message, sender, extractedNumber, contactName, threadID);
+                if (message.text.body.includes('/resetbot')) {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDGHL(contactID, threadID);
+                    await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+                    return;
+                }
             } else if (message.type === 'document' ) {
                 await handleDocumentMessage(message, sender, threadID);
             }else if (message.type === 'image') {
