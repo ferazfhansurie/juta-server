@@ -509,7 +509,7 @@ async function handleSpecialResponses(part, to, brochureFilePaths) {
 
     }
     if (part.includes('Check out our food video!') || part.includes('Jom makan makan!')) {
-        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20small%20size.mp4?alt=media&token=d84ad725-ffd6-42f7-92e8-4491399e52bb';
+        const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20ne.mp4?alt=media&token=a9d10097-6619-4031-8319-9e0a4af4e080';
         await sendWhapiRequest('messages/video', { to, media: vidPath2 });
     }
     if (part.includes('enjoy reading about the exciting')) {
