@@ -435,7 +435,10 @@ async function handleDocumentMessage(message, sender, threadID) {
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
-        const query = message.document.caption ?? "";
+        let query = message.document.caption ?? "";
+        if(message.document.caption){
+            query = query + `\n\n${message.document.caption}`;
+        }
         const documentDetails = {
             id: message.document.id,
             mime_type: message.document.mime_type,
@@ -803,13 +806,13 @@ async function runAssistant(assistantID, threadId) {
     return answer;
 }
 
-async function runAssistantFile(assistantID, threadId) {
+async function runAssistantFile(assistantID, threadId, query) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
         threadId,
         {
             assistant_id: assistantID,
-            instructions: "The file you just received is a document containing my examination results. Please check my eligibility for MSU based on the results."
+            instructions: query
         }
     );
 
@@ -853,7 +856,7 @@ async function handleOpenAIAssistant(message, threadID) {
 async function handleOpenAIAssistantFile(message, threadID, documentDetails = null) {
     const assistantId = 'asst_tqVuJyl8gR1ZmV7OdBdQBNEF';
     await addMessage(threadID, message, documentDetails);
-    const answer = await runAssistantFile(assistantId, threadID);
+    const answer = await runAssistantFile(assistantId, threadID, message);
     return answer;
 }
 
