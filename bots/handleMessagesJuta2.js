@@ -20,7 +20,7 @@ const admin = require('../firebase.js');
 const db = admin.firestore();
 
 let ghlConfig = {};
-
+const MEDIA_DIR = path.join(__dirname, 'public', 'media');
 // Schedule the task to run every 12 hours
 
 const openai = new OpenAI({
