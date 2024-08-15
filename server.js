@@ -938,26 +938,7 @@ function setupMessageHandler(client, botName) {
 }
 
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
-function sanitizeData(obj) {
-  if (typeof obj !== 'object' || obj === null) {
-    return obj;
-  }
-  
-  const sanitized = {};
-  for (const [key, value] of Object.entries(obj)) {
-    if (value === undefined) {
-      continue; // Skip undefined values
-    }
-    if (Array.isArray(value)) {
-      sanitized[key] = value.map(sanitizeData);
-    } else if (typeof value === 'object' && value !== null) {
-      sanitized[key] = sanitizeData(value);
-    } else {
-      sanitized[key] = value;
-    }
-  }
-  return sanitized;
-}
+
 async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) {
     const maxRetries = 5;
     const baseDelay = 1000; // 1 second base delay
@@ -1023,11 +1004,8 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                 type: type || '',
             },
         };
-        
         const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
-        const sanitizedContactData = sanitizeData(contactData);
-
-        await contactRef.set(sanitizedContactData, { merge: true });
+        await contactRef.set(contactData, { merge: true });
         const messages = await chat.fetchMessages({ limit: 100 });
 
         // Save messages
@@ -1073,46 +1051,26 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                   try {
                     const media = await message.downloadMedia();
                     if (media) {
-                      if (message.type === 'image') {
-                        messageData.image = {
-                            mimetype: media.mimetype,
-                            data: media.data,  // This is the base64-encoded data
-                            filename: message._data.filename || "",
-                            caption: message._data.caption || "",
-                        };
-                        // Add width and height if available
-                        if (message._data.width) messageData.image.width = message._data.width;
-                        if (message._data.height) messageData.image.height = message._data.height;
-                      } else if (message.type === 'document') {
-                          messageData.document = {
-                              mimetype: media.mimetype,
-                              data: media.data,  // This is the base64-encoded data
-                              filename: message._data.filename || "",
-                              caption: message._data.caption || "",
-                              pageCount: message._data.pageCount,
-                              fileSize: message._data.size,
-                          };
-                      } else {
-                          messageData[message.type] = {
-                              mimetype: media.mimetype,
-                              data: media.data,
-                              filename: message._data.filename || "",
-                              caption: message._data.caption || "",
-                          };
-                      }
-          
-                      // Add thumbnail information if available
-                      if (message._data.thumbnailHeight && message._data.thumbnailWidth) {
-                          messageData[message.type].thumbnail = {
-                              height: message._data.thumbnailHeight,
-                              width: message._data.thumbnailWidth,
-                          };
-                      }
-          
-                      // Add media key if available
-                      if (message.mediaKey) {
-                          messageData[message.type].mediaKey = message.mediaKey;
-                      }
+                        if (message.type === 'image') {
+                            messageData.image = {
+                                mimetype: media.mimetype,
+                                data: media.data,  // This is the base64-encoded data
+                                filename: media.filename ?? "",
+                                caption: message.body ?? "",
+                                width: message._data.width,
+                                height: message._data.height
+                            };
+                        } else {
+                            messageData[message.type] = {
+                                mimetype: media.mimetype,
+                                data: media.data,  // This is the base64-encoded data
+                                filename: media.filename ?? "",
+                                caption: message.body ?? "",
+                            };
+                        }
+                        if (media.filesize) {
+                            messageData[message.type].filesize = media.filesize;
+                        }
                     } else {
                         console.log(`Failed to download media for message: ${message.id._serialized}`);
                         messageData.text = { body: "Media not available" };
@@ -1157,6 +1115,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
         //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
         // Delay before next operation
+        console.log(`Succesfully saved contact ${phoneNumber} for bot ${botName}`);
         await customWait(baseDelay);
     } catch (error) {
         console.error(`Error saving contact for bot ${botName}:`, error);
@@ -1171,9 +1130,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
         }
     }
 }
-function delay(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
+
 // async function initializeBot(botName, retryCount = 0) {
 //     const maxRetries = 3;
 //     const retryDelay = 5000; // 5 seconds
