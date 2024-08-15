@@ -938,7 +938,26 @@ function setupMessageHandler(client, botName) {
 }
 
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
-
+function sanitizeData(obj) {
+  if (typeof obj !== 'object' || obj === null) {
+    return obj;
+  }
+  
+  const sanitized = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      continue; // Skip undefined values
+    }
+    if (Array.isArray(value)) {
+      sanitized[key] = value.map(sanitizeData);
+    } else if (typeof value === 'object' && value !== null) {
+      sanitized[key] = sanitizeData(value);
+    } else {
+      sanitized[key] = value;
+    }
+  }
+  return sanitized;
+}
 async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) {
     const maxRetries = 5;
     const baseDelay = 1000; // 1 second base delay
@@ -1149,7 +1168,9 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
         }
     }
 }
-
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 // async function initializeBot(botName, retryCount = 0) {
 //     const maxRetries = 3;
 //     const retryDelay = 5000; // 5 seconds
