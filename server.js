@@ -1018,7 +1018,6 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
           });
         
           const messagesRef = contactRef.collection('messages');
-          let batch = db.batch();
           let count = 0;
           
           for (const message of sortedMessages) {
@@ -1110,15 +1109,10 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             }
 
             const messageDoc = messagesRef.doc(message.id._serialized);
-            batch.set(messageDoc, messageData, { merge: true });
+            await messageDoc.set(messageData, { merge: true });
 
             count++;
-            if (count >= 500) {
-              // Firestore batches are limited to 500 operations
-              await batch.commit();
-              batch = db.batch();
-              count = 0;
-            }
+            
 
             // Send progress update after each message
             broadcastProgress(botName, 'saving_messages', count / sortedMessages.length);
