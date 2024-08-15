@@ -1118,9 +1118,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             broadcastProgress(botName, 'saving_messages', count / sortedMessages.length);
           }
         
-          if (count > 0) {
-            await batch.commit();
-          }
+          
           
           //console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
         }
