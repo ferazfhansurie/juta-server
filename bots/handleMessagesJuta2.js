@@ -159,18 +159,33 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
     const reminderTime = moment(startDateTime).subtract(15, 'minutes');
     const reminderMessage = `Reminder: "${eventSummary}" is starting in 15 minutes.`;
   
+    // Convert to seconds and ensure it's an integer
+    const scheduledTimeSeconds = Math.floor(reminderTime.valueOf() / 1000);
+  
+    console.log('Scheduling reminder for:', reminderTime.format());
+    console.log('Scheduled time in seconds:', scheduledTimeSeconds);
+  
     const scheduledMessage = {
       chatIds: [chatId],
       message: reminderMessage,
-      scheduledTime: Math.floor(reminderTime.valueOf() / 1000), // Convert to Unix timestamp (seconds)
-      batchQuantity: 1 // Since we're sending to one chat
+      scheduledTime: {
+        seconds: scheduledTimeSeconds,
+        nanoseconds: 0
+      },
+      batchQuantity: 1, // Since we're sending to one chat
+      repeatInterval: 0, // Add this if not already present
+      repeatUnit: 'minutes' // Add this if not already present
     };
   
     try {
+      console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
       const response = await axios.post(`http://localhost:8443/api/schedule-message/001`, scheduledMessage);
       console.log('Reminder scheduled successfully:', response.data);
     } catch (error) {
-      console.error('Error scheduling reminder:', error);
+      console.error('Error scheduling reminder:', error.response ? error.response.data : error.message);
+      if (error.response && error.response.data) {
+        console.error('Server response:', error.response.data);
+      }
     }
   }
 
