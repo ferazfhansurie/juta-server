@@ -441,19 +441,15 @@ async function sendResponseParts(answer, to, brochureFilePaths = {}, contactID) 
         if (part.trim()) {
             const cleanedPart = await removeTextInsideDelimiters(part);
             await sendWhapiRequest('messages/text', { to, body: cleanedPart });
-            console.log('cleanedPart', cleanedPart);
-            console.log('part', part);
             await handleSpecialResponses(part, to, brochureFilePaths, contactID);
         }
     }
 }
 
 async function handleSpecialResponses(part, to, brochureFilePaths, contactID) {
-    
+    const check = part.toLowerCase();
     for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-        console.log('part', part);
-        console.log('key', key);
-        if (part.includes(key) && part.includes("video")) {
+        if (check.includes(key) && check.includes("video")) {
             console.log(`${key} sending video, ${filePath}`);
             await sendWhapiRequest('messages/video', { to, media: filePath });
             addtagbookedGHL(contactID, "stop bot");
@@ -461,7 +457,7 @@ async function handleSpecialResponses(part, to, brochureFilePaths, contactID) {
         }
     }
 
-    if(part.includes("patience")) {
+    if(check.includes("patience")) {
         addtagbookedGHL(contactID, "stop bot");
         return;
     }
