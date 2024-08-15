@@ -34,38 +34,96 @@ async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-let employeeAssignments = [];
-let currentAssignmentIndex = 0;
+let employees = [];
+let currentEmployeeIndex = 0;
 
 async function fetchEmployeesFromFirebase(idSubstring) {
     const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
     const snapshot = await employeesRef.get();
-    employeeAssignments = snapshot.docs.map(doc => {
+    
+    employees = [];
+    
+    console.log(`Total documents in employee collection: ${snapshot.size}`);
+
+    snapshot.forEach(doc => {
         const data = doc.data();
-        return { id: doc.id, name: data.name };
+        console.log(`Processing employee document:`, data);
+
+        if (data.name) {
+            employees.push({
+                name: data.name,
+                email: data.email,
+                phoneNumber: data.phoneNumber,
+                assignedContacts: data.assignedContacts || 0
+            });
+            console.log(`Added employee ${data.name}`);
+        } else {
+            console.log(`Skipped employee due to missing name:`, data);
+        }
     });
-    console.log('Fetched employees:', employeeAssignments);
+
+    console.log('Fetched employees:', employees);
+
+    // Load the previous assignment state
+    await loadAssignmentState(idSubstring);
 }
 
-async function assignNewContactToEmployee(contactID, idSubstring) {
-    if (employeeAssignments.length === 0) {
+async function loadAssignmentState(idSubstring) {
+    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    const doc = await stateRef.get();
+    if (doc.exists) {
+        const data = doc.data();
+        currentEmployeeIndex = data.currentEmployeeIndex;
+        console.log('Assignment state loaded from Firebase:', data);
+    } else {
+        console.log('No previous assignment state found');
+        currentEmployeeIndex = 0;
+    }
+}
+
+async function storeAssignmentState(idSubstring) {
+    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    const stateToStore = {
+        currentEmployeeIndex: currentEmployeeIndex,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await stateRef.set(stateToStore);
+    console.log('Assignment state stored in Firebase:', stateToStore);
+}
+
+async function assignNewContactToEmployee(contactID, idSubstring, client) {
+    if (employees.length === 0) {
         await fetchEmployeesFromFirebase(idSubstring);
     }
 
-    if (employeeAssignments.length === 0) {
+    console.log('Employees:', employees);
+    console.log('Current Employee Index:', currentEmployeeIndex);
+
+    if (employees.length === 0) {
         console.log('No employees found for assignment');
-        return;
+        return [];
     }
     
-    const assignedEmployee = employeeAssignments[currentAssignmentIndex];
-    currentAssignmentIndex = (currentAssignmentIndex + 1) % employeeAssignments.length;
+    let assignedEmployee = null;
 
-    const tag = assignedEmployee.name;
     
-    
+    // Round-robin assignment
+    assignedEmployee = employees[currentEmployeeIndex];
+    currentEmployeeIndex = (currentEmployeeIndex + 1) % employees.length;
+
+    console.log(`Assigned employee: ${assignedEmployee.name}`);
+
+    const tags = [assignedEmployee.name, assignedEmployee.phoneNumber];
+    const employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
-    return tag;
+    client.sendMessage(employeeID, 'You have been assigned to ' + contactID);
+    // Store the current state in Firebase
+    await storeAssignmentState(idSubstring);
+
+    return tags;
 }
+
 
 async function addNotificationToUser(companyId, message) {
     console.log('noti');
