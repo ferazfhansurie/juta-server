@@ -940,209 +940,198 @@ function setupMessageHandler(client, botName) {
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
 
 async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) {
-    const maxRetries = 5;
-    const baseDelay = 1000; // 1 second base delay
+  const maxRetries = 5;
+  const baseDelay = 1000; // 1 second base delay
 
-    try {
-        const phoneNumber = contact.id.user;
-        const msg = chat.lastMessage || {};
-        if(msg == {}){
-          return;
-        }
-      
-        let type = msg.type === 'chat' ? 'text' : msg.type;
-        if(phoneNumber == 'status'){
-          return;
-        }
-        const contactData = {
-            additionalEmails: [],
-            address1: null,
-            assignedTo: null,
-            businessId: null,
-            phone: '+'+phoneNumber,
-            tags:['stop bot'],
-            chat: {
-                contact_id: '+'+phoneNumber,
-                id: msg.from || contact.id.user + '@c.us',
-                name: contact.name || contact.pushname || chat.name || phoneNumber,
-                not_spam: true,
-                tags: ['stop bot'], // You might want to populate this with actual tags if available
-                timestamp: chat.timestamp || Date.now(),
-                type: 'contact',
-                unreadCount: chat.unreadCount || 0,
-                last_message: {
-                    chat_id:contact.id.user + '@c.us' ,
-                    from: msg.from || contact.id.user + '@c.us',
-                    from_me: msg.fromMe || false,
-                    id: msg._data?.id?.id || '',
-                    source: chat.deviceType || '',
-                    status: "delivered",
-                    text: {
-                      body:msg.body || ''
-                    },
-                    timestamp: chat.timestamp || Date.now(),
-                    type: type || '',
-                },
-            },
-            chat_id: contact.id.user + '@c.us',
-            city: null,
-            companyName: null,
-            contactName: contact.name || contact.pushname || chat.name || phoneNumber,
-            unreadCount: chat.unreadCount || 0,
-            threadid: '', // You might want to generate or retrieve this
-            last_message: {
-                chat_id:contact.id.user + '@c.us',
-                from: msg.from || contact.id.user + '@c.us',
-                from_me: msg.fromMe || false,
-                id: msg._data?.id?.id || '',
-                source: chat.deviceType || '',
-                status: "delivered",
-                text: {
-                  body:msg.body || ''
-                },
-                timestamp: chat.timestamp || Date.now(),
-                type: type || '',
-            },
-        };
-        const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
-        await contactRef.set(contactData, { merge: true });
-        const messages = await chat.fetchMessages({ limit: 100 });
-
-        // Save messages
-        if (messages && messages.length > 0) {
-          // Sort messages by timestamp in ascending order
-          const sortedMessages = messages.sort((a, b) => {
-            const timestampA = a.timestamp ? new Date(a.timestamp * 1000).getTime() : 0;
-            const timestampB = b.timestamp ? new Date(b.timestamp * 1000).getTime() : 0;
-            return timestampA - timestampB;
-          });
-        
-          const messagesRef = contactRef.collection('messages');
-          let count = 0;
-          
-          for (const message of sortedMessages) {
-            let type2 = message.type === 'chat' ? 'text' : message.type;
-
-            //console.log(message);
-            const messageData = {
-              chat_id: message.from,
-              from: message.from ?? "",
-              from_me: message.fromMe ?? false,
-              id: message.id._serialized ?? "",
-              source: message.deviceType ?? "",
+  try {
+      const phoneNumber = contact.id.user;
+      const msg = chat.lastMessage || {};
+      if(Object.keys(msg).length === 0){
+        return;
+      }
+    
+      let type = msg.type === 'chat' ? 'text' : msg.type;
+      if(phoneNumber == 'status'){
+        return;
+      }
+      const contactData = {
+          additionalEmails: [],
+          address1: null,
+          assignedTo: null,
+          businessId: null,
+          phone: '+'+phoneNumber,
+          tags:['stop bot'],
+          chat: {
+              contact_id: '+'+phoneNumber,
+              id: msg.from || contact.id.user + '@c.us',
+              name: contact.name || contact.pushname || chat.name || phoneNumber,
+              not_spam: true,
+              tags: ['stop bot'], // You might want to populate this with actual tags if available
+              timestamp: chat.timestamp || Date.now(),
+              type: 'contact',
+              unreadCount: chat.unreadCount || 0,
+              last_message: {
+                  chat_id:contact.id.user + '@c.us' ,
+                  from: msg.from || contact.id.user + '@c.us',
+                  from_me: msg.fromMe || false,
+                  id: msg._data?.id?.id || '',
+                  source: chat.deviceType || '',
+                  status: "delivered",
+                  text: {
+                    body:msg.body || ''
+                  },
+                  timestamp: chat.timestamp || Date.now(),
+                  type: type || '',
+              },
+          },
+          chat_id: contact.id.user + '@c.us',
+          city: null,
+          companyName: null,
+          contactName: contact.name || contact.pushname || chat.name || phoneNumber,
+          unreadCount: chat.unreadCount || 0,
+          threadid: '', // You might want to generate or retrieve this
+          last_message: {
+              chat_id:contact.id.user + '@c.us',
+              from: msg.from || contact.id.user + '@c.us',
+              from_me: msg.fromMe || false,
+              id: msg._data?.id?.id || '',
+              source: chat.deviceType || '',
               status: "delivered",
-              timestamp: message.timestamp ?? 0,
-              type: type2,
-              ack: message.ack ?? 0,
-            };
+              text: {
+                body:msg.body || ''
+              },
+              timestamp: chat.timestamp || Date.now(),
+              type: type || '',
+          },
+      };
+      const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
+      await contactRef.set(contactData, { merge: true });
+      const messages = await chat.fetchMessages({ limit: 100 });
 
-            
+      // Save messages
+      if (messages && messages.length > 0) {
+        // Sort messages by timestamp in ascending order
+        const sortedMessages = messages.sort((a, b) => {
+          const timestampA = a.timestamp ? new Date(a.timestamp * 1000).getTime() : 0;
+          const timestampB = b.timestamp ? new Date(b.timestamp * 1000).getTime() : 0;
+          return timestampA - timestampB;
+        });
+      
+        const messagesRef = contactRef.collection('messages');
+        let count = 0;
+        
+        for (const message of sortedMessages) {
+          let type2 = message.type === 'chat' ? 'text' : message.type;
 
-            // Handle different message types
-            switch (type2) {
-              case 'text':
-                messageData.text = { body: message.body ?? "" };
-                break;
-              case 'image':
-              case 'video':
-              case 'document':
-                if (message.hasMedia && message.type !== 'audio') {
-                  try {
-                    const media = await message.downloadMedia();
-                    if (media) {
-                      if (type2 === 'image') {
-                        messageData.image = {
+          const messageData = {
+            chat_id: message.from,
+            from: message.from ?? "",
+            from_me: message.fromMe ?? false,
+            id: message.id._serialized ?? "",
+            source: message.deviceType ?? "",
+            status: "delivered",
+            timestamp: message.timestamp ?? 0,
+            type: type2,
+            ack: message.ack ?? 0,
+          };
+
+          // Handle different message types
+          switch (type2) {
+            case 'text':
+              messageData.text = { body: message.body ?? "" };
+              break;
+            case 'image':
+            case 'video':
+            case 'document':
+              if (message.hasMedia && message.type !== 'audio') {
+                try {
+                  const media = await message.downloadMedia();
+                  if (media) {
+                    if (type2 === 'image') {
+                      messageData.image = {
+                          mimetype: media.mimetype,
+                          data: media.data,  // This is the base64-encoded data
+                          filename: message._data.filename || "",
+                          caption: message._data.caption || "",
+                      };
+                      // Add width and height if available
+                      if (message._data.width) messageData.image.width = message._data.width;
+                      if (message._data.height) messageData.image.height = message._data.height;
+                    } else if (type2 === 'document') {
+                        messageData.document = {
                             mimetype: media.mimetype,
                             data: media.data,  // This is the base64-encoded data
                             filename: message._data.filename || "",
                             caption: message._data.caption || "",
+                            pageCount: message._data.pageCount,
+                            fileSize: message._data.size,
                         };
-                        // Add width and height if available
-                        if (message._data.width) messageData.image.width = message._data.width;
-                        if (message._data.height) messageData.image.height = message._data.height;
-                      } else if (type2 === 'document') {
-                          messageData.document = {
-                              mimetype: media.mimetype,
-                              data: media.data,  // This is the base64-encoded data
-                              filename: message._data.filename || "",
-                              caption: message._data.caption || "",
-                              pageCount: message._data.pageCount,
-                              fileSize: message._data.size,
-                          };
-                      } else {
-                        const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${type2}.${media.mimetype.split('/')[1]}`);
-                        messageData[type2] = {
-                          mimetype: media.mimetype,
-                          url: url,
-                          filename: media.filename ?? "",
-                          caption: message.body ?? "",
-                        };
-                      }
-
-                      // Add thumbnail information if available
-                      if (message._data.thumbnailHeight && message._data.thumbnailWidth) {
-                          messageData[message.type].thumbnail = {
-                              height: message._data.thumbnailHeight,
-                              width: message._data.thumbnailWidth,
-                          };
-                      }
-
-                      // Add media key if available
-                      if (message.mediaKey) {
-                          messageData[message.type].mediaKey = message.mediaKey;
-                      }
-                    
                     } else {
-                        console.log(`Failed to download media for message: ${message.id._serialized}`);
-                        messageData.text = { body: "Media not available" };
+                      const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${type2}.${media.mimetype.split('/')[1]}`);
+                      messageData[type2] = {
+                        mimetype: media.mimetype,
+                        url: url,
+                        filename: media.filename ?? "",
+                        caption: message.body ?? "",
+                      };
                     }
-                } catch (error) {
-                    console.error(`Error handling media for message ${message.id._serialized}:`, error);
-                    messageData.text = { body: "Error handling media" };
-                }
-                } else {
-                  messageData.text = { body: "Media not available" };
-                }
-                break;
-              default:
-                messageData.text = { body: message.body ?? "" };
-            }
 
-            const messageDoc = messagesRef.doc(message.id._serialized);
-            await messageDoc.set(messageData, { merge: true });
+                    // Add thumbnail information if available
+                    if (message._data.thumbnailHeight && message._data.thumbnailWidth) {
+                        messageData[message.type].thumbnail = {
+                            height: message._data.thumbnailHeight,
+                            width: message._data.thumbnailWidth,
+                        };
+                    }
 
-            count++;
-            
-
-            // Send progress update after each message
-            broadcastProgress(botName, 'saving_messages', count / sortedMessages.length);
+                    // Add media key if available
+                    if (message.mediaKey) {
+                        messageData[message.type].mediaKey = message.mediaKey;
+                    }
+                  
+                  } else {
+                      console.log(`Failed to download media for message: ${message.id._serialized}`);
+                      messageData.text = { body: "Media not available" };
+                  }
+              } catch (error) {
+                  console.error(`Error handling media for message ${message.id._serialized}:`, error);
+                  messageData.text = { body: "Error handling media" };
+              }
+              } else {
+                messageData.text = { body: "Media not available" };
+              }
+              break;
+            default:
+              messageData.text = { body: message.body ?? "" };
           }
-        
-          
-          
-          //console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
-        }
-        
-        // Send final progress update for this contact
-        broadcastProgress(botName, 'saving_messages', 1);
 
-        //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
-        
-        // Delay before next operation
-        console.log(`Succesfully saved contact ${phoneNumber} for bot ${botName}`);
-        await customWait(baseDelay);
-    } catch (error) {
-        console.error(`Error saving contact for bot ${botName}:`, error);
-        
-        if (retryCount < maxRetries) {
-            const retryDelay = baseDelay * Math.pow(2, retryCount);
-            console.log(`Retrying in ${retryDelay}ms...`);
-            await delay(retryDelay);
-            await saveContactWithRateLimit(botName, contact, chat, retryCount + 1);
-        } else {
-            console.error(`Failed to save contact after ${maxRetries} retries`);
+          const messageDoc = messagesRef.doc(message.id._serialized);
+          await messageDoc.set(messageData, { merge: true });
+
+          count++;
+          
+          // Send progress update after each message
+          broadcastProgress(botName, 'saving_messages', count / sortedMessages.length);
         }
-    }
+      }
+      
+      // Send final progress update for this contact
+      broadcastProgress(botName, 'saving_messages', 1);
+
+      console.log(`Successfully saved contact ${phoneNumber} for bot ${botName}`);
+      await customWait(baseDelay);
+  } catch (error) {
+      console.error(`Error saving contact for bot ${botName}:`, error);
+      
+      if (retryCount < maxRetries) {
+          const retryDelay = baseDelay * Math.pow(2, retryCount);
+          console.log(`Retrying in ${retryDelay}ms...`);
+          await customWait(retryDelay);
+          await saveContactWithRateLimit(botName, contact, chat, retryCount + 1);
+      } else {
+          console.error(`Failed to save contact after ${maxRetries} retries`);
+      }
+  }
 }
 
 // async function initializeBot(botName, retryCount = 0) {
