@@ -1023,8 +1023,11 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                 type: type || '',
             },
         };
+        
         const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
-        await contactRef.set(contactData, { merge: true });
+        const sanitizedContactData = sanitizeData(contactData);
+
+        await contactRef.set(sanitizedContactData, { merge: true });
         const messages = await chat.fetchMessages({ limit: 100 });
 
         // Save messages
