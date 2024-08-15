@@ -15,6 +15,7 @@ public
 # Ignore specific configuration files
 config/secret-config.json
 last_processed_row.json
+last_processed_row_001.json
 
 # Ignore all files in the temp directory
 temp/
