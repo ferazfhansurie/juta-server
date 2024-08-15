@@ -441,6 +441,8 @@ async function sendResponseParts(answer, to, brochureFilePaths = {}, contactID) 
         if (part.trim()) {
             const cleanedPart = await removeTextInsideDelimiters(part);
             await sendWhapiRequest('messages/text', { to, body: cleanedPart });
+            console.log('cleanedPart', cleanedPart);
+            console.log('part', part);
             await handleSpecialResponses(part, to, brochureFilePaths, contactID);
         }
     }
