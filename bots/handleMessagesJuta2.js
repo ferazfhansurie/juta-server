@@ -7,12 +7,14 @@
 //4. CHANGE all Template to your <YourBotName>
 
 const OpenAI = require('openai');
-const axios = require('axios').default;
+const axios = require('axios');
 const { google } = require('googleapis');
 const path = require('path');
 const { Client } = require('whatsapp-web.js');
 const util = require('util');
+const moment = require('moment-timezone');
 const fs = require('fs');
+
 const { v4: uuidv4 } = require('uuid');
 
 const { URLSearchParams } = require('url');
@@ -119,12 +121,13 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
       });
   
       console.log('Event created successfully:', response.data.htmlLink);
-  
+      
+
       // Generate a Google Meet link
-      const meetLink = `no link`;
-  
+      await scheduleReminderMessage(summary, startDateTime, '120363178065670386@g.us');
+
       // Update the event description to include the Meet link
-      const updatedDescription = `${description}\n\nJoin the meeting: ${meetLink}`;
+      const updatedDescription = `${description}\n\nJoin the meeting: `;
       await calendar.events.patch({
         calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
         eventId: response.data.id,
@@ -150,6 +153,29 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
       console.error('Error stack:', error.stack);
       throw new Error(`Failed to create Google Calendar event: ${error.message}`);
     }
+  }
+
+  async function scheduleReminderMessage(eventSummary, startDateTime, chatId) {
+    const reminderTime = moment(startDateTime).subtract(15, 'minutes');
+    const reminderMessage = `Reminder: "${eventSummary}" is starting in 1 hour.`;
+  
+    const scheduledMessage = {
+      chatIds: [chatId],
+      message: reminderMessage,
+      scheduledTime: reminderTime.toDate(),
+      batchQuantity: 1 // Since we're sending to one chat
+    };
+  
+    try {
+      const response = await axios.post(`/api/schedule-message/001`, scheduledMessage);
+      console.log('Reminder scheduled successfully:', response.data);
+    } catch (error) {
+      console.error('Error scheduling reminder:', error);
+    }
+  }
+
+  function getTodayDate() {
+    return moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD');
   }
 async function saveMediaLocally(base64Data, mimeType, filename) {
     const writeFileAsync = util.promisify(fs.writeFile);
@@ -724,34 +750,41 @@ async function runAssistant(assistantID, threadId, tools) {
     return answer;
   }
 
-  // Add this function to handle tool calls
-  async function handleToolCalls(toolCalls) {
+  // Modify the handleToolCalls function to include the new tool
+async function handleToolCalls(toolCalls) {
     console.log('Handling tool calls...');
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       if (toolCall.function.name === 'createGoogleCalendarEvent') {
         try {
-          console.log('Parsing arguments for createGoogleCalendarEvent...');
-          const args = JSON.parse(toolCall.function.arguments);
-          console.log('Arguments:', args);
-  
-          console.log('Calling createGoogleCalendarEvent...');
-          const result = await createGoogleCalendarEvent(args.summary, args.description, args.startDateTime, args.endDateTime);
-          
-          console.log('Event created successfully, preparing tool output...');
-          toolOutputs.push({
-            tool_call_id: toolCall.id,
-            output: JSON.stringify(result),
-          });
-        } catch (error) {
-          console.error('Error in handleToolCalls for createGoogleCalendarEvent:');
-          console.error(error);
-          toolOutputs.push({
-            tool_call_id: toolCall.id,
-            output: JSON.stringify({ error: error.message }),
-          });
-        }
+            console.log('Parsing arguments for createGoogleCalendarEvent...');
+            const args = JSON.parse(toolCall.function.arguments);
+            console.log('Arguments:', args);
+    
+            console.log('Calling createGoogleCalendarEvent...');
+            const result = await createGoogleCalendarEvent(args.summary, args.description, args.startDateTime, args.endDateTime);
+            
+            console.log('Event created successfully, preparing tool output...');
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify(result),
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for createGoogleCalendarEvent:');
+            console.error(error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }      
+        } else if (toolCall.function.name === 'getTodayDate') {
+        console.log('Getting today\'s date...');
+        const todayDate = getTodayDate();
+        toolOutputs.push({
+          tool_call_id: toolCall.id,
+          output: JSON.stringify({ date: todayDate }),
+        });
       } else {
         console.warn(`Unknown function called: ${toolCall.function.name}`);
       }
@@ -761,12 +794,12 @@ async function runAssistant(assistantID, threadId, tools) {
   }
 
 // Modify the handleOpenAIAssistant function to include the new tool
+// Modify the handleOpenAIAssistant function to include the new tool
 async function handleOpenAIAssistant(message, threadID) {
     console.log(ghlConfig.assistantId);
     const assistantId = ghlConfig.assistantId;
     await addMessage(threadID, message);
     
-    // Add the custom function as a tool for the assistant
     const tools = [
       {
         type: "function",
@@ -782,6 +815,17 @@ async function handleOpenAIAssistant(message, threadID) {
               endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
             },
             required: ["summary", "startDateTime", "endDateTime"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "getTodayDate",
+          description: "Get today's date in YYYY-MM-DD format",
+          parameters: {
+            type: "object",
+            properties: {},
           },
         },
       },
