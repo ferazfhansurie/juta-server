@@ -423,12 +423,45 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             type: type,
         };
 
-        if (msg.type === 'audio' || msg.type === 'ptt') {
+        if (msg.type === 'audio') {
             messageData.audio = {
-                mimetype: msg._data.mimetype || 'audio/ogg; codecs=opus',
-                data: audioData,
-                duration: msg.duration
+                mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+                data: audioData // This is the base64 encoded audio data
             };
+        }
+
+        if (msg.hasMedia &&  msg.type !== 'audio') {
+            try {
+                const media = await msg.downloadMedia();
+                if (media) {
+                    if (msg.type === 'image') {
+                        messageData.image = {
+                            mimetype: media.mimetype,
+                            data: media.data,  // This is the base64-encoded data
+                            filename: media.filename ?? "",
+                            caption: msg.body ?? "",
+                            width: msg._data.width,
+                            height: msg._data.height
+                        };
+                    } else {
+                        messageData[msg.type] = {
+                            mimetype: media.mimetype,
+                            data: media.data,  // This is the base64-encoded data
+                            filename: media.filename ?? "",
+                            caption: msg.body ?? "",
+                        };
+                    }
+                    if (media.filesize) {
+                        messageData[msg.type].filesize = media.filesize;
+                    }
+                } else {
+                    console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                    messageData.text = { body: "Media not available" };
+                }
+            } catch (error) {
+                console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+                messageData.text = { body: "Error handling media" };
+            }
         }
 
         const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
