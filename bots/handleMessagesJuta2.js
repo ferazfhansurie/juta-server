@@ -164,18 +164,27 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
   
     console.log('Scheduling reminder for:', reminderTime.format());
     console.log('Scheduled time in seconds:', scheduledTimeSeconds);
-  
-    const scheduledMessage = {
-      chatIds: [chatId],
-      message: reminderMessage,
-      scheduledTime: {
-        seconds: scheduledTimeSeconds,
-        nanoseconds: 0
-      },
-      batchQuantity: 1, // Since we're sending to one chat
-      repeatInterval: 0, // Add this if not already present
-      repeatUnit: 'minutes' // Add this if not already present
-    };
+    
+      const scheduledMessage = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: "001", // Assuming this is the correct company ID
+        createdAt: admin.firestore.Timestamp.now(),
+        documentUrl: "",
+        fileName: null,
+        mediaUrl: "",
+        message: reminderMessage,
+        mimeType: null,
+        repeatInterval: 0,
+        repeatUnit: "days",
+        scheduledTime: {
+            seconds: scheduledTimeSeconds,
+            nanoseconds: 0
+          },
+        status: "scheduled",
+        v2: true,
+        whapiToken: null
+      };
   
     try {
       console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
