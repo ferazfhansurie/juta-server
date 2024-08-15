@@ -382,6 +382,9 @@ async function handleNewMessagesCNB(client, msg, botName) {
                     data: audioData // This is the base64 encoded audio data
                 };
             }
+            if((sender.to).includes('@g.us')){
+                messageData.author = msg.author;
+            }
             if (msg.hasMedia && msg.type !== 'audio') {
                 console.log(msg);
                 try {

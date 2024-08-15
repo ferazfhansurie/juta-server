@@ -223,7 +223,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
 
         //const receivedMessages = req.body.messages;
             if (msg.fromMe){
-                
+
                 return;
             }
 
@@ -398,7 +398,10 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 timestamp: msg.timestamp ?? 0,
                 type: type,
             };
-
+            
+            if((sender.to).includes('@g.us')){
+                messageData.author = msg.author;
+            }
             if (msg.type === 'audio') {
                 messageData.audio = {
                     mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
