@@ -1253,16 +1253,18 @@ async function main(reinitialize = false) {
   console.log('Obliterating all jobs...');
   await obiliterateAllJobs();
   
-  // Run the check immediately when the server starts
-  console.log('Checking for new rows msu...');
-  const msuAutomation = new msuSpreadsheet(botMap);
-  msuAutomation.initialize();
+  
 
   console.log('Initializing bots...');
   await initializeBots(botNames);
 
   console.log('Scheduling all messages...');
   await scheduleAllMessages();
+
+  // Run the check immediately when the server starts
+  console.log('Checking for new rows msu...');
+  const msuAutomation = new msuSpreadsheet(botMap);
+  msuAutomation.initialize();
 
   console.log('Initialization complete');
   // Send ready signal to PM2
