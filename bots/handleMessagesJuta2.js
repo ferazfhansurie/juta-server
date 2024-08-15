@@ -157,12 +157,12 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
 
   async function scheduleReminderMessage(eventSummary, startDateTime, chatId) {
     const reminderTime = moment(startDateTime).subtract(15, 'minutes');
-    const reminderMessage = `Reminder: "${eventSummary}" is starting in 1 hour.`;
+    const reminderMessage = `Reminder: "${eventSummary}" is starting in 15 minutes.`;
   
     const scheduledMessage = {
       chatIds: [chatId],
       message: reminderMessage,
-      scheduledTime: reminderTime.toDate(),
+      scheduledTime: Math.floor(reminderTime.valueOf() / 1000), // Convert to Unix timestamp (seconds)
       batchQuantity: 1 // Since we're sending to one chat
     };
   
