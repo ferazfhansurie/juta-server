@@ -9,7 +9,8 @@
 const OpenAI = require('openai');
 const axios = require('axios').default;
 const { MessageMedia } = require('whatsapp-web.js');
-
+const AsyncLock = require('async-lock');
+const lock = new AsyncLock();
 const { Client } = require('whatsapp-web.js');
 
 
@@ -176,35 +177,56 @@ async function getChatMetadata(chatId,) {
 const messageQueue = new Map();
 const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
+async function processMessage(message) {
+    // Your existing message processing logic goes here
+    // This function should contain the core logic of handling a single message
+    // Including the carpet check and file sending logic
 
+    const lockKey = `thread_${message.chat_id}`;
+
+    return lock.acquire(lockKey, async () => {
+        // Your existing message processing logic
+        // For example:
+        const carpetCheck = ['Carpet1', 'Carpet2', 'Carpet3']; // Add your carpet keywords
+        for (const key of carpetCheck) {
+            if (message.text.includes(key)) {
+                console.log(`${key} sending file`);
+                const filePath = 'your_file_path_here'; // Replace with actual file path
+                const media = await MessageMedia.fromUrl(filePath, { unsafeMime: true, filename: `${await extractProductName(key)}.pdf` });
+                const sentMessage = await client.sendMessage(message.from, media);
+                
+                // Save the message to Firebase
+                const messageData = {
+                    // ... your existing message data structure
+                };
+                const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+                await messageDoc.set(messageData, { merge: true });
+            }
+        }
+        
+        // Add any other message processing logic here
+    }, { timeout: 60000 }); // 60 seconds timeout
+}
 async function handleNewMessagesCNB(client, msg, botName) {
     console.log('Handling new Messages '+botName);
-
     //const url=req.originalUrl
-
     // Find the positions of the '/' characters
     //const firstSlash = url.indexOf('/');
     //const secondSlash = url.indexOf('/', firstSlash + 1);
-
     // Extract the substring between the first and second '/'
     //const idSubstring = url.substring(firstSlash + 1, secondSlash);
     const idSubstring = botName;
     try {
-
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring);
-
         //const receivedMessages = req.body.messages;
             if (msg.fromMe){
                 return;
             }
-
             const sender = {
                 to: msg.from,
                 name:msg.notifyName,
             };
-
-            
             let contactID;
             let contactName;
             let threadID;
@@ -360,12 +382,12 @@ async function handleNewMessagesCNB(client, msg, botName) {
                     data: audioData // This is the base64 encoded audio data
                 };
             }
-
             if (msg.hasMedia &&  msg.type !== 'audio') {
+                console.log(msg);
                 try {
                     const media = await msg.downloadMedia();
                     if (media) {
-                        if (msg.type === 'image') {
+                        if (msg.type === 'image' || msg.type === 'document') {
                             messageData.image = {
                                 mimetype: media.mimetype,
                                 data: media.data,  // This is the base64-encoded data
@@ -397,12 +419,10 @@ async function handleNewMessagesCNB(client, msg, botName) {
               const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
               //await contactRef.set(contactData, { merge: true });
               const messagesRef = contactRef.collection('messages');
-          
               const messageDoc = messagesRef.doc(msg.id._serialized);
               await messageDoc.set(messageData, { merge: true });
             //   console.log(msg);
            await addNotificationToUser(idSubstring, messageData);
-            
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
             if (msg.fromMe){
