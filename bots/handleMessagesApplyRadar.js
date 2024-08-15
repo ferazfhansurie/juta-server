@@ -454,6 +454,7 @@ async function handleSpecialResponses(part, to, brochureFilePaths, contactID) {
         if (part.includes(key) && part.includes("video")) {
             console.log(`${key} sending video, ${filePath}`);
             await sendWhapiRequest('messages/video', { to, media: filePath });
+            addtagbookedGHL(contactID, "stop bot");
             break;
         }
     }
