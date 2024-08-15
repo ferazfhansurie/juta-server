@@ -268,7 +268,7 @@ async function processMessage(message) {
     switch (currentStep) {
         case steps.START:
             if (message.type === 'text') {
-                await handleTextMessage(message, sender, extractedNumber, contactName, threadID);
+                await handleTextMessage(message, sender, extractedNumber, contactName, threadID, contactID);
             } else if (message.type === 'document' ) {
                 await handleDocumentMessage(message, sender, threadID);
             }else if (message.type === 'image') {
@@ -388,7 +388,7 @@ async function handleImageMessage(message, sender, threadID) {
         });
     }
 }
-async function handleTextMessage(message, sender, extractedNumber, contactName, threadID) {
+async function handleTextMessage(message, sender, extractedNumber, contactName, threadID, contactID) {
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
@@ -412,7 +412,7 @@ async function handleTextMessage(message, sender, extractedNumber, contactName, 
             'asia pacific': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ApplyRadar%2FVideo%2Fapu%20video.mp4?alt=media&token=d058e05c-5481-425e-a9f1-a03e65d51739',
         };
         const answer = await handleOpenAIAssistant(query, threadID);
-        await sendResponseParts(answer, sender.to, brochureFilePaths);
+        await sendResponseParts(answer, sender.to, brochureFilePaths, contactID);
     }, { timeout: 60000 }); // 60 seconds timeout
 }
 
@@ -435,23 +435,26 @@ async function handleDocumentMessage(message, sender, threadID) {
     }, { timeout: 60000 }); // 60 seconds timeout
 }
 
-async function sendResponseParts(answer, to, brochureFilePaths = {}) {
+async function sendResponseParts(answer, to, brochureFilePaths = {}, contactID) {
     const parts = answer.split(/\s*\|\|\s*/);
     for (const part of parts) {
         if (part.trim()) {
             const cleanedPart = await removeTextInsideDelimiters(part);
             await sendWhapiRequest('messages/text', { to, body: cleanedPart });
-            await handleSpecialResponses(part, to, brochureFilePaths);
+            await handleSpecialResponses(part, to, brochureFilePaths, contactID);
         }
     }
 }
 
-async function handleSpecialResponses(part, to, brochureFilePaths) {
-    
+async function handleSpecialResponses(part, to, brochureFilePaths, contactID) {
+    if(part.includes("patience")) {
+        addtagbookedGHL(contactID, "stop bot");
+        return;
+    }
     for (const [key, filePath] of Object.entries(brochureFilePaths)) {
-        if (part.includes(key) && part.includes("Brochure")) {
-            console.log(`${key} sending file, ${filePath}`);
-            await sendWhapiRequest('messages/document', { to, media: filePath, filename: `${key}.pdf` });
+        if (part.includes(key) && part.includes("video")) {
+            console.log(`${key} sending video, ${filePath}`);
+            await sendWhapiRequest('messages/video', { to, media: filePath });
             break;
         }
     }

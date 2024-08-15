@@ -964,7 +964,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             chat: {
                 contact_id: '+'+phoneNumber,
                 id: msg.from || contact.id.user + '@c.us',
-                name: chat.name || contact.pushname || contact.pushname || phoneNumber,
+                name: contact.name || contact.pushname || chat.name || phoneNumber,
                 not_spam: true,
                 tags: ['stop bot'], // You might want to populate this with actual tags if available
                 timestamp: chat.timestamp || Date.now(),
@@ -987,7 +987,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             chat_id: contact.id.user + '@c.us',
             city: null,
             companyName: null,
-            contactName: chat.name || contact.name || contact.pushname || phoneNumber,
+            contactName: contact.name || contact.pushname || chat.name || phoneNumber,
             unreadCount: chat.unreadCount || 0,
             threadid: '', // You might want to generate or retrieve this
             last_message: {
@@ -1051,17 +1051,48 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                   try {
                     const media = await message.downloadMedia();
                     if (media) {
-                      const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${type2}.${media.mimetype.split('/')[1]}`);
-                      messageData[type2] = {
-                        mimetype: media.mimetype,
-                        url: url,
-                        filename: media.filename ?? "",
-                        caption: message.body ?? "",
-                      };
                       if (type2 === 'image') {
-                        messageData[type2].width = message._data.width;
-                        messageData[type2].height = message._data.height;
+                        messageData.image = {
+                            mimetype: media.mimetype,
+                            data: media.data,  // This is the base64-encoded data
+                            filename: message._data.filename || "",
+                            caption: message._data.caption || "",
+                        };
+                        // Add width and height if available
+                        if (message._data.width) messageData.image.width = message._data.width;
+                        if (message._data.height) messageData.image.height = message._data.height;
+                      } else if (type2 === 'document') {
+                          messageData.document = {
+                              mimetype: media.mimetype,
+                              data: media.data,  // This is the base64-encoded data
+                              filename: message._data.filename || "",
+                              caption: message._data.caption || "",
+                              pageCount: message._data.pageCount,
+                              fileSize: message._data.size,
+                          };
+                      } else {
+                        const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${type2}.${media.mimetype.split('/')[1]}`);
+                        messageData[type2] = {
+                          mimetype: media.mimetype,
+                          url: url,
+                          filename: media.filename ?? "",
+                          caption: message.body ?? "",
+                        };
                       }
+
+                      // Add thumbnail information if available
+                      if (message._data.thumbnailHeight && message._data.thumbnailWidth) {
+                          messageData[message.type].thumbnail = {
+                              height: message._data.thumbnailHeight,
+                              width: message._data.thumbnailWidth,
+                          };
+                      }
+
+                      // Add media key if available
+                      if (message.mediaKey) {
+                          messageData[message.type].mediaKey = message.mediaKey;
+                      }
+                    
                     } else {
                         console.log(`Failed to download media for message: ${message.id._serialized}`);
                         messageData.text = { body: "Media not available" };
@@ -1090,7 +1121,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             }
 
             // Send progress update after each message
-            broadcastProgress(botName, 'saving_contacts', count / sortedMessages.length);
+            broadcastProgress(botName, 'saving_messages', count / sortedMessages.length);
           }
         
           if (count > 0) {
@@ -1101,7 +1132,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
         }
         
         // Send final progress update for this contact
-        broadcastProgress(botName, 'saving_contacts', 1);
+        broadcastProgress(botName, 'saving_messages', 1);
 
         //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
@@ -1264,6 +1295,10 @@ async function main(reinitialize = false) {
   await scheduleAllMessages();
 
   console.log('Initialization complete');
+  // Send ready signal to PM2
+  if (process.send) {
+    process.send('ready');
+  }
 }
 
 async function getContactDataFromDatabaseByEmail(email) {
@@ -2235,6 +2270,16 @@ console.log('creating ass');
 main().catch(error => {
   console.error('Error during initialization:', error);
   process.exit(1);
+});
+
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+  console.log('Graceful shutdown initiated');
+  // Perform cleanup operations here
+  // For example, close database connections, finish processing, etc.
+  
+  console.log('Cleanup complete, shutting down');
+  process.exit(0);
 });
 
 
