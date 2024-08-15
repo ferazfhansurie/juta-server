@@ -1165,7 +1165,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             const retryDelay = baseDelay * Math.pow(2, retryCount);
             console.log(`Retrying in ${retryDelay}ms...`);
             await delay(retryDelay);
-            await saveContactWithRateLimit(botName, contact, chats, retryCount + 1);
+            await saveContactWithRateLimit(botName, contact, chat, retryCount + 1);
         } else {
             console.error(`Failed to save contact after ${maxRetries} retries`);
         }
