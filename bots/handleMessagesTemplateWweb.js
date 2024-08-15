@@ -256,7 +256,15 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
               };
 
               if((sender.to).includes('@g.us')){
-                messageData.author = msg.author;
+                const authorNumber = '+'+(msg.author).split('@')[0];
+
+                const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+                if(authorData){
+                    messageData.author = authorData.contactName;
+                }else{
+                    messageData.author = msg.author;
+                }
+
             }
               
               const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);

@@ -383,7 +383,15 @@ async function handleNewMessagesCNB(client, msg, botName) {
                 };
             }
             if((sender.to).includes('@g.us')){
-                messageData.author = msg.author;
+                const authorNumber = '+'+(msg.author).split('@')[0];
+
+                const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+                if(authorData){
+                    messageData.author = authorData.contactName;
+                }else{
+                    messageData.author = msg.author;
+                }
+
             }
             if (msg.hasMedia && msg.type !== 'audio') {
                 console.log(msg);
