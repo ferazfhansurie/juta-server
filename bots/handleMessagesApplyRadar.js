@@ -447,10 +447,7 @@ async function sendResponseParts(answer, to, brochureFilePaths = {}, contactID) 
 }
 
 async function handleSpecialResponses(part, to, brochureFilePaths, contactID) {
-    if(part.includes("patience")) {
-        addtagbookedGHL(contactID, "stop bot");
-        return;
-    }
+    
     for (const [key, filePath] of Object.entries(brochureFilePaths)) {
         console.log('part', part);
         console.log('key', key);
@@ -459,6 +456,11 @@ async function handleSpecialResponses(part, to, brochureFilePaths, contactID) {
             await sendWhapiRequest('messages/video', { to, media: filePath });
             break;
         }
+    }
+
+    if(part.includes("patience")) {
+        addtagbookedGHL(contactID, "stop bot");
+        return;
     }
 }
 
