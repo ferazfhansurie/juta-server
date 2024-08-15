@@ -223,6 +223,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
 
         //const receivedMessages = req.body.messages;
             if (msg.fromMe){
+                
                 return;
             }
 
