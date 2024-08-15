@@ -1051,26 +1051,46 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                   try {
                     const media = await message.downloadMedia();
                     if (media) {
-                        if (message.type === 'image') {
-                            messageData.image = {
-                                mimetype: media.mimetype,
-                                data: media.data,  // This is the base64-encoded data
-                                filename: media.filename ?? "",
-                                caption: message.body ?? "",
-                                width: message._data.width,
-                                height: message._data.height
-                            };
-                        } else {
-                            messageData[message.type] = {
-                                mimetype: media.mimetype,
-                                data: media.data,  // This is the base64-encoded data
-                                filename: media.filename ?? "",
-                                caption: message.body ?? "",
-                            };
-                        }
-                        if (media.filesize) {
-                            messageData[message.type].filesize = media.filesize;
-                        }
+                      if (message.type === 'image') {
+                        messageData.image = {
+                            mimetype: media.mimetype,
+                            data: media.data,  // This is the base64-encoded data
+                            filename: message._data.filename || "",
+                            caption: message._data.caption || "",
+                        };
+                        // Add width and height if available
+                        if (message._data.width) messageData.image.width = message._data.width;
+                        if (message._data.height) messageData.image.height = message._data.height;
+                      } else if (message.type === 'document') {
+                          messageData.document = {
+                              mimetype: media.mimetype,
+                              data: media.data,  // This is the base64-encoded data
+                              filename: message._data.filename || "",
+                              caption: message._data.caption || "",
+                              pageCount: message._data.pageCount,
+                              fileSize: message._data.size,
+                          };
+                      } else {
+                          messageData[message.type] = {
+                              mimetype: media.mimetype,
+                              data: media.data,
+                              filename: message._data.filename || "",
+                              caption: message._data.caption || "",
+                          };
+                      }
+          
+                      // Add thumbnail information if available
+                      if (message._data.thumbnailHeight && message._data.thumbnailWidth) {
+                          messageData[message.type].thumbnail = {
+                              height: message._data.thumbnailHeight,
+                              width: message._data.thumbnailWidth,
+                          };
+                      }
+          
+                      // Add media key if available
+                      if (message.mediaKey) {
+                          messageData[message.type].mediaKey = message.mediaKey;
+                      }
                     } else {
                         console.log(`Failed to download media for message: ${message.id._serialized}`);
                         messageData.text = { body: "Media not available" };
