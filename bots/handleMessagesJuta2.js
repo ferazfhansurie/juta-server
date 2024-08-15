@@ -167,7 +167,7 @@ async function createGoogleCalendarEvent(summary, description, startDateTime, en
     };
   
     try {
-      const response = await axios.post(`/api/schedule-message/001`, scheduledMessage);
+      const response = await axios.post(`http://localhost:8443/api/schedule-message/001`, scheduledMessage);
       console.log('Reminder scheduled successfully:', response.data);
     } catch (error) {
       console.error('Error scheduling reminder:', error);
