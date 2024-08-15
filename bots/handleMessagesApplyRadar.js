@@ -452,6 +452,8 @@ async function handleSpecialResponses(part, to, brochureFilePaths, contactID) {
         return;
     }
     for (const [key, filePath] of Object.entries(brochureFilePaths)) {
+        console.log('part', part);
+        console.log('key', key);
         if (part.includes(key) && part.includes("video")) {
             console.log(`${key} sending video, ${filePath}`);
             await sendWhapiRequest('messages/video', { to, media: filePath });
