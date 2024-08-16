@@ -116,14 +116,10 @@ async function addMessageAssistant(threadId, message) {
     return response;
 }
 function createMessage(name) {
-    return `*Greetings from ApplyRadar*
-
-Dear ${name}
-We got your enquiry regarding study abroad earlier.
-Are you still interested?
+    return `You showed interest towards UNITEN earlier
+Are you still thinking about studying at UNITEN?
 Reply:
-Yes
-No`;
+Yes / No`;
 }
 
 module.exports = { handleApplyRadarBlast };
