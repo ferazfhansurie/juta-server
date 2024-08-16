@@ -231,16 +231,19 @@ async function handleNewMessagesJuta2(client, msg, botName) {
         await fetchConfigFromDatabase(idSubstring);
 
         //const receivedMessages = req.body.messages;
-            if (msg.fromMe){
-
-                return;
-            }
+            
 
             const sender = {
                 to: msg.from,
                 name:msg.notifyName,
             };
 
+            const extractedNumber = '+'+(sender.to).split('@')[0];
+
+            if (msg.fromMe){
+                addMessagetoFirebasae(msg, idSubstring, extractedNumber);
+                return;
+            }
             
             let contactID;
             let contactName;
@@ -249,7 +252,6 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             let answer;
             let parts;
             let currentStep;
-            const extractedNumber = '+'+(sender.to).split('@')[0];
             const chat = await msg.getChat();
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             let unreadCount = 0;
@@ -417,7 +419,6 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 }else{
                     messageData.author = msg.author;
                 }
-
             }
             if (msg.type === 'audio') {
                 messageData.audio = {
@@ -575,7 +576,94 @@ async function handleNewMessagesJuta2(client, msg, botName) {
     }
 }
 
+async function addMessagetoFirebasae(msg, idSubstring, extractedNumber){
+    let messageBody = msg.body;
+    let audioData = null;
 
+    if (msg.hasMedia && msg.type === 'audio') {
+        console.log('Voice message detected');
+        const media = await msg.downloadMedia();
+        const transcription = await transcribeAudio(media.data);
+        console.log('Transcription:', transcription);
+                
+        messageBody = transcription;
+        audioData = media.data;
+        console.log(msg);
+    }
+    const messageData = {
+        chat_id: msg.from,
+        from: msg.from ?? "",
+        from_me: msg.fromMe ?? false,
+        id: msg.id._serialized ?? "",
+        source: chat.deviceType ?? "",
+        status: "delivered",
+        text: {
+            body: messageBody ?? ""
+        },
+        timestamp: msg.timestamp ?? 0,
+        type: type,
+    };
+
+    if((msg.from).includes('@g.us')){
+        const authorNumber = '+'+(msg.author).split('@')[0];
+
+        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        if(authorData){
+            messageData.author = authorData.contactName;
+        }else{
+            messageData.author = msg.author;
+        }
+    }
+
+    if (msg.type === 'audio') {
+        messageData.audio = {
+            mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+            data: audioData // This is the base64 encoded audio data
+        };
+    }
+
+    if (msg.hasMedia &&  msg.type !== 'audio') {
+        try {
+            const media = await msg.downloadMedia();
+            if (media) {
+                if (msg.type === 'image') {
+                    messageData.image = {
+                        mimetype: media.mimetype,
+                        data: media.data,  // This is the base64-encoded data
+                        filename: media.filename ?? "",
+                        caption: msg.body ?? "",
+                        width: msg._data.width,
+                        height: msg._data.height
+                    };
+                } else {
+                    messageData[msg.type] = {
+                        mimetype: media.mimetype,
+                        data: media.data,  // This is the base64-encoded data
+                        filename: media.filename ?? "",
+                        caption: msg.body ?? "",
+                    };
+                }
+                if (media.filesize) {
+                    messageData[msg.type].filesize = media.filesize;
+                }
+            } else {
+                console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                messageData.text = { body: "Media not available" };
+            }
+        } catch (error) {
+            console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+            messageData.text = { body: "Error handling media" };
+        }
+    }
+
+    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+    const messagesRef = contactRef.collection('messages');
+
+    const messageDoc = messagesRef.doc(msg.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+    console.log(messageData);
+    await addNotificationToUser(idSubstring, messageData);
+}
 async function removeTagBookedGHL(contactID, tag) {
     const options = {
         method: 'DELETE',
