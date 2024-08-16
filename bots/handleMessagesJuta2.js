@@ -241,7 +241,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             const extractedNumber = '+'+(sender.to).split('@')[0];
 
             if (msg.fromMe){
-                addMessagetoFirebasae(msg, idSubstring, extractedNumber);
+                await addMessagetoFirebase(msg, idSubstring, extractedNumber);
                 return;
             }
             
@@ -576,7 +576,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
     }
 }
 
-async function addMessagetoFirebasae(msg, idSubstring, extractedNumber){
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
     let messageBody = msg.body;
     let audioData = null;
 

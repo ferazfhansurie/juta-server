@@ -704,7 +704,7 @@ app.put('/api/schedule-message/:companyId/:messageId', async (req, res) => {
   
       for (const chat of chats) {
         if (chat.isGroup) {
-          processedChats++;
+          console.log(`Skipping group chat: ${chat.name}`);
           continue;
         }
         const contact = await chat.getContact();
@@ -949,7 +949,10 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
         if(msg == {}){
           return;
         }
-      
+        let idsuffix = '@c.us'
+        if(chat.isGroup){
+          idsuffix = '@g.us'
+        }
         let type = msg.type === 'chat' ? 'text' : msg.type;
         if(phoneNumber == 'status'){
           return;
