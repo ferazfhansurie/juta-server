@@ -118,7 +118,7 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     const tags = [assignedEmployee.name, assignedEmployee.phoneNumber];
     const employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
-    client.sendMessage(employeeID, 'You have been assigned to ' + contactID);
+    await client.sendMessage(employeeID, 'You have been assigned to ' + contactID);
     // Store the current state in Firebase
     await storeAssignmentState(idSubstring);
 
