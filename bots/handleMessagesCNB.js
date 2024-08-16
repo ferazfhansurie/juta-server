@@ -247,7 +247,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
                     unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
                     contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
-                
+                    
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
                     } else {
@@ -265,7 +265,9 @@ async function handleNewMessagesCNB(client, msg, botName) {
                 contactID = extractedNumber;
                 
                 contactName = contact.pushname || contact.name || extractedNumber;
-
+                if(chat.isGroup){
+                    contactName = chat.name
+                }
                 const thread = await createThread();
                 threadID = thread.id;
                 console.log(threadID);
