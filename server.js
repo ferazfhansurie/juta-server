@@ -704,8 +704,7 @@ app.put('/api/schedule-message/:companyId/:messageId', async (req, res) => {
   
       for (const chat of chats) {
         if (chat.isGroup) {
-          console.log(`Skipping group chat: ${chat.name}`);
-          continue;
+          console.log(`group chat: ${chat.name}`);
         }
         const contact = await chat.getContact();
         await saveContactWithRateLimit(companyId, contact, chat);
@@ -944,7 +943,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
     const baseDelay = 1000; // 1 second base delay
 
     try {
-        const phoneNumber = contact.id.user;
+        let phoneNumber = contact.id.user;
         const msg = chat.lastMessage || {};
         if(msg == {}){
           return;
@@ -952,6 +951,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
         let idsuffix = '@c.us'
         if(chat.isGroup){
           idsuffix = '@g.us'
+          phoneNumber = chat.id
         }
         let type = msg.type === 'chat' ? 'text' : msg.type;
         if(phoneNumber == 'status'){
@@ -966,7 +966,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             tags:['stop bot'],
             chat: {
                 contact_id: '+'+phoneNumber,
-                id: msg.from || contact.id.user + '@c.us',
+                id: msg.from || contact.id.user + idsuffix,
                 name: contact.name || contact.pushname || chat.name || phoneNumber,
                 not_spam: true,
                 tags: ['stop bot'], // You might want to populate this with actual tags if available
@@ -974,8 +974,8 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                 type: 'contact',
                 unreadCount: chat.unreadCount || 0,
                 last_message: {
-                    chat_id:contact.id.user + '@c.us' ,
-                    from: msg.from || contact.id.user + '@c.us',
+                    chat_id:contact.id.user + idsuffix ,
+                    from: msg.from || contact.id.user + idsuffix,
                     from_me: msg.fromMe || false,
                     id: msg._data?.id?.id || '',
                     source: chat.deviceType || '',
@@ -987,15 +987,15 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                     type: type || '',
                 },
             },
-            chat_id: contact.id.user + '@c.us',
+            chat_id: contact.id.user + idsuffix,
             city: null,
             companyName: null,
             contactName: contact.name || contact.pushname || chat.name || phoneNumber,
             unreadCount: chat.unreadCount || 0,
             threadid: '', // You might want to generate or retrieve this
             last_message: {
-                chat_id:contact.id.user + '@c.us',
-                from: msg.from || contact.id.user + '@c.us',
+                chat_id:contact.id.user + idsuffix,
+                from: msg.from || contact.id.user + idsuffix,
                 from_me: msg.fromMe || false,
                 id: msg._data?.id?.id || '',
                 source: chat.deviceType || '',
@@ -1007,6 +1007,9 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                 type: type || '',
             },
         };
+        if(contact.getProfilePicUrl()){
+          contactData.profilePicUrl = contact.getProfilePicUrl();
+        }
         const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
         await contactRef.set(contactData, { merge: true });
         const messages = await chat.fetchMessages({ limit: 100 });
