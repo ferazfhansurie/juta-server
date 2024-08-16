@@ -1007,8 +1007,13 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                 type: type || '',
             },
         };
-        if(contact.getProfilePicUrl){
-          contactData.profilePicUrl = contact.getProfilePicUrl;
+        if (contact.getProfilePicUrl) {
+            try {
+                contactData.profilePicUrl = await contact.getProfilePicUrl();
+            } catch (error) {
+                console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
+                contactData.profilePicUrl = null;
+            }
         }
         const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
         await contactRef.set(contactData, { merge: true });
