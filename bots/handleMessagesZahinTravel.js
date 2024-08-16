@@ -409,6 +409,17 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             },
         };
 
+        if (contact.getProfilePicUrl()) {
+            try {
+                data.profilePicUrl = await contact.getProfilePicUrl();
+                console.log('profile pic url: '+data.profilePicUrl)
+            } catch (error) {
+                console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
+                contactData.profilePicUrl = "";
+            }
+        }
+
+
         const messageData = {
             chat_id: msg.from,
             from: msg.from ?? "",

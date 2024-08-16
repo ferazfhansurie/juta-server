@@ -253,6 +253,16 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 type: type,
               };
 
+              if (contact.getProfilePicUrl()) {
+                try {
+                    data.profilePicUrl = await contact.getProfilePicUrl();
+                    console.log('profile pic url: '+data.profilePicUrl)
+                } catch (error) {
+                    console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
+                    contactData.profilePicUrl = "";
+                }
+            }
+
               if((sender.to).includes('@g.us')){
                 const authorNumber = '+'+(msg.author).split('@')[0];
 

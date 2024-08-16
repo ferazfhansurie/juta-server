@@ -1035,7 +1035,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
           
           for (const message of sortedMessages) {
             let type2 = message.type === 'chat' ? 'text' : message.type;
-
+            
             //console.log(message);
             const messageData = {
               chat_id: message.from,
@@ -1048,6 +1048,18 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
               type: type2,
               ack: message.ack ?? 0,
             };
+
+            if(chat.isGroup){
+                const authorNumber = '+'+(msg.author).split('@')[0];
+
+                const authorData = await getContactDataFromDatabaseByPhone(authorNumber, botName);
+                if(authorData){
+                    messageData.author = authorData.contactName;
+                }else{
+                    messageData.author = msg.author;
+                }
+
+            }
 
             
 
@@ -1133,6 +1145,39 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             console.error(`Failed to save contact after ${maxRetries} retries`);
         }
     }
+}
+
+async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
+  try {
+      // Check if phoneNumber is defined
+      if (!phoneNumber) {
+          throw new Error("Phone number is undefined or null");
+      }
+
+      // Initial fetch of config
+      //await fetchConfigFromDatabase(idSubstring);
+
+      let threadID;
+      let contactName;
+      let bot_status;
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+
+      if (querySnapshot.empty) {
+          console.log('No matching documents.');
+          return null;
+      } else {
+          const doc = querySnapshot.docs[0];
+          const contactData = doc.data();
+          contactName = contactData.name;
+          threadID = contactData.thread_id;
+          bot_status = contactData.bot_status;
+          return { ...contactData};
+      }
+  } catch (error) {
+      console.error('Error fetching or updating document:', error);
+      throw error;
+  }
 }
 
 // async function initializeBot(botName, retryCount = 0) {
