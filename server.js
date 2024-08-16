@@ -1010,7 +1010,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
         let pf = await contact.getProfilePicUrl();
         if (pf) {
             try {
-                contactData.profilePicUrl = await contact.getProfilePicUrl();
+                contactData.profilePicUrl = pf;
             } catch (error) {
                 console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
                 contactData.profilePicUrl = "";
