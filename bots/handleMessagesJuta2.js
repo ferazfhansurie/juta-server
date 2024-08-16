@@ -258,7 +258,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             let stopTag = contactData?.tags || [];
             const contact = await chat.getContact();
 
-            
+            console.log(chat.participants)
             console.log(contactData);
             if (contactData !== null) {
                 if(contactData.tags){

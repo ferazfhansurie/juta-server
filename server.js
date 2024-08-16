@@ -1051,7 +1051,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
 
             if(chat.isGroup){
                 const authorNumber = '+'+(msg.author).split('@')[0];
-
+                const participants = chat.participants;
                 const authorData = await getContactDataFromDatabaseByPhone(authorNumber, botName);
                 if(authorData){
                     messageData.author = authorData.contactName;
