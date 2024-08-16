@@ -124,6 +124,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             let unreadCount = 0;
             let stopTag = contactData?.tags || [];
+            const contact = await msg.getContact()
 
             console.log(contactData);
             if (contactData !== null) {
@@ -131,7 +132,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 console.log(stopTag);
                     unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
-                    contactName = contactData.contactName ?? msg.notifyName ?? extractedNumber;
+                    contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
                 
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
@@ -147,10 +148,8 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 await customWait(2500); 
 
                 contactID = extractedNumber;
-                contactName = msg.notifyName ?? extractedNumber;
-                if(idSubstring === '001'){
-                    client.sendMessage('601121677522@c.us', 'New Lead '+contactName +' '+contactID);
-                }
+                contactName = contact.pushname || contact.name || extractedNumber;
+                
                 const thread = await createThread();
                 threadID = thread.id;
                 console.log(threadID);
@@ -172,7 +171,6 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
               }else{
                 type = msg.type;
               }
-              const contact = await chat.getContact();
             
             if(extractedNumber.includes('status')){
                 return;

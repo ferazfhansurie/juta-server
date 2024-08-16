@@ -254,6 +254,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             let unreadCount = 0;
             let stopTag = contactData?.tags || [];
+            const contact = await msg.getContact();
 
             
             console.log(contactData);
@@ -263,7 +264,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     console.log(stopTag);
                         unreadCount = contactData.unreadCount ?? 0;
                         contactID = extractedNumber;
-                        contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
+                        contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
                     
                         if (contactData.threadid) {
                             threadID = contactData.threadid;
@@ -292,7 +293,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 await customWait(2500); 
 
                 contactID = extractedNumber;
-                contactName = msg.pushname ?? extractedNumber;
+                contactName = contact.pushname || contact.name || extractedNumber;
                 client.sendMessage('120363178065670386@g.us', 'New Lead '+contactName +' '+contactID);
 
                 const thread = await createThread();
@@ -322,7 +323,6 @@ async function handleNewMessagesJuta2(client, msg, botName) {
               }else{
                 type = msg.type;
               }
-              const contact = await chat.getContact();
             
             if(extractedNumber.includes('status')){
                 return;

@@ -292,12 +292,13 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         let firebaseTags = [];
         let unreadCount = 0;
         let stopTag = contactData?.tags || [];
+        const contact = await msg.getContact()
 
         if (contactData === null) {
             const thread = await createThread();
             threadID = thread.id;
             contactID = extractedNumber;
-            contactName = msg.pushname ?? extractedNumber;
+            contactName = contact.pushname || contact.name || extractedNumber;
             await saveThreadIDFirebase(contactID, threadID, idSubstring)
             
 
@@ -311,7 +312,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
                 
                     unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
-                    contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
+                    contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
                     } else {
@@ -339,7 +340,6 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         let audioData = null;
         let type = '';
 
-        const contact = await chat.getContact();
 
 
         if(msg.type == 'chat'){
