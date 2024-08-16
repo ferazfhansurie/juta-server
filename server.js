@@ -1007,7 +1007,8 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
                 type: type || '',
             },
         };
-        if (contact.getProfilePicUrl) {
+        let pf = await contact.getProfilePicUrl();
+        if (pf) {
             try {
                 contactData.profilePicUrl = await contact.getProfilePicUrl();
             } catch (error) {
