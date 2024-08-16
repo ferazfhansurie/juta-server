@@ -951,7 +951,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
         let idsuffix = '@c.us'
         if(chat.isGroup){
           idsuffix = '@g.us'
-          phoneNumber = msg.from
+          phoneNumber = (msg.from).split('@')[0]
         }
         let type = msg.type === 'chat' ? 'text' : msg.type;
         if(phoneNumber == 'status'){
