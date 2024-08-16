@@ -239,7 +239,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             let unreadCount = 0;
             let stopTag = contactData?.tags || [];
-            const contact = await msg.getContact()
+            const contact = await chat.getContact()
             if (contactData !== null) {
                 stopTag = contactData.tags;
                 console.log(stopTag);
@@ -366,7 +366,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
                 timestamp: msg.timestamp ?? 0,
                 type: type,
             };
-
+            
             if (contact.getProfilePicUrl()) {
                 try {
                     data.profilePicUrl = await contact.getProfilePicUrl();

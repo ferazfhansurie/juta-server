@@ -124,7 +124,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             let unreadCount = 0;
             let stopTag = contactData?.tags || [];
-            const contact = await msg.getContact()
+            const contact = await chat.getContact()
 
             console.log(contactData);
             if (contactData !== null) {

@@ -292,7 +292,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
         let firebaseTags = [];
         let unreadCount = 0;
         let stopTag = contactData?.tags || [];
-        const contact = await msg.getContact()
+        const contact = await chat.getContact()
 
         if (contactData === null) {
             const thread = await createThread();
