@@ -293,14 +293,21 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
   
 // Add this new function to fetch contact data
 async function fetchContactData(phoneNumber, idSubstring) {
-  try {
-    const contactData = await getContactDataFromDatabaseByPhone(phoneNumber, idSubstring);
-    return JSON.stringify(contactData);
-  } catch (error) {
-    console.error('Error fetching contact data:', error);
-    return JSON.stringify({ error: 'Failed to fetch contact data' });
+    try {
+      const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(phoneNumber);
+      const doc = await contactRef.get();
+  
+      if (!doc.exists) {
+        return JSON.stringify({ error: 'Contact not found' });
+      }
+  
+      const contactData = doc.data();
+      return JSON.stringify(contactData);
+    } catch (error) {
+      console.error('Error fetching contact data:', error);
+      return JSON.stringify({ error: 'Failed to fetch contact data' });
+    }
   }
-}
 
 // Add these new functions to fetch contact statistics
 async function getTotalContacts(idSubstring) {
@@ -1239,13 +1246,31 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
       ]).get();
   
       if (querySnapshot.empty) {
-        console.log(`No contact found for number: ${phoneNumber}`);
+        // If not found by phone, try searching by document ID
+        const docRef = contactsRef.doc(phoneNumber);
+        const doc = await docRef.get();
+        
+        if (!doc.exists) {
+          console.log(`No contact found for number: ${phoneNumber}`);
+          return JSON.stringify({ 
+            error: 'Contact not found', 
+            details: `No contact found for number: ${phoneNumber}. Please check the number and try again.`
+          });
+        }
+        
+        // If found by document ID, proceed with tagging
+        const currentTags = doc.data().tags || [];
+        const newTags = [...new Set([...currentTags, tag])]; // Ensure uniqueness
+        await docRef.update({ tags: newTags });
+        
         return JSON.stringify({ 
-          error: 'Contact not found', 
-          details: `No contact found for number: ${phoneNumber}. Please check the number and try again.`
+          success: true, 
+          message: `Contact ${doc.id} tagged with "${tag}"`,
+          updatedTags: newTags
         });
       }
   
+      // If found by phone number query, proceed with tagging
       const doc = querySnapshot.docs[0];
       const currentTags = doc.data().tags || [];
       const newTags = [...new Set([...currentTags, tag])]; // Ensure uniqueness
@@ -1401,23 +1426,23 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
             output: JSON.stringify({ date: todayDate }),
           });
           break;
-        case 'fetchContactData':
-          try {
-            console.log('Fetching contact data...');
-            const args = JSON.parse(toolCall.function.arguments);
-            const contactData = await fetchContactData(args.phoneNumber, args.idSubstring);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: contactData,
-            });
-          } catch (error) {
-            console.error('Error in handleToolCalls for fetchContactData:', error);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify({ error: error.message }),
-            });
-          }
-          break;
+          case 'fetchContactData':
+            try {
+              console.log('Fetching contact data...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const contactData = await fetchContactData(args.phoneNumber, idSubstring);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: contactData,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for fetchContactData:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
           case 'getTotalContacts':
             try {
               console.log('Getting total contacts...');
