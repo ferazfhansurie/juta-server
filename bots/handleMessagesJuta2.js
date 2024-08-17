@@ -1214,6 +1214,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
       const contacts = snapshot.docs.map(doc => ({
         phoneNumber: doc.id,
         contactName: doc.data().contactName,
+        phone: doc.data().phone
       }));
       return JSON.stringify(contacts);
     } catch (error) {
@@ -1223,21 +1224,37 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
   }
   async function tagContact(idSubstring, phoneNumber, tag) {
     try {
-      const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(phoneNumber);
-      const doc = await contactRef.get();
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      
+      // Normalize the phone number
+      const normalizedPhoneNumber = phoneNumber.replace(/\D/g, '');
+      
+      // Try to find the contact with different phone number formats
+      const querySnapshot = await contactsRef.where('phone', 'in', [
+        phoneNumber,
+        `+${normalizedPhoneNumber}`,
+        normalizedPhoneNumber,
+        `+60${normalizedPhoneNumber.slice(-9)}`,
+        `60${normalizedPhoneNumber.slice(-9)}`,
+      ]).get();
   
-      if (!doc.exists) {
-        return JSON.stringify({ error: 'Contact not found' });
+      if (querySnapshot.empty) {
+        console.log(`No contact found for number: ${phoneNumber}`);
+        return JSON.stringify({ 
+          error: 'Contact not found', 
+          details: `No contact found for number: ${phoneNumber}. Please check the number and try again.`
+        });
       }
   
+      const doc = querySnapshot.docs[0];
       const currentTags = doc.data().tags || [];
       const newTags = [...new Set([...currentTags, tag])]; // Ensure uniqueness
   
-      await contactRef.update({ tags: newTags });
+      await doc.ref.update({ tags: newTags });
   
       return JSON.stringify({ 
         success: true, 
-        message: `Contact ${phoneNumber} tagged with "${tag}"`,
+        message: `Contact ${doc.id} tagged with "${tag}"`,
         updatedTags: newTags
       });
     } catch (error) {
@@ -1485,23 +1502,23 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
           });
         }
         break;
-      case 'listContacts':
-        try {
-          console.log('Listing contacts...');
-          const args = JSON.parse(toolCall.function.arguments);
-          const contactsList = await listContacts(idSubstring, args.limit, args.offset);
-          toolOutputs.push({
-            tool_call_id: toolCall.id,
-            output: contactsList,
-          });
-        } catch (error) {
-          console.error('Error in handleToolCalls for listContacts:', error);
-          toolOutputs.push({
-            tool_call_id: toolCall.id,
-            output: JSON.stringify({ error: error.message }),
-          });
-        }
-        break;
+        case 'listContacts':
+            try {
+              console.log('Listing contacts...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const contactsList = await listContacts(idSubstring, args.limit, args.offset);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: contactsList,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for listContacts:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
         default:
           console.warn(`Unknown function called: ${toolCall.function.name}`);
       }
@@ -1666,9 +1683,11 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
               parameters: {
                 type: "object",
                 properties: {
+                  idSubstring: { type: "string", description: "ID substring for the company" },
                   limit: { type: "number", description: "Number of contacts to return (default 10)" },
                   offset: { type: "number", description: "Number of contacts to skip (default 0)" },
                 },
+                required: ["idSubstring"],
               },
             },
           },
