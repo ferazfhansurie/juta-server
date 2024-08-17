@@ -331,8 +331,7 @@ async function getTotalContacts(idSubstring) {
     }
   }
   
-  // Add this to your existing imports at the top of the file
-  const moment = require('moment-timezone');
+
   async function listAssignedContacts(idSubstring, assigneeName, limit = 10) {
     try {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
