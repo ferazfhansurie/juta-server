@@ -641,7 +641,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             case steps.START:
                 var context = "";
 
-                query = `${messageBody} user_name: ${contactName} `;
+                query = `${messageBody}`;
              if(!(sender.to.includes('@g.us')) || msg.body.toLowerCase().startsWith('@juta')){
                 answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client);
                 parts = answer.split(/\s*\|\|\s*/);
@@ -784,7 +784,12 @@ function formatPhoneNumber(phoneNumber) {
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
     let messageBody = msg.body;
     let audioData = null;
-
+    let type = '';
+    if(msg.type === 'chat'){
+        type ='text'
+      }else{
+        type = msg.type;
+      }
     if (msg.hasMedia && msg.type === 'audio') {
         console.log('Voice message detected');
         const media = await msg.downloadMedia();
@@ -1393,24 +1398,24 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
         {
             type: "function",
             function: {
-              name: "listAssignedContacts",
-              description: "List contacts that are assigned to a specific person (assignment is represented by a tag with the assignee's name)",
-              parameters: {
-                type: "object",
-                properties: {
-                  assigneeName: { 
-                    type: "string",
-                    description: "The name of the person to whom contacts are assigned" 
-                  },
-                  limit: {
-                    type: "number",
-                    description: "Maximum number of contacts to return (default 10)"
-                  }
+                name: "listAssignedContacts",
+                description: "List contacts that are assigned to a specific person (assignment is represented by a tag with the assignee's name)",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        assigneeName: { 
+                            type: "string",
+                            description: "The name of the person to whom contacts are assigned" 
+                        },
+                        limit: {
+                            type: "number",
+                            description: "Maximum number of contacts to return (default 10)"
+                        }
+                    },
+                    required: ["assigneeName"],
                 },
-                required: ["assigneeName"],
-              },
             },
-          },
+        },
         {
             type: "function",
             function: {
