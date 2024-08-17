@@ -694,14 +694,14 @@ function formatPhoneNumber(phoneNumber) {
     // Remove all non-digit characters
     let cleaned = phoneNumber.replace(/\D/g, '');
     
-    // Ensure the number starts with a '+'
-    if (!cleaned.startsWith('+')) {
-      cleaned = '+' + cleaned;
+    // Remove the leading '60' if present
+    if (cleaned.startsWith('60')) {
+      cleaned = cleaned.slice(2);
     }
     
-    // If the number doesn't have a country code (assuming Malaysian numbers), add '+60'
-    if (cleaned.length <= 11) {
-      cleaned = '+60' + cleaned.slice(cleaned.startsWith('+') ? 1 : 0);
+    // Ensure the number starts with '60'
+    if (!cleaned.startsWith('60')) {
+      cleaned = '60' + cleaned;
     }
     
     return cleaned;
@@ -711,11 +711,11 @@ function formatPhoneNumber(phoneNumber) {
       // Format the phone number
       const formattedNumber = formatPhoneNumber(phoneNumber);
   
-      // Ensure the number is in the correct format for WhatsApp
-      const whatsappNumber = formattedNumber.includes('@c.us') ? formattedNumber : `${formattedNumber}@c.us`;
+      // Create the WhatsApp ID
+      const whatsappId = `${formattedNumber}@c.us`;
   
       // Send the message
-      const sent = await client.sendMessage(whatsappNumber, message);
+      const sent = await client.sendMessage(whatsappId, message);
   
       // Prepare the response
       const response = {
