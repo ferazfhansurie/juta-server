@@ -51,7 +51,6 @@ async function addTask(userId, taskString) {
     }, { merge: true });
     return `Task added: ${taskString}`;
 }
-
 // Function to list tasks
 async function listTasks(userId) {
     const taskRef = db.collection('tasks').doc(userId);
@@ -76,7 +75,6 @@ async function updateTaskStatus(userId, taskIndex, newStatus) {
     await taskRef.update({ tasks: tasks });
     return `Task "${tasks[taskIndex].text}" status updated to ${newStatus}.`;
 }
-
 // Function to send task reminders (only for In Progress tasks)
 async function sendTaskReminders(client) {
     const taskSnapshot = await db.collection('tasks').get();
@@ -879,13 +877,22 @@ async function sendDailyContactReport(client, idSubstring) {
 }
 
 // Schedule the daily report
-function scheduleDailyReport(client, idSubstring) {
-    // Schedule for 9 PM Kuala Lumpur time
-    cron.schedule('0 21 * * *', () => {
-        sendDailyContactReport(client, idSubstring);
+async function scheduleDailyReport(client, idSubstring) {
+    const companyRef = db.collection('companies').doc(idSubstring);
+    const doc = await companyRef.get();
+    if (doc.exists && doc.data().isDailyReportScheduled) {
+        console.log('Daily report already scheduled');
+        return;
+    }
+
+    cron.schedule('0 21 * * *', async () => {
+        await sendDailyContactReport(client, idSubstring);
     }, {
         timezone: "Asia/Kuala_Lumpur"
     });
+
+    await companyRef.update({ isDailyReportScheduled: true });
+    console.log('Daily report scheduled');
 }
 
 async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
