@@ -1031,7 +1031,33 @@ async function runAssistant(assistantID, threadId, tools,idSubstring) {
     const answer = await waitForCompletion(threadId, runId,idSubstring);
     return answer;
   }
-
+  async function fetchMultipleContactsData(phoneNumbers, idSubstring) {
+    try {
+      const contactsData = await Promise.all(phoneNumbers.map(async (phoneNumber) => {
+        const contactData = await getContactDataFromDatabaseByPhone(phoneNumber, idSubstring);
+        return { phoneNumber, ...contactData };
+      }));
+      return JSON.stringify(contactsData);
+    } catch (error) {
+      console.error('Error fetching multiple contacts data:', error);
+      return JSON.stringify({ error: 'Failed to fetch contacts data' });
+    }
+  }
+  
+  async function listContacts(idSubstring, limit = 10, offset = 0) {
+    try {
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      const snapshot = await contactsRef.orderBy('contactName').offset(offset).limit(limit).get();
+      const contacts = snapshot.docs.map(doc => ({
+        phoneNumber: doc.id,
+        contactName: doc.data().contactName,
+      }));
+      return JSON.stringify(contacts);
+    } catch (error) {
+      console.error('Error listing contacts:', error);
+      return JSON.stringify({ error: 'Failed to list contacts' });
+    }
+  }
   // Modify the handleToolCalls function to include the new tool
 async function handleToolCalls(toolCalls,idSubstring) {
     console.log('Handling tool calls...');
@@ -1171,6 +1197,40 @@ async function handleToolCalls(toolCalls,idSubstring) {
             });
           }
           break;
+          case 'fetchMultipleContactsData':
+        try {
+          console.log('Fetching multiple contacts data...');
+          const args = JSON.parse(toolCall.function.arguments);
+          const contactsData = await fetchMultipleContactsData(args.phoneNumbers, idSubstring);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: contactsData,
+          });
+        } catch (error) {
+          console.error('Error in handleToolCalls for fetchMultipleContactsData:', error);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: error.message }),
+          });
+        }
+        break;
+      case 'listContacts':
+        try {
+          console.log('Listing contacts...');
+          const args = JSON.parse(toolCall.function.arguments);
+          const contactsList = await listContacts(idSubstring, args.limit, args.offset);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: contactsList,
+          });
+        } catch (error) {
+          console.error('Error in handleToolCalls for listContacts:', error);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: error.message }),
+          });
+        }
+        break;
         default:
           console.warn(`Unknown function called: ${toolCall.function.name}`);
       }
@@ -1190,6 +1250,38 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "fetchMultipleContactsData",
+              description: "Fetch data for multiple contacts given their phone numbers",
+              parameters: {
+                type: "object",
+                properties: {
+                  phoneNumbers: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "Array of phone numbers to fetch data for" 
+                  },
+                },
+                required: ["phoneNumbers"],
+              },
+            },
+          },
+          {
+            type: "function",
+            function: {
+              name: "listContacts",
+              description: "List contacts with pagination",
+              parameters: {
+                type: "object",
+                properties: {
+                  limit: { type: "number", description: "Number of contacts to return (default 10)" },
+                  offset: { type: "number", description: "Number of contacts to skip (default 0)" },
+                },
+              },
+            },
+          },
       {
         type: "function",
         function: {
