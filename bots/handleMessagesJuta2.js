@@ -1229,7 +1229,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
       return JSON.stringify({ error: 'Failed to list contacts' });
     }
   }
-  async function searchContacts(idSubstring, searchTerm, limit = 10) {
+  async function searchContacts(idSubstring, searchTerm) {
     try {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
       const searchTermLower = searchTerm.toLowerCase();
@@ -1246,7 +1246,6 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
             (data.tags && data.tags.some(tag => tag.toLowerCase().includes(searchTermLower)))
           );
         })
-        .slice(0, limit)
         .map(doc => ({
           phoneNumber: doc.id,
           contactName: doc.data().contactName || 'Unknown',
@@ -1309,7 +1308,7 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
   try {
     console.log('Searching contacts...');
     const args = JSON.parse(toolCall.function.arguments);
-    const searchResults = await searchContacts(args.idSubstring, args.searchTerm, args.limit);
+    const searchResults = await searchContacts(idSubstring, args.searchTerm, args.limit);
     toolOutputs.push({
       tool_call_id: toolCall.id,
       output: searchResults,
