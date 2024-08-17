@@ -781,10 +781,11 @@ async function sendMessage(client, phoneNumber, message, idSubstring) {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
       const snapshot = await contactsRef.get();
   
+      const lowercaseSearchTag = tag.toLowerCase();
       const contacts = snapshot.docs
         .filter(doc => {
-          const tags = doc.data().tags || [];
-          return tags.some(t => t.toLowerCase() === tag.toLowerCase());
+          const tags = (doc.data().tags || []).map(t => t.toLowerCase());
+          return tags.some(t => t.includes(lowercaseSearchTag));
         })
         .slice(0, limit)
         .map(doc => ({
