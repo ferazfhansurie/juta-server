@@ -35,6 +35,47 @@ const steps = {
 };
 const userState = new Map();
 
+// Add this object to store tasks
+const userTasks = new Map();
+
+// Function to add a task
+async function addTask(userId, task) {
+    if (!userTasks.has(userId)) {
+        userTasks.set(userId, []);
+    }
+    userTasks.get(userId).push(task);
+    return `Task added: ${task}`;
+}
+
+// Function to list tasks
+async function listTasks(userId) {
+    if (!userTasks.has(userId) || userTasks.get(userId).length === 0) {
+        return "You have no tasks for today.";
+    }
+    const tasks = userTasks.get(userId);
+    return "Your tasks for today:\n" + tasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
+}
+
+// Function to send task reminders
+async function sendTaskReminders(client) {
+    for (const [userId, tasks] of userTasks.entries()) {
+        if (tasks.length > 0) {
+            const message = await listTasks(userId);
+            await client.sendMessage(userId, message);
+        }
+    }
+}
+
+// Schedule task reminders
+function scheduleTaskReminders(client) {
+    // Schedule for 9 AM and 3 PM Kuala Lumpur time
+    cron.schedule('0 9,15 * * *', () => {
+        sendTaskReminders(client);
+    }, {
+        timezone: "Asia/Kuala_Lumpur"
+    });
+}
+
 async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
@@ -233,6 +274,9 @@ async function handleNewMessagesJuta2(client, msg, botName) {
 
         // Set up the daily report schedule
         scheduleDailyReport(client, idSubstring);
+
+        // Set up task reminders
+        scheduleTaskReminders(client);
 
         //const receivedMessages = req.body.messages;
             
@@ -584,6 +628,17 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     console.error('Unrecognized step:', currentStep);
                     break;
             }
+
+            // Handle task-related commands
+            if (messageBody.toLowerCase().startsWith('add task:')) {
+                const task = messageBody.slice(9).trim();
+                const response = await addTask(sender.to, task);
+                await client.sendMessage(msg.from, response);
+            } else if (messageBody.toLowerCase() === 'list tasks') {
+                const tasks = await listTasks(sender.to);
+                await client.sendMessage(msg.from, tasks);
+            }
+
         return('All messages processed');
     } catch (e) {
         console.error('Error:', e.message);
@@ -796,7 +851,7 @@ async function countContactsCreatedToday(idSubstring) {
 // Add this function to send the daily report
 async function sendDailyContactReport(client, idSubstring) {
     const count = await countContactsCreatedToday(idSubstring);
-    const message = `Daily Report: ${count} new leads(s) today.`;
+    const message = `Daily Report: ${count} new lead(s) today.`;
     
     // Replace with the actual group chat ID where you want to send the report
     const groupChatId = '120363178065670386@g.us';
