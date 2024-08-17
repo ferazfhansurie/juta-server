@@ -314,16 +314,26 @@ async function getTotalContacts(idSubstring) {
     }
   }
 
-async function getContactsWithTag(idSubstring, tag) {
-  try {
-    const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
-    const snapshot = await contactsRef.where('tags', 'array-contains', tag).count().get();
-    return snapshot.data().count;
-  } catch (error) {
-    console.error('Error fetching contacts with tag:', error);
-    return 0;
+  async function listAssignedContacts(idSubstring, assigneeName, limit = 10) {
+    try {
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      const snapshot = await contactsRef
+        .where('tags', 'array-contains', assigneeName)
+        .limit(limit)
+        .get();
+  
+      const contacts = snapshot.docs.map(doc => ({
+        phoneNumber: doc.id,
+        contactName: doc.data().contactName,
+        tags: doc.data().tags
+      }));
+  
+      return JSON.stringify(contacts);
+    } catch (error) {
+      console.error('Error listing assigned contacts:', error);
+      return JSON.stringify({ error: 'Failed to list assigned contacts' });
+    }
   }
-}
 
 
 async function handleNewMessagesJuta2(client, msg, botName) {
@@ -1144,6 +1154,23 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       switch (toolCall.function.name) {
+        case 'listAssignedContacts':
+            try {
+              console.log('Listing assigned contacts...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const result = await listAssignedContacts(idSubstring, args.assigneeName, args.limit);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: result,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for listAssignedContacts:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
         case 'listContactsWithTag':
         try {
           console.log('Listing contacts with tag...');
@@ -1259,23 +1286,6 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
               });
             }
             break;
-        case 'getContactsWithTag':
-          try {
-            console.log('Getting contacts with tag...');
-            const args = JSON.parse(toolCall.function.arguments);
-            const contactsWithTag = await getContactsWithTag(idSubstring, args.tag);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify({ contactsWithTag }),
-            });
-          } catch (error) {
-            console.error('Error in handleToolCalls for getContactsWithTag:', error);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify({ error: error.message }),
-            });
-          }
-          break;
         case 'addTask':
           try {
             console.log('Adding task...');
@@ -1380,6 +1390,27 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "listAssignedContacts",
+              description: "List contacts that are assigned to a specific person (assignment is represented by a tag with the assignee's name)",
+              parameters: {
+                type: "object",
+                properties: {
+                  assigneeName: { 
+                    type: "string",
+                    description: "The name of the person to whom contacts are assigned" 
+                  },
+                  limit: {
+                    type: "number",
+                    description: "Maximum number of contacts to return (default 10)"
+                  }
+                },
+                required: ["assigneeName"],
+              },
+            },
+          },
         {
             type: "function",
             function: {
@@ -1528,21 +1559,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
           },
         },
       },
-      {
-        type: "function",
-        function: {
-          name: "getContactsWithTag",
-          description: "Get the number of contacts with a specific tag",
-          parameters: {
-            type: "object",
-            properties: {
-              idSubstring: { type: "string", description: "ID substring for the company" },
-              tag: { type: "string", description: "Tag to search for" },
-            },
-            required: ["idSubstring", "tag"],
-          },
-        },
-      },
+
       {
         type: "function",
         function: {
