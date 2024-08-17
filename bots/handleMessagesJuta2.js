@@ -579,47 +579,57 @@ async function handleNewMessagesJuta2(client, msg, botName) {
 
                     query = `${messageBody} user_name: ${contactName} `;
                  
-                    
-                    answer= await handleOpenAIAssistant(query,threadID,firebaseTags);
-                    parts = answer.split(/\s*\|\|\s*/);
-                    
-                    for (let i = 0; i < parts.length; i++) {
-                        const part = parts[i].trim();   
-                        const check = part.toLowerCase();
-                        if (part) {
-                            //await addtagbookedGHL(contactID, 'idle');
-                            //await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                            const sentMessage = await client.sendMessage(msg.from, part);
+                     // Handle task-related commands
+            if (messageBody.toLowerCase().startsWith('add task:')) {
+                const task = messageBody.slice(9).trim();
+                const response = await addTask(sender.to, task);
+                await client.sendMessage(msg.from, response);
+            } else if (messageBody.toLowerCase() === 'list tasks') {
+                const tasks = await listTasks(sender.to);
+                await client.sendMessage(msg.from, tasks);
+            }else{
+                answer= await handleOpenAIAssistant(query,threadID,firebaseTags);
+                parts = answer.split(/\s*\|\|\s*/);
+                
+                for (let i = 0; i < parts.length; i++) {
+                    const part = parts[i].trim();   
+                    const check = part.toLowerCase();
+                    if (part) {
+                        //await addtagbookedGHL(contactID, 'idle');
+                        //await sendWhapiRequest('messages/text', { to: sender.to, body: part });
+                        const sentMessage = await client.sendMessage(msg.from, part);
 
-                            // Save the message to Firebase
-                            const sentMessageData = {
-                                chat_id: sentMessage.from,
-                                from: sentMessage.from ?? "",
-                                from_me: true,
-                                id: sentMessage.id._serialized ?? "",
-                                source: sentMessage.deviceType ?? "",
-                                status: "delivered",
-                                text: {
-                                    body: part
-                                },
-                                timestamp: sentMessage.timestamp ?? 0,
-                                type: 'text',
-                                ack: sentMessage.ack ?? 0,
-                            };
+                        // Save the message to Firebase
+                        const sentMessageData = {
+                            chat_id: sentMessage.from,
+                            from: sentMessage.from ?? "",
+                            from_me: true,
+                            id: sentMessage.id._serialized ?? "",
+                            source: sentMessage.deviceType ?? "",
+                            status: "delivered",
+                            text: {
+                                body: part
+                            },
+                            timestamp: sentMessage.timestamp ?? 0,
+                            type: 'text',
+                            ack: sentMessage.ack ?? 0,
+                        };
 
-                            const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+                        const messageDoc = messagesRef.doc(sentMessage.id._serialized);
 
-                            await messageDoc.set(sentMessageData, { merge: true });
-                            if (check.includes('patience')) {
-                                //await addtagbookedGHL(contactID, 'stop bot');
-                            } 
-                            if(check.includes('get back to you as soon as possible')){
-                                console.log('check includes');
-                            
-                               await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
-                            }
+                        await messageDoc.set(sentMessageData, { merge: true });
+                        if (check.includes('patience')) {
+                            //await addtagbookedGHL(contactID, 'stop bot');
+                        } 
+                        if(check.includes('get back to you as soon as possible')){
+                            console.log('check includes');
+                        
+                           await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                         }
                     }
+                }
+            }
+                  
                     console.log('Response sent.');
                     userState.set(sender.to, steps.START);
                     break;
@@ -629,15 +639,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     break;
             }
 
-            // Handle task-related commands
-            if (messageBody.toLowerCase().startsWith('add task:')) {
-                const task = messageBody.slice(9).trim();
-                const response = await addTask(sender.to, task);
-                await client.sendMessage(msg.from, response);
-            } else if (messageBody.toLowerCase() === 'list tasks') {
-                const tasks = await listTasks(sender.to);
-                await client.sendMessage(msg.from, tasks);
-            }
+           
 
         return('All messages processed');
     } catch (e) {
