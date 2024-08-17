@@ -14,6 +14,7 @@ const { Client } = require('whatsapp-web.js');
 const util = require('util');
 const moment = require('moment-timezone');
 const fs = require('fs');
+const cron = require('node-cron');
 
 const { v4: uuidv4 } = require('uuid');
 
@@ -230,6 +231,9 @@ async function handleNewMessagesJuta2(client, msg, botName) {
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring);
 
+        // Set up the daily report schedule
+        scheduleDailyReport(client, idSubstring);
+
         //const receivedMessages = req.body.messages;
             
 
@@ -352,6 +356,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 businessId: null,
                 phone: extractedNumber,
                 tags: firebaseTags,
+                createdAt: admin.firestore.Timestamp.now(),
                 chat: {
                     contact_id: extractedNumber,
                     id: msg.from,
@@ -529,9 +534,9 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     var context = "";
 
                     query = `${messageBody} user_name: ${contactName} `;
+                 
                     
-                    
-                    answer= await handleOpenAIAssistant(query,threadID);
+                    answer= await handleOpenAIAssistant(query,threadID,firebaseTags);
                     parts = answer.split(/\s*\|\|\s*/);
                     
                     for (let i = 0; i < parts.length; i++) {
@@ -775,6 +780,40 @@ async function callWebhook(webhook,senderText,thread) {
  return responseData;
 }
 
+// Add this function to count contacts created today
+async function countContactsCreatedToday(idSubstring) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+    const snapshot = await contactsRef
+        .where('createdAt', '>=', today)
+        .get();
+
+    return snapshot.size;
+}
+
+// Add this function to send the daily report
+async function sendDailyContactReport(client, idSubstring) {
+    const count = await countContactsCreatedToday(idSubstring);
+    const message = `Daily Report: ${count} new leads(s) today.`;
+    
+    // Replace with the actual group chat ID where you want to send the report
+    const groupChatId = '120363178065670386@g.us';
+    
+    await client.sendMessage(groupChatId, message);
+}
+
+// Schedule the daily report
+function scheduleDailyReport(client, idSubstring) {
+    // Schedule for 9 PM Kuala Lumpur time
+    cron.schedule('0 21 * * *', () => {
+        sendDailyContactReport(client, idSubstring);
+    }, {
+        timezone: "Asia/Kuala_Lumpur"
+    });
+}
+
 async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
     try {
         // Check if phoneNumber is defined
@@ -929,9 +968,13 @@ async function handleToolCalls(toolCalls) {
 
 // Modify the handleOpenAIAssistant function to include the new tool
 // Modify the handleOpenAIAssistant function to include the new tool
-async function handleOpenAIAssistant(message, threadID) {
+async function handleOpenAIAssistant(message, threadID,tags) {
     console.log(ghlConfig.assistantId);
-    const assistantId = ghlConfig.assistantId;
+    let assistantId = ghlConfig.assistantId;
+    if(tags !== undefined && tags.includes('team')){ 
+        assistantId = ghlConfig.assistantIdTeam;
+    }
+   
     await addMessage(threadID, message);
     
     const tools = [
