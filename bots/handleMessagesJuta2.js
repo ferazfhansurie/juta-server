@@ -1259,7 +1259,23 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
               });
             }
             break;
-  
+        case 'getContactsWithTag':
+          try {
+            console.log('Getting contacts with tag...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const contactsWithTag = await getContactsWithTag(idSubstring, args.tag);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ contactsWithTag }),
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for getContactsWithTag:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
         case 'addTask':
           try {
             console.log('Adding task...');
