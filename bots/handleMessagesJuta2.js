@@ -751,7 +751,26 @@ function formatPhoneNumber(phoneNumber) {
       });
     }
   }
+  async function listContactsWithTag(idSubstring, tag, limit = 10) {
+    try {
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      const snapshot = await contactsRef
+        .where('tags', 'array-contains', tag)
+        .limit(limit)
+        .get();
   
+      const contacts = snapshot.docs.map(doc => ({
+        phoneNumber: doc.id,
+        contactName: doc.data().contactName,
+        tags: doc.data().tags
+      }));
+  
+      return JSON.stringify(contacts);
+    } catch (error) {
+      console.error('Error listing contacts with tag:', error);
+      return JSON.stringify({ error: 'Failed to list contacts with tag' });
+    }
+  }
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
     let messageBody = msg.body;
     let audioData = null;
@@ -771,7 +790,6 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
         from: msg.from ?? "",
         from_me: msg.fromMe ?? false,
         id: msg.id._serialized ?? "",
-        source: chat.deviceType ?? "",
         status: "delivered",
         text: {
             body: messageBody ?? ""
@@ -1126,6 +1144,23 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       switch (toolCall.function.name) {
+        case 'listContactsWithTag':
+        try {
+          console.log('Listing contacts with tag...');
+          const args = JSON.parse(toolCall.function.arguments);
+          const result = await listContactsWithTag(idSubstring, args.tag, args.limit);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: result,
+          });
+        } catch (error) {
+          console.error('Error in handleToolCalls for listContactsWithTag:', error);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: error.message }),
+          });
+        }
+        break;
         case 'sendMessage':
             try {
               console.log('Sending message...');
@@ -1224,23 +1259,7 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
               });
             }
             break;
-        case 'getContactsWithTag':
-          try {
-            console.log('Getting contacts with tag...');
-            const args = JSON.parse(toolCall.function.arguments);
-            const contactsWithTag = await getContactsWithTag(args.idSubstring, args.tag);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify({ contactsWithTag }),
-            });
-          } catch (error) {
-            console.error('Error in handleToolCalls for getContactsWithTag:', error);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify({ error: error.message }),
-            });
-          }
-          break;
+  
         case 'addTask':
           try {
             console.log('Adding task...');
@@ -1345,6 +1364,27 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "listContactsWithTag",
+              description: "List contacts that have a specific tag",
+              parameters: {
+                type: "object",
+                properties: {
+                  tag: { 
+                    type: "string",
+                    description: "The tag to search for" 
+                  },
+                  limit: {
+                    type: "number",
+                    description: "Maximum number of contacts to return (default 10)"
+                  }
+                },
+                required: ["tag"],
+              },
+            },
+          },
         {
             type: "function",
             function: {
