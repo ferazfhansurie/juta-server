@@ -740,9 +740,9 @@ function formatPhoneNumber(phoneNumber) {
         timestamp: sent.timestamp,
         type: 'text',
       };
-  
+      const id = '+'+formattedNumber;
       // Add the message to Firebase
-      await addMessagetoFirebase(messageData, idSubstring, formattedNumber);
+      await addMessagetoFirebase(messageData, idSubstring, id);
       // Prepare the response
       const response = {
         status: 'success',
