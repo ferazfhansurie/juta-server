@@ -706,7 +706,7 @@ function formatPhoneNumber(phoneNumber) {
     
     return cleaned;
   }
-  async function sendMessage(client, phoneNumber, message) {
+  async function sendMessage(client, phoneNumber, message, idSubstring) {
     try {
       // Format the phone number
       const formattedNumber = formatPhoneNumber(phoneNumber);
@@ -716,7 +716,23 @@ function formatPhoneNumber(phoneNumber) {
   
       // Send the message
       const sent = await client.sendMessage(whatsappId, message);
+      // Prepare the messageData for Firebase
+      const messageData = {
+        chat_id: whatsappId,
+        from: client.info.wid._serialized, // Assuming this is how to get the sender's ID
+        from_me: true,
+        id: sent.id._serialized,
+        source: "web", // or whatever source is appropriate
+        status: "sent",
+        text: {
+          body: message
+        },
+        timestamp: sent.timestamp,
+        type: 'text',
+      };
   
+      // Add the message to Firebase
+      await addMessagetoFirebase(messageData, idSubstring, formattedNumber);
       // Prepare the response
       const response = {
         status: 'success',
@@ -724,7 +740,7 @@ function formatPhoneNumber(phoneNumber) {
         messageId: sent.id._serialized,
         timestamp: sent.timestamp,
       };
-  
+
       return JSON.stringify(response);
     } catch (error) {
       console.error('Error sending message:', error);
@@ -1114,7 +1130,7 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
             try {
               console.log('Sending message...');
               const args = JSON.parse(toolCall.function.arguments);
-              const result = await sendMessage(client,args.phoneNumber, args.message);
+              const result = await sendMessage(client,args.phoneNumber, args.message,idSubstring);
               toolOutputs.push({
                 tool_call_id: toolCall.id,
                 output: result,
