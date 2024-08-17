@@ -1095,7 +1095,7 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
             try {
               console.log('Sending message...');
               const args = JSON.parse(toolCall.function.arguments);
-              const result = await sendMessage(args.phoneNumber, args.message);
+              const result = await sendMessage(client,args.phoneNumber, args.message);
               toolOutputs.push({
                 tool_call_id: toolCall.id,
                 output: result,
