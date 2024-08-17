@@ -1065,6 +1065,23 @@ async function handleToolCalls(toolCalls,idSubstring) {
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       switch (toolCall.function.name) {
+        case 'searchWeb':
+            try {
+              console.log('Searching the web...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const searchResults = await searchWeb(args.query);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: searchResults,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for searchWeb:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
         case 'createGoogleCalendarEvent':
           try {
             console.log('Parsing arguments for createGoogleCalendarEvent...');
@@ -1250,6 +1267,23 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "searchWeb",
+              description: "Search the web for information",
+              parameters: {
+                type: "object",
+                properties: {
+                  query: { 
+                    type: "string",
+                    description: "The search query" 
+                  },
+                },
+                required: ["query"],
+              },
+            },
+          },
         {
             type: "function",
             function: {
@@ -1445,7 +1479,30 @@ async function saveThreadIDGHL(contactID,threadID){
         console.error(error);
     }
 }
-
+async function searchWeb(query) {
+    try {
+      const response = await axios.post('https://google.serper.dev/search', {
+        q: query
+      }, {
+        headers: {
+          'X-API-KEY': process.env.SERPER_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      // Extract and format the search results
+      const results = response.data.organic.slice(0, 3).map(result => ({
+        title: result.title,
+        snippet: result.snippet,
+        link: result.link
+      }));
+  
+      return JSON.stringify(results);
+    } catch (error) {
+      console.error('Error searching the web:', error);
+      return JSON.stringify({ error: 'Failed to search the web' });
+    }
+  }
 async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
     
     // Construct the Firestore document path
