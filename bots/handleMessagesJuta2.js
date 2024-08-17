@@ -690,7 +690,33 @@ async function handleNewMessagesJuta2(client, msg, botName) {
         return(e.message);
     }
 }
-
+async function sendMessage(phoneNumber, message) {
+    try {
+      // Ensure the phone number is in the correct format
+      const formattedNumber = phoneNumber.includes('@c.us') ? phoneNumber : `${phoneNumber}@c.us`;
+  
+      // Send the message
+      const sent = await client.sendMessage(formattedNumber, message);
+  
+      // Prepare the response
+      const response = {
+        status: 'success',
+        message: 'Message sent successfully',
+        messageId: sent.id._serialized,
+        timestamp: sent.timestamp,
+      };
+  
+      return JSON.stringify(response);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      return JSON.stringify({ 
+        status: 'error',
+        error: 'Failed to send message',
+        details: error.message 
+      });
+    }
+  }
+  
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
     let messageBody = msg.body;
     let audioData = null;
@@ -1065,6 +1091,23 @@ async function handleToolCalls(toolCalls,idSubstring) {
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       switch (toolCall.function.name) {
+        case 'sendMessage':
+            try {
+              console.log('Sending message...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const result = await sendMessage(args.phoneNumber, args.message);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: result,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for sendMessage:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
         case 'searchWeb':
             try {
               console.log('Searching the web...');
@@ -1267,6 +1310,27 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "sendMessage",
+              description: "Send a WhatsApp message to a specified phone number",
+              parameters: {
+                type: "object",
+                properties: {
+                  phoneNumber: { 
+                    type: "string",
+                    description: "The phone number to send the message to (with country code, e.g., +1234567890)" 
+                  },
+                  message: {
+                    type: "string",
+                    description: "The message to send"
+                  }
+                },
+                required: ["phoneNumber", "message"],
+              },
+            },
+          },
         {
             type: "function",
             function: {
