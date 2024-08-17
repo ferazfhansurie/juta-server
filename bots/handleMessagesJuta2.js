@@ -1231,6 +1231,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
   }
   async function searchContacts(idSubstring, searchTerm) {
     try {
+      console.log(`Searching for contacts with term: "${searchTerm}"`);
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
       const searchTermLower = searchTerm.toLowerCase();
   
@@ -1240,11 +1241,13 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
       const matchingContacts = snapshot.docs
         .filter(doc => {
           const data = doc.data();
-          return (
-            (data.contactName && data.contactName.toLowerCase().includes(searchTermLower)) ||
-            (data.phone && data.phone.includes(searchTerm)) ||
-            (data.tags && data.tags.some(tag => tag.toLowerCase().includes(searchTermLower)))
-          );
+          console.log(`Checking contact: ${JSON.stringify(data)}`);
+          const nameMatch = data.contactName && data.contactName.toLowerCase().includes(searchTermLower);
+          const phoneMatch = data.phone && data.phone.includes(searchTerm);
+          const tagMatch = data.tags && data.tags.some(tag => tag.toLowerCase().includes(searchTermLower));
+          const match = nameMatch || phoneMatch || tagMatch;
+          console.log(`Match result for ${data.contactName}: ${match}`);
+          return match;
         })
         .map(doc => ({
           phoneNumber: doc.id,
@@ -1252,6 +1255,8 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
           phone: doc.data().phone || '',
           tags: doc.data().tags || []
         }));
+  
+      console.log(`Found ${matchingContacts.length} matching contacts`);
   
       if (matchingContacts.length === 0) {
         return JSON.stringify({ message: 'No matching contacts found.' });
@@ -1308,7 +1313,7 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
   try {
     console.log('Searching contacts...');
     const args = JSON.parse(toolCall.function.arguments);
-    const searchResults = await searchContacts(idSubstring, args.searchTerm, args.limit);
+    const searchResults = await searchContacts(idSubstring, args.searchTerm);
     toolOutputs.push({
       tool_call_id: toolCall.id,
       output: searchResults,
@@ -1605,10 +1610,6 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                   searchTerm: { 
                     type: "string", 
                     description: "Term to search for in contact names, phone numbers, or tags" 
-                  },
-                  limit: { 
-                    type: "number", 
-                    description: "Maximum number of results to return (default 10)" 
                   }
                 },
                 required: ["idSubstring", "searchTerm"],
