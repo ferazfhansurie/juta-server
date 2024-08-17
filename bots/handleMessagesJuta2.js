@@ -317,16 +317,25 @@ async function getTotalContacts(idSubstring) {
   async function listAssignedContacts(idSubstring, assigneeName, limit = 10) {
     try {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
-      const snapshot = await contactsRef
-        .where('tags', 'array-contains', assigneeName)
-        .limit(limit)
-        .get();
+      const snapshot = await contactsRef.get();
   
-      const contacts = snapshot.docs.map(doc => ({
-        phoneNumber: doc.id,
-        contactName: doc.data().contactName,
-        tags: doc.data().tags
-      }));
+      const possibleNames = [
+        assigneeName.toLowerCase(),
+        assigneeName.charAt(0).toUpperCase() + assigneeName.slice(1).toLowerCase(),
+        assigneeName.toUpperCase()
+      ];
+  
+      const contacts = snapshot.docs
+        .filter(doc => {
+          const tags = (doc.data().tags || []).map(t => t.toLowerCase());
+          return possibleNames.some(name => tags.includes(name.toLowerCase()));
+        })
+        .slice(0, limit)
+        .map(doc => ({
+          phoneNumber: doc.id,
+          contactName: doc.data().contactName,
+          tags: doc.data().tags
+        }));
   
       return JSON.stringify(contacts);
     } catch (error) {
