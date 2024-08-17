@@ -690,13 +690,32 @@ async function handleNewMessagesJuta2(client, msg, botName) {
         return(e.message);
     }
 }
-async function sendMessage(client,phoneNumber, message) {
+function formatPhoneNumber(phoneNumber) {
+    // Remove all non-digit characters
+    let cleaned = phoneNumber.replace(/\D/g, '');
+    
+    // Ensure the number starts with a '+'
+    if (!cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned;
+    }
+    
+    // If the number doesn't have a country code (assuming Malaysian numbers), add '+60'
+    if (cleaned.length <= 11) {
+      cleaned = '+60' + cleaned.slice(cleaned.startsWith('+') ? 1 : 0);
+    }
+    
+    return cleaned;
+  }
+  async function sendMessage(client, phoneNumber, message) {
     try {
-      // Ensure the phone number is in the correct format
-      const formattedNumber = phoneNumber.includes('@c.us') ? phoneNumber : `${phoneNumber}@c.us`;
+      // Format the phone number
+      const formattedNumber = formatPhoneNumber(phoneNumber);
+  
+      // Ensure the number is in the correct format for WhatsApp
+      const whatsappNumber = formattedNumber.includes('@c.us') ? formattedNumber : `${formattedNumber}@c.us`;
   
       // Send the message
-      const sent = await client.sendMessage(formattedNumber, message);
+      const sent = await client.sendMessage(whatsappNumber, message);
   
       // Prepare the response
       const response = {
