@@ -313,7 +313,26 @@ async function getTotalContacts(idSubstring) {
       return 0;
     }
   }
-
+  async function countContactsAddedToday(idSubstring) {
+    try {
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      
+      // Get today's date at midnight in the local timezone (assuming Asia/Kuala_Lumpur)
+      const today = moment().tz('Asia/Kuala_Lumpur').startOf('day').toDate();
+      
+      const snapshot = await contactsRef
+        .where('createdAt', '>=', today)
+        .get();
+  
+      return snapshot.size;
+    } catch (error) {
+      console.error('Error counting contacts added today:', error);
+      return 0;
+    }
+  }
+  
+  // Add this to your existing imports at the top of the file
+  const moment = require('moment-timezone');
   async function listAssignedContacts(idSubstring, assigneeName, limit = 10) {
     try {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
@@ -1200,6 +1219,22 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       switch (toolCall.function.name) {
+        case 'countContactsAddedToday':
+  try {
+    console.log('Counting contacts added today...');
+    const count = await countContactsAddedToday(idSubstring);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: JSON.stringify({ count }),
+    });
+  } catch (error) {
+    console.error('Error in handleToolCalls for countContactsAddedToday:', error);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: JSON.stringify({ error: error.message }),
+    });
+  }
+  break;
         case 'listAssignedContacts':
             try {
               console.log('Listing assigned contacts...');
@@ -1436,6 +1471,20 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "countContactsAddedToday",
+              description: "Count the number of contacts added today",
+              parameters: {
+                type: "object",
+                properties: {
+                  idSubstring: { type: "string", description: "ID substring for the company" },
+                },
+                required: ["idSubstring"],
+              },
+            },
+          },
         {
             type: "function",
             function: {
