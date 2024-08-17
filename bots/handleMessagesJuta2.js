@@ -44,10 +44,8 @@ async function addTask(userId, taskString) {
     const newTask = {
         text: taskString,
         status: 'In Progress',
-        // Remove createdAt from here
     };
     
-    // Use a transaction to ensure atomicity
     await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(taskRef);
         let tasks = [];
@@ -58,37 +56,37 @@ async function addTask(userId, taskString) {
         
         transaction.set(taskRef, { 
             tasks: tasks,
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp() // Add timestamp here
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
     });
 
-    return `Task added: ${taskString}`;
+    return JSON.stringify({ message: `Task added: ${taskString}` });
 }
-// Function to list tasks
+
 async function listTasks(userId) {
     const taskRef = db.collection('tasks').doc(userId);
     const doc = await taskRef.get();
     if (!doc.exists || !doc.data().tasks || doc.data().tasks.length === 0) {
-        return "You have no tasks.";
+        return JSON.stringify({ message: "You have no tasks." });
     }
-    return doc.data().tasks.map((task, index) => 
+    const tasks = doc.data().tasks.map((task, index) => 
         `${index + 1}. [${task.status}] ${task.text}`
     ).join('\n');
+    return JSON.stringify({ tasks });
 }
 
-
-// Function to update task status
 async function updateTaskStatus(userId, taskIndex, newStatus) {
     const taskRef = db.collection('tasks').doc(userId);
     const doc = await taskRef.get();
     if (!doc.exists || !doc.data().tasks || taskIndex < 0 || taskIndex >= doc.data().tasks.length) {
-        return "Invalid task number.";
+        return JSON.stringify({ message: "Invalid task number." });
     }
     const tasks = doc.data().tasks;
     tasks[taskIndex].status = newStatus;
     await taskRef.update({ tasks: tasks });
-    return `Task "${tasks[taskIndex].text}" status updated to ${newStatus}.`;
+    return JSON.stringify({ message: `Task "${tasks[taskIndex].text}" status updated to ${newStatus}.` });
 }
+
 // Function to send task reminders (only for In Progress tasks)
 async function sendTaskReminders(client) {
     const taskSnapshot = await db.collection('tasks').get();
@@ -293,6 +291,41 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
     return `/media/${uniqueFilename}`;
   }
   
+// Add this new function to fetch contact data
+async function fetchContactData(phoneNumber, idSubstring) {
+  try {
+    const contactData = await getContactDataFromDatabaseByPhone(phoneNumber, idSubstring);
+    return JSON.stringify(contactData);
+  } catch (error) {
+    console.error('Error fetching contact data:', error);
+    return JSON.stringify({ error: 'Failed to fetch contact data' });
+  }
+}
+
+// Add these new functions to fetch contact statistics
+async function getTotalContacts(idSubstring) {
+  try {
+    const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+    const snapshot = await contactsRef.count().get();
+    return snapshot.data().count;
+  } catch (error) {
+    console.error('Error fetching total contacts:', error);
+    return 0;
+  }
+}
+
+async function getContactsWithTag(idSubstring, tag) {
+  try {
+    const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+    const snapshot = await contactsRef.where('tags', 'array-contains', tag).count().get();
+    return snapshot.data().count;
+  } catch (error) {
+    console.error('Error fetching contacts with tag:', error);
+    return 0;
+  }
+}
+
+
 async function handleNewMessagesJuta2(client, msg, botName) {
     console.log('Handling new Messages '+botName);
 
@@ -600,33 +633,15 @@ async function handleNewMessagesJuta2(client, msg, botName) {
 
                 query = `${messageBody} user_name: ${contactName} `;
              
-                 // Handle task-related commands
-        if (messageBody.toLowerCase().startsWith('task:')) {
-            const task = messageBody.slice(5).trim();
-            const response = await addTask(sender.to, task);
-            await client.sendMessage(msg.from, response);
-        } else if (messageBody.toLowerCase() === 'tasks') {
-            const tasks = await listTasks(sender.to);
-            await client.sendMessage(msg.from, tasks);
-        } else if (messageBody.toLowerCase().startsWith('done:')) {
-            const taskIndex = parseInt(messageBody.slice(5).trim()) - 1;
-            const response = await updateTaskStatus(sender.to, taskIndex, 'Done');
-            await client.sendMessage(msg.from, response);
-        } else if (messageBody.toLowerCase().startsWith('progress:')) {
-            const taskIndex = parseInt(messageBody.slice(9).trim()) - 1;
-            const response = await updateTaskStatus(sender.to, taskIndex, 'In Progress');
-            await client.sendMessage(msg.from, response);
-        } else {
-            if(!(sender.to).includes('@g.us')){
-                answer= await handleOpenAIAssistant(query,threadID,firebaseTags);
+                answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring);
                 parts = answer.split(/\s*\|\|\s*/);
-                    
+                
                 for (let i = 0; i < parts.length; i++) {
                     const part = parts[i].trim();   
                     const check = part.toLowerCase();
                     if (part) {
                         const sentMessage = await client.sendMessage(msg.from, part);
-    
+
                         // Save the message to Firebase
                         const sentMessageData = {
                             chat_id: sentMessage.from,
@@ -642,9 +657,9 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                             type: 'text',
                             ack: sentMessage.ack ?? 0,
                         };
-    
+
                         const messageDoc = messagesRef.doc(sentMessage.id._serialized);
-    
+
                         await messageDoc.set(sentMessageData, { merge: true });
                         if (check.includes('patience')) {
                         } 
@@ -655,9 +670,6 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         }
                     }
                 }
-            }
-         
-        }
                   
                 console.log('Response sent.');
                 userState.set(sender.to, steps.START);
@@ -1024,8 +1036,9 @@ async function handleToolCalls(toolCalls) {
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
-      if (toolCall.function.name === 'createGoogleCalendarEvent') {
-        try {
+      switch (toolCall.function.name) {
+        case 'createGoogleCalendarEvent':
+          try {
             console.log('Parsing arguments for createGoogleCalendarEvent...');
             const args = JSON.parse(toolCall.function.arguments);
             console.log('Arguments:', args);
@@ -1046,15 +1059,119 @@ async function handleToolCalls(toolCalls) {
               output: JSON.stringify({ error: error.message }),
             });
           }      
-        } else if (toolCall.function.name === 'getTodayDate') {
-        console.log('Getting today\'s date...');
-        const todayDate = getTodayDate();
-        toolOutputs.push({
-          tool_call_id: toolCall.id,
-          output: JSON.stringify({ date: todayDate }),
-        });
-      } else {
-        console.warn(`Unknown function called: ${toolCall.function.name}`);
+          break;
+        case 'getTodayDate':
+          console.log('Getting today\'s date...');
+          const todayDate = getTodayDate();
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ date: todayDate }),
+          });
+          break;
+        case 'fetchContactData':
+          try {
+            console.log('Fetching contact data...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const contactData = await fetchContactData(args.phoneNumber, args.idSubstring);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: contactData,
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for fetchContactData:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
+        case 'getTotalContacts':
+          try {
+            console.log('Getting total contacts...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const totalContacts = await getTotalContacts(args.idSubstring);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ totalContacts }),
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for getTotalContacts:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
+        case 'getContactsWithTag':
+          try {
+            console.log('Getting contacts with tag...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const contactsWithTag = await getContactsWithTag(args.idSubstring, args.tag);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ contactsWithTag }),
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for getContactsWithTag:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
+        case 'addTask':
+          try {
+            console.log('Adding task...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const result = await addTask(args.userId, args.taskString);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: result,
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for addTask:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
+        case 'listTasks':
+          try {
+            console.log('Listing tasks...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const result = await listTasks(args.userId);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: result,
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for listTasks:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
+        case 'updateTaskStatus':
+          try {
+            console.log('Updating task status...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const result = await updateTaskStatus(args.userId, args.taskIndex, args.newStatus);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: result,
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for updateTaskStatus:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
+        default:
+          console.warn(`Unknown function called: ${toolCall.function.name}`);
       }
     }
     console.log('Finished handling tool calls');
@@ -1062,8 +1179,7 @@ async function handleToolCalls(toolCalls) {
   }
 
 // Modify the handleOpenAIAssistant function to include the new tool
-// Modify the handleOpenAIAssistant function to include the new tool
-async function handleOpenAIAssistant(message, threadID,tags) {
+async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring) {
     console.log(ghlConfig.assistantId);
     let assistantId = ghlConfig.assistantId;
     if(tags !== undefined && tags.includes('team')){ 
@@ -1098,6 +1214,95 @@ async function handleOpenAIAssistant(message, threadID,tags) {
           parameters: {
             type: "object",
             properties: {},
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "fetchContactData",
+          description: "Fetch contact data for a given phone number",
+          parameters: {
+            type: "object",
+            properties: {
+              phoneNumber: { type: "string", description: "Phone number of the contact" },
+              idSubstring: { type: "string", description: "ID substring for the company" },
+            },
+            required: ["phoneNumber", "idSubstring"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "getTotalContacts",
+          description: "Get the total number of contacts for a company",
+          parameters: {
+            type: "object",
+            properties: {
+              idSubstring: { type: "string", description: "ID substring for the company" },
+            },
+            required: ["idSubstring"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "getContactsWithTag",
+          description: "Get the number of contacts with a specific tag",
+          parameters: {
+            type: "object",
+            properties: {
+              idSubstring: { type: "string", description: "ID substring for the company" },
+              tag: { type: "string", description: "Tag to search for" },
+            },
+            required: ["idSubstring", "tag"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "addTask",
+          description: "Add a new task for a user",
+          parameters: {
+            type: "object",
+            properties: {
+              userId: { type: "string", description: "User ID (phone number)" },
+              taskString: { type: "string", description: "Task description" },
+            },
+            required: ["userId", "taskString"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "listTasks",
+          description: "List all tasks for a user",
+          parameters: {
+            type: "object",
+            properties: {
+              userId: { type: "string", description: "User ID (phone number)" },
+            },
+            required: ["userId"],
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "updateTaskStatus",
+          description: "Update the status of a task",
+          parameters: {
+            type: "object",
+            properties: {
+              userId: { type: "string", description: "User ID (phone number)" },
+              taskIndex: { type: "number", description: "Index of the task to update" },
+              newStatus: { type: "string", description: "New status for the task" },
+            },
+            required: ["userId", "taskIndex", "newStatus"],
           },
         },
       },
