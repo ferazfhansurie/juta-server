@@ -1231,55 +1231,28 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
   }
   async function tagContact(idSubstring, phoneNumber, tag) {
     try {
-      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
-      
-      // Normalize the phone number
-      const normalizedPhoneNumber = phoneNumber.replace(/\D/g, '');
-      
-      // Try to find the contact with different phone number formats
-      const querySnapshot = await contactsRef.where('phone', 'in', [
-        phoneNumber,
-        `+${normalizedPhoneNumber}`,
-        normalizedPhoneNumber,
-        `+60${normalizedPhoneNumber.slice(-9)}`,
-        `60${normalizedPhoneNumber.slice(-9)}`,
-      ]).get();
+      // Fetch contact data using the existing function
+      const contactDataJson = await fetchContactData(phoneNumber, idSubstring);
+      const contactData = JSON.parse(contactDataJson);
   
-      if (querySnapshot.empty) {
-        // If not found by phone, try searching by document ID
-        const docRef = contactsRef.doc(phoneNumber);
-        const doc = await docRef.get();
-        
-        if (!doc.exists) {
-          console.log(`No contact found for number: ${phoneNumber}`);
-          return JSON.stringify({ 
-            error: 'Contact not found', 
-            details: `No contact found for number: ${phoneNumber}. Please check the number and try again.`
-          });
-        }
-        
-        // If found by document ID, proceed with tagging
-        const currentTags = doc.data().tags || [];
-        const newTags = [...new Set([...currentTags, tag])]; // Ensure uniqueness
-        await docRef.update({ tags: newTags });
-        
+      if (contactData.error) {
+        console.log(`No contact found for number: ${phoneNumber}`);
         return JSON.stringify({ 
-          success: true, 
-          message: `Contact ${doc.id} tagged with "${tag}"`,
-          updatedTags: newTags
+          error: 'Contact not found', 
+          details: `No contact found for number: ${phoneNumber}. Please check the number and try again.`
         });
       }
   
-      // If found by phone number query, proceed with tagging
-      const doc = querySnapshot.docs[0];
-      const currentTags = doc.data().tags || [];
+      // Contact found, proceed with tagging
+      const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(phoneNumber);
+      const currentTags = contactData.tags || [];
       const newTags = [...new Set([...currentTags, tag])]; // Ensure uniqueness
   
-      await doc.ref.update({ tags: newTags });
+      await contactRef.update({ tags: newTags });
   
       return JSON.stringify({ 
         success: true, 
-        message: `Contact ${doc.id} tagged with "${tag}"`,
+        message: `Contact ${phoneNumber} tagged with "${tag}"`,
         updatedTags: newTags
       });
     } catch (error) {
@@ -1298,7 +1271,7 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
   try {
     console.log('Tagging contact...');
     const args = JSON.parse(toolCall.function.arguments);
-    const result = await tagContact(args.idSubstring, args.phoneNumber, args.tag);
+    const result = await tagContact(idSubstring, args.phoneNumber, args.tag);
     toolOutputs.push({
       tool_call_id: toolCall.id,
       output: result,
