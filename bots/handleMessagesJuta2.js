@@ -39,29 +39,46 @@ const userState = new Map();
 const userTasks = new Map();
 
 // Function to add a task
-async function addTask(userId, task) {
+async function addTask(userId, taskString) {
     if (!userTasks.has(userId)) {
         userTasks.set(userId, []);
     }
+    const task = {
+        text: taskString,
+        status: 'In Progress',
+        createdAt: new Date()
+    };
     userTasks.get(userId).push(task);
-    return `Task added: ${task}`;
+    return `Task added: ${taskString}`;
 }
 
 // Function to list tasks
 async function listTasks(userId) {
     if (!userTasks.has(userId) || userTasks.get(userId).length === 0) {
-        return "You have no tasks for today.";
+        return "You have no tasks.";
     }
-    const tasks = userTasks.get(userId);
-    return "Your tasks for today:\n" + tasks.map((task, index) => `${index + 1}. ${task}`).join('\n');
+    return userTasks.get(userId).map((task, index) => 
+        `${index + 1}. [${task.status}] ${task.text}`
+    ).join('\n');
 }
 
-// Function to send task reminders
+// Function to update task status
+async function updateTaskStatus(userId, taskIndex, newStatus) {
+    if (!userTasks.has(userId) || taskIndex < 0 || taskIndex >= userTasks.get(userId).length) {
+        return "Invalid task number.";
+    }
+    userTasks.get(userId)[taskIndex].status = newStatus;
+    return `Task "${userTasks.get(userId)[taskIndex].text}" status updated to ${newStatus}.`;
+}
+
+// Function to send task reminders (only for In Progress tasks)
 async function sendTaskReminders(client) {
     for (const [userId, tasks] of userTasks.entries()) {
-        if (tasks.length > 0) {
-            const message = await listTasks(userId);
-            await client.sendMessage(userId, message);
+        const inProgressTasks = tasks.filter(task => task.status === 'In Progress');
+        if (inProgressTasks.length > 0) {
+            const reminderMessage = "Reminder of your in-progress tasks:\n" + 
+                inProgressTasks.map((task, index) => `${index + 1}. ${task.text}`).join('\n');
+            await client.sendMessage(userId, reminderMessage);
         }
     }
 }
@@ -580,14 +597,22 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                     query = `${messageBody} user_name: ${contactName} `;
                  
                      // Handle task-related commands
-            if (messageBody.toLowerCase().startsWith('add task:')) {
-                const task = messageBody.slice(9).trim();
+            if (messageBody.toLowerCase().startsWith('task:')) {
+                const task = messageBody.slice(5).trim();
                 const response = await addTask(sender.to, task);
                 await client.sendMessage(msg.from, response);
-            } else if (messageBody.toLowerCase() === 'list tasks') {
+            } else if (messageBody.toLowerCase() === 'tasks') {
                 const tasks = await listTasks(sender.to);
                 await client.sendMessage(msg.from, tasks);
-            }else{
+            } else if (messageBody.toLowerCase().startsWith('done:')) {
+                const taskIndex = parseInt(messageBody.slice(5).trim()) - 1;
+                const response = await updateTaskStatus(sender.to, taskIndex, 'Done');
+                await client.sendMessage(msg.from, response);
+            } else if (messageBody.toLowerCase().startsWith('progress:')) {
+                const taskIndex = parseInt(messageBody.slice(9).trim()) - 1;
+                const response = await updateTaskStatus(sender.to, taskIndex, 'In Progress');
+                await client.sendMessage(msg.from, response);
+            } else {
                 answer= await handleOpenAIAssistant(query,threadID,firebaseTags);
                 parts = answer.split(/\s*\|\|\s*/);
                 
