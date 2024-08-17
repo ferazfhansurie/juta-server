@@ -701,38 +701,51 @@ async function handleNewMessagesJuta2(client, msg, botName) {
     }
 }
 function formatPhoneNumber(phoneNumber) {
-    // Remove all non-digit characters
-    let cleaned = phoneNumber.replace(/\D/g, '');
-    
-    // Remove the leading '60' if present
-    if (cleaned.startsWith('60')) {
-      cleaned = cleaned.slice(2);
-    }
-    
-    // Ensure the number starts with '60'
-    if (!cleaned.startsWith('60')) {
-      cleaned = '60' + cleaned;
-    }
-    
-    return cleaned;
-  }
-  async function sendMessage(client, phoneNumber, message, idSubstring) {
-    try {
-      // Format the phone number
-      const formattedNumber = formatPhoneNumber(phoneNumber);
+  console.log('Formatting phone number:', phoneNumber);
+  // Remove all non-digit characters
+  let cleaned = phoneNumber.replace(/\D/g, '');
   
-      // Create the WhatsApp ID
-      const whatsappId = `${formattedNumber}@c.us`;
+  // Remove the leading '60' if present
+  if (cleaned.startsWith('60')) {
+    cleaned = cleaned.slice(2);
+  }
+  
+  // Ensure the number starts with '+60'
+  cleaned = '+60' + cleaned;
+  
+  console.log('Formatted phone number:', cleaned);
+  return cleaned;
+}
+
+async function sendMessage(client, phoneNumber, message, idSubstring) {
+    console.log('Sending message to:', phoneNumber);
+    console.log('Message content:', message);
+    console.log('idSubstring:', idSubstring);
+  
+    try {
+      // Format the phone number for WhatsApp
+      const formattedNumberForWhatsApp = formatPhoneNumber(phoneNumber).slice(1) + '@c.us'; // Remove '+' and add '@c.us'
+      console.log('Formatted number for WhatsApp:', formattedNumberForWhatsApp);
+  
+      // Format the phone number for Firebase
+      const formattedNumberForFirebase = formatPhoneNumber(phoneNumber);
+      console.log('Formatted number for Firebase:', formattedNumberForFirebase);
+  
+      if (!formattedNumberForWhatsApp || !formattedNumberForFirebase) {
+        throw new Error('Invalid phone number');
+      }
   
       // Send the message
-      const sent = await client.sendMessage(whatsappId, message);
+      const sent = await client.sendMessage(formattedNumberForWhatsApp, message);
+      console.log('Message sent:', sent);
+  
       // Prepare the messageData for Firebase
       const messageData = {
-        chat_id: whatsappId,
-        from: client.info.wid._serialized, // Assuming this is how to get the sender's ID
+        chat_id: formattedNumberForWhatsApp,
+        from: client.info.wid._serialized,
         from_me: true,
         id: sent.id._serialized,
-        source: "web", // or whatever source is appropriate
+        source: "web",
         status: "sent",
         text: {
           body: message
@@ -740,23 +753,25 @@ function formatPhoneNumber(phoneNumber) {
         timestamp: sent.timestamp,
         type: 'text',
       };
-      const id = '+'+formattedNumber;
+      console.log('Message data:', messageData);
+  
       // Add the message to Firebase
-      await addMessagetoFirebase(messageData, idSubstring, id);
+      await addMessagetoFirebase(messageData, idSubstring, formattedNumberForFirebase);
+  
       // Prepare the response
       const response = {
         status: 'success',
-        message: 'Message sent successfully',
+        message: 'Message sent successfully and added to Firebase',
         messageId: sent.id._serialized,
         timestamp: sent.timestamp,
       };
-
+  
       return JSON.stringify(response);
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error in sendMessage:', error);
       return JSON.stringify({ 
         status: 'error',
-        error: 'Failed to send message',
+        error: 'Failed to send message or add to Firebase',
         details: error.message 
       });
     }
@@ -782,6 +797,19 @@ function formatPhoneNumber(phoneNumber) {
     }
   }
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
+    console.log('Adding message to Firebase');
+    console.log('idSubstring:', idSubstring);
+    console.log('extractedNumber:', extractedNumber);
+
+    if (!extractedNumber || !extractedNumber.startsWith('+60')) {
+        console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
+        return;
+    }
+
+    if (!idSubstring) {
+        console.error('Invalid idSubstring for Firebase document path');
+        return;
+    }
     let messageBody = msg.body;
     let audioData = null;
     let type = '';
