@@ -756,7 +756,7 @@ async function sendMessage(client, phoneNumber, message, idSubstring) {
       console.log('Message data:', messageData);
   
       // Add the message to Firebase
-      await addMessagetoFirebase(messageData, idSubstring, formattedNumberForFirebase);
+     
   
       // Prepare the response
       const response = {
@@ -779,16 +779,19 @@ async function sendMessage(client, phoneNumber, message, idSubstring) {
   async function listContactsWithTag(idSubstring, tag, limit = 10) {
     try {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
-      const snapshot = await contactsRef
-        .where('tags', 'array-contains', tag)
-        .limit(limit)
-        .get();
+      const snapshot = await contactsRef.get();
   
-      const contacts = snapshot.docs.map(doc => ({
-        phoneNumber: doc.id,
-        contactName: doc.data().contactName,
-        tags: doc.data().tags
-      }));
+      const contacts = snapshot.docs
+        .filter(doc => {
+          const tags = doc.data().tags || [];
+          return tags.some(t => t.toLowerCase() === tag.toLowerCase());
+        })
+        .slice(0, limit)
+        .map(doc => ({
+          phoneNumber: doc.id,
+          contactName: doc.data().contactName,
+          tags: doc.data().tags
+        }));
   
       return JSON.stringify(contacts);
     } catch (error) {
