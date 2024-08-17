@@ -633,7 +633,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
 
                 query = `${messageBody} user_name: ${contactName} `;
              if(!(sender.to.includes('@g.us')) || msg.body.toLowerCase().startsWith('@juta')){
-                answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring);
+                answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client);
                 parts = answer.split(/\s*\|\|\s*/);
                 
                 for (let i = 0; i < parts.length; i++) {
@@ -690,7 +690,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
         return(e.message);
     }
 }
-async function sendMessage(phoneNumber, message) {
+async function sendMessage(client,phoneNumber, message) {
     try {
       // Ensure the phone number is in the correct format
       const formattedNumber = phoneNumber.includes('@c.us') ? phoneNumber : `${phoneNumber}@c.us`;
@@ -1006,7 +1006,7 @@ async function checkingStatus(threadId, runId) {
 }
 
 // Modify the waitForCompletion function to handle tool calls
-async function waitForCompletion(threadId, runId,idSubstring) {
+async function waitForCompletion(threadId, runId,idSubstring,client) {
     return new Promise((resolve, reject) => {
       const maxAttempts = 30;
       let attempts = 0;
@@ -1023,11 +1023,11 @@ async function waitForCompletion(threadId, runId,idSubstring) {
             clearInterval(pollingInterval);
             console.log('Run requires action, handling tool calls...');
             const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
-            const toolOutputs = await handleToolCalls(toolCalls,idSubstring);
+            const toolOutputs = await handleToolCalls(toolCalls,idSubstring,client);
             console.log('Submitting tool outputs...');
             await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
             console.log('Tool outputs submitted, restarting wait for completion...');
-            resolve(await waitForCompletion(threadId, runId,idSubstring));
+            resolve(await waitForCompletion(threadId, runId,idSubstring,client));
           } else if (attempts >= maxAttempts) {
             clearInterval(pollingInterval);
             reject(new Error("Timeout: Assistant did not complete in time"));
@@ -1042,7 +1042,7 @@ async function waitForCompletion(threadId, runId,idSubstring) {
 
 
 // Modify the runAssistant function to handle tool calls
-async function runAssistant(assistantID, threadId, tools,idSubstring) {
+async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
       threadId,
@@ -1054,7 +1054,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring) {
   
     const runId = response.id;
   
-    const answer = await waitForCompletion(threadId, runId,idSubstring);
+    const answer = await waitForCompletion(threadId, runId,idSubstring,client);
     return answer;
   }
   async function fetchMultipleContactsData(phoneNumbers, idSubstring) {
@@ -1085,7 +1085,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring) {
     }
   }
   // Modify the handleToolCalls function to include the new tool
-async function handleToolCalls(toolCalls,idSubstring) {
+async function handleToolCalls(toolCalls,idSubstring,client) {
     console.log('Handling tool calls...');
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
@@ -1300,7 +1300,7 @@ async function handleToolCalls(toolCalls,idSubstring) {
   }
 
 // Modify the handleOpenAIAssistant function to include the new tool
-async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring) {
+async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring,client) {
     console.log(ghlConfig.assistantId);
     let assistantId = ghlConfig.assistantId;
     if(tags !== undefined && tags.includes('team')){ 
@@ -1499,7 +1499,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
       },
     ];
   
-    const answer = await runAssistant(assistantId, threadID, tools,idSubstring);
+    const answer = await runAssistant(assistantId, threadID, tools,idSubstring,client);
     return answer;
   }
 
