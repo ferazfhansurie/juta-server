@@ -44,11 +44,24 @@ async function addTask(userId, taskString) {
     const newTask = {
         text: taskString,
         status: 'In Progress',
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
+        // Remove createdAt from here
     };
-    await taskRef.set({
-        tasks: admin.firestore.FieldValue.arrayUnion(newTask)
-    }, { merge: true });
+    
+    // Use a transaction to ensure atomicity
+    await db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(taskRef);
+        let tasks = [];
+        if (doc.exists) {
+            tasks = doc.data().tasks || [];
+        }
+        tasks.push(newTask);
+        
+        transaction.set(taskRef, { 
+            tasks: tasks,
+            lastUpdated: admin.firestore.FieldValue.serverTimestamp() // Add timestamp here
+        }, { merge: true });
+    });
+
     return `Task added: ${taskString}`;
 }
 // Function to list tasks
@@ -62,6 +75,7 @@ async function listTasks(userId) {
         `${index + 1}. [${task.status}] ${task.text}`
     ).join('\n');
 }
+
 
 // Function to update task status
 async function updateTaskStatus(userId, taskIndex, newStatus) {
