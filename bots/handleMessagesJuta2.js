@@ -304,15 +304,15 @@ async function fetchContactData(phoneNumber, idSubstring) {
 
 // Add these new functions to fetch contact statistics
 async function getTotalContacts(idSubstring) {
-  try {
-    const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
-    const snapshot = await contactsRef.count().get();
-    return snapshot.data().count;
-  } catch (error) {
-    console.error('Error fetching total contacts:', error);
-    return 0;
+    try {
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      const snapshot = await contactsRef.count().get();
+      return snapshot.data().count;
+    } catch (error) {
+      console.error('Error fetching total contacts:', error);
+      return 0;
+    }
   }
-}
 
 async function getContactsWithTag(idSubstring, tag) {
   try {
@@ -632,7 +632,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                 var context = "";
 
                 query = `${messageBody} user_name: ${contactName} `;
-             
+             if(!(sender.to.includes('@g.us')) || msg.body.toLowerCase().startsWith('@juta')){
                 answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring);
                 parts = answer.split(/\s*\|\|\s*/);
                 
@@ -670,6 +670,8 @@ async function handleNewMessagesJuta2(client, msg, botName) {
                         }
                     }
                 }
+             }
+                
                   
                 console.log('Response sent.');
                 userState.set(sender.to, steps.START);
@@ -1085,23 +1087,22 @@ async function handleToolCalls(toolCalls) {
             });
           }
           break;
-        case 'getTotalContacts':
-          try {
-            console.log('Getting total contacts...');
-            const args = JSON.parse(toolCall.function.arguments);
-            const totalContacts = await getTotalContacts(args.idSubstring);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify({ totalContacts }),
-            });
-          } catch (error) {
-            console.error('Error in handleToolCalls for getTotalContacts:', error);
-            toolOutputs.push({
-              tool_call_id: toolCall.id,
-              output: JSON.stringify({ error: error.message }),
-            });
-          }
-          break;
+          case 'getTotalContacts':
+            try {
+              console.log('Getting total contacts...');
+              const totalContacts = await getTotalContacts(idSubstring);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ totalContacts }),
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for getTotalContacts:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
         case 'getContactsWithTag':
           try {
             console.log('Getting contacts with tag...');
