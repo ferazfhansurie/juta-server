@@ -1229,6 +1229,44 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
       return JSON.stringify({ error: 'Failed to list contacts' });
     }
   }
+  async function searchContacts(idSubstring, searchTerm, limit = 10) {
+    try {
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      const searchTermLower = searchTerm.toLowerCase();
+  
+      // Perform the search
+      const snapshot = await contactsRef.get();
+      
+      const matchingContacts = snapshot.docs
+        .filter(doc => {
+          const data = doc.data();
+          return (
+            (data.contactName && data.contactName.toLowerCase().includes(searchTermLower)) ||
+            (data.phone && data.phone.includes(searchTerm)) ||
+            (data.tags && data.tags.some(tag => tag.toLowerCase().includes(searchTermLower)))
+          );
+        })
+        .slice(0, limit)
+        .map(doc => ({
+          phoneNumber: doc.id,
+          contactName: doc.data().contactName || 'Unknown',
+          phone: doc.data().phone || '',
+          tags: doc.data().tags || []
+        }));
+  
+      if (matchingContacts.length === 0) {
+        return JSON.stringify({ message: 'No matching contacts found.' });
+      }
+  
+      return JSON.stringify({
+        matchingContacts,
+        totalMatches: matchingContacts.length
+      });
+    } catch (error) {
+      console.error('Error searching contacts:', error);
+      return JSON.stringify({ error: 'Failed to search contacts', details: error.message });
+    }
+  }
   async function tagContact(idSubstring, phoneNumber, tag) {
     try {
       // Fetch contact data using the existing function
@@ -1267,6 +1305,23 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       switch (toolCall.function.name) {
+        case 'searchContacts':
+  try {
+    console.log('Searching contacts...');
+    const args = JSON.parse(toolCall.function.arguments);
+    const searchResults = await searchContacts(args.idSubstring, args.searchTerm, args.limit);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: searchResults,
+    });
+  } catch (error) {
+    console.error('Error in handleToolCalls for searchContacts:', error);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: JSON.stringify({ error: error.message }),
+    });
+  }
+  break;
         case 'tagContact':
   try {
     console.log('Tagging contact...');
@@ -1536,6 +1591,31 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "searchContacts",
+              description: "Search for contacts based on name, phone number, or tags",
+              parameters: {
+                type: "object",
+                properties: {
+                  idSubstring: { 
+                    type: "string", 
+                    description: "ID substring for the company" 
+                  },
+                  searchTerm: { 
+                    type: "string", 
+                    description: "Term to search for in contact names, phone numbers, or tags" 
+                  },
+                  limit: { 
+                    type: "number", 
+                    description: "Maximum number of results to return (default 10)" 
+                  }
+                },
+                required: ["idSubstring", "searchTerm"],
+              },
+            },
+          },
         {
             type: "function",
             function: {
