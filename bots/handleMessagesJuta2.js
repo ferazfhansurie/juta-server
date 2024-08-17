@@ -980,7 +980,7 @@ async function checkingStatus(threadId, runId) {
 }
 
 // Modify the waitForCompletion function to handle tool calls
-async function waitForCompletion(threadId, runId) {
+async function waitForCompletion(threadId, runId,idSubstring) {
     return new Promise((resolve, reject) => {
       const maxAttempts = 30;
       let attempts = 0;
@@ -997,11 +997,11 @@ async function waitForCompletion(threadId, runId) {
             clearInterval(pollingInterval);
             console.log('Run requires action, handling tool calls...');
             const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
-            const toolOutputs = await handleToolCalls(toolCalls);
+            const toolOutputs = await handleToolCalls(toolCalls,idSubstring);
             console.log('Submitting tool outputs...');
             await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
             console.log('Tool outputs submitted, restarting wait for completion...');
-            resolve(await waitForCompletion(threadId, runId));
+            resolve(await waitForCompletion(threadId, runId,idSubstring));
           } else if (attempts >= maxAttempts) {
             clearInterval(pollingInterval);
             reject(new Error("Timeout: Assistant did not complete in time"));
@@ -1016,7 +1016,7 @@ async function waitForCompletion(threadId, runId) {
 
 
 // Modify the runAssistant function to handle tool calls
-async function runAssistant(assistantID, threadId, tools) {
+async function runAssistant(assistantID, threadId, tools,idSubstring) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
       threadId,
@@ -1028,12 +1028,12 @@ async function runAssistant(assistantID, threadId, tools) {
   
     const runId = response.id;
   
-    const answer = await waitForCompletion(threadId, runId);
+    const answer = await waitForCompletion(threadId, runId,idSubstring);
     return answer;
   }
 
   // Modify the handleToolCalls function to include the new tool
-async function handleToolCalls(toolCalls) {
+async function handleToolCalls(toolCalls,idSubstring) {
     console.log('Handling tool calls...');
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
@@ -1309,7 +1309,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
       },
     ];
   
-    const answer = await runAssistant(assistantId, threadID, tools);
+    const answer = await runAssistant(assistantId, threadID, tools,idSubstring);
     return answer;
   }
 
