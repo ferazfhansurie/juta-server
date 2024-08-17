@@ -313,7 +313,7 @@ async function getTotalContacts(idSubstring) {
       return 0;
     }
   }
-  async function countContactsAddedToday(idSubstring) {
+  async function getContactsAddedToday(idSubstring) {
     try {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
       
@@ -324,10 +324,20 @@ async function getTotalContacts(idSubstring) {
         .where('createdAt', '>=', today)
         .get();
   
-      return snapshot.size;
+      const contacts = snapshot.docs.map(doc => ({
+        phoneNumber: doc.id,
+        contactName: doc.data().contactName || 'Unknown',
+        createdAt: doc.data().createdAt.toDate().toISOString(),
+        tags: doc.data().tags || []
+      }));
+  
+      return {
+        count: contacts.length,
+        contacts: contacts
+      };
     } catch (error) {
-      console.error('Error counting contacts added today:', error);
-      return 0;
+      console.error('Error getting contacts added today:', error);
+      return { count: 0, contacts: [], error: error.message };
     }
   }
   
@@ -1218,22 +1228,22 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       switch (toolCall.function.name) {
-        case 'countContactsAddedToday':
-  try {
-    console.log('Counting contacts added today...');
-    const count = await countContactsAddedToday(idSubstring);
-    toolOutputs.push({
-      tool_call_id: toolCall.id,
-      output: JSON.stringify({ count }),
-    });
-  } catch (error) {
-    console.error('Error in handleToolCalls for countContactsAddedToday:', error);
-    toolOutputs.push({
-      tool_call_id: toolCall.id,
-      output: JSON.stringify({ error: error.message }),
-    });
-  }
-  break;
+        case 'getContactsAddedToday':
+            try {
+              console.log('Getting contacts added today...');
+              const result = await getContactsAddedToday(idSubstring);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify(result),
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for getContactsAddedToday:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
         case 'listAssignedContacts':
             try {
               console.log('Listing assigned contacts...');
@@ -1473,8 +1483,8 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
         {
             type: "function",
             function: {
-              name: "countContactsAddedToday",
-              description: "Count the number of contacts added today",
+              name: "getContactsAddedToday",
+              description: "Get the number and details of contacts added today",
               parameters: {
                 type: "object",
                 properties: {
