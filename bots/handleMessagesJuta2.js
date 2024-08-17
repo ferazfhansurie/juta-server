@@ -1221,6 +1221,30 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
       return JSON.stringify({ error: 'Failed to list contacts' });
     }
   }
+  async function tagContact(idSubstring, phoneNumber, tag) {
+    try {
+      const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(phoneNumber);
+      const doc = await contactRef.get();
+  
+      if (!doc.exists) {
+        return JSON.stringify({ error: 'Contact not found' });
+      }
+  
+      const currentTags = doc.data().tags || [];
+      const newTags = [...new Set([...currentTags, tag])]; // Ensure uniqueness
+  
+      await contactRef.update({ tags: newTags });
+  
+      return JSON.stringify({ 
+        success: true, 
+        message: `Contact ${phoneNumber} tagged with "${tag}"`,
+        updatedTags: newTags
+      });
+    } catch (error) {
+      console.error('Error tagging contact:', error);
+      return JSON.stringify({ error: 'Failed to tag contact', details: error.message });
+    }
+  }
   // Modify the handleToolCalls function to include the new tool
 async function handleToolCalls(toolCalls,idSubstring,client) {
     console.log('Handling tool calls...');
@@ -1228,6 +1252,23 @@ async function handleToolCalls(toolCalls,idSubstring,client) {
     for (const toolCall of toolCalls) {
       console.log(`Processing tool call: ${toolCall.function.name}`);
       switch (toolCall.function.name) {
+        case 'tagContact':
+  try {
+    console.log('Tagging contact...');
+    const args = JSON.parse(toolCall.function.arguments);
+    const result = await tagContact(args.idSubstring, args.phoneNumber, args.tag);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: result,
+    });
+  } catch (error) {
+    console.error('Error in handleToolCalls for tagContact:', error);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: JSON.stringify({ error: error.message }),
+    });
+  }
+  break;
         case 'getContactsAddedToday':
             try {
               console.log('Getting contacts added today...');
@@ -1480,6 +1521,31 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "tagContact",
+              description: "Tag or assign a contact. Assigning a contact is done by tagging them with the assignee's name.",
+              parameters: {
+                type: "object",
+                properties: {
+                  idSubstring: { 
+                    type: "string", 
+                    description: "ID substring for the company" 
+                  },
+                  phoneNumber: { 
+                    type: "string", 
+                    description: "Phone number of the contact to tag or assign" 
+                  },
+                  tag: { 
+                    type: "string", 
+                    description: "Tag to add to the contact. For assignments, use the assignee's name as the tag." 
+                  }
+                },
+                required: ["idSubstring", "phoneNumber", "tag"],
+              },
+            },
+          },
         {
             type: "function",
             function: {
