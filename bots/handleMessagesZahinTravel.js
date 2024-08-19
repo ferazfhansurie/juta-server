@@ -255,7 +255,7 @@ const messageQueue = new Map();
 const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
 
-async function handleNewMessagesZahinTravel(client, msg, botName) {
+async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
     // Clear any existing timer for this chat
@@ -393,6 +393,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             companyName: null,
             contactName: contactName || contact.name || contact.pushname || extractedNumber,
             unreadCount: unreadCount + 1,
+            phoneIndex: phoneIndex,
             threadid: threadID ?? "",
             last_message: {
                 chat_id: msg.from,
@@ -432,6 +433,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName) {
             },
             timestamp: msg.timestamp ?? 0,
             type: type,
+            phoneIndex: phoneIndex,
         };
         if((sender.to).includes('@g.us')){
             const authorNumber = '+'+(msg.author).split('@')[0];

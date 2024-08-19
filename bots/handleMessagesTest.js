@@ -84,7 +84,7 @@ const messageQueue = new Map();
 const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
 
-async function handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex) {
+async function handleNewMessagesTest(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
     //const url=req.originalUrl
@@ -210,8 +210,8 @@ async function handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex) {
                 companyName: null,
                 contactName: contactName || contact.name || contact.pushname || extractedNumber,
                 unreadCount: unreadCount + 1,
-                phoneIndex: phoneIndex,
                 threadid: threadID ?? "",
+                phoneIndex: phoneIndex,
                 last_message: {
                     chat_id: msg.from,
                     from: msg.from ?? "",
@@ -706,4 +706,4 @@ async function fetchConfigFromDatabase(idSubstring) {
     }
 }
 
-module.exports = { handleNewMessagesTemplateWweb };
+module.exports = { handleNewMessagesTest };

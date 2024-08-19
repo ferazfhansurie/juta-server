@@ -380,7 +380,7 @@ async function getTotalContacts(idSubstring) {
   }
 
 
-async function handleNewMessagesJuta2(client, msg, botName) {
+async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
     const idSubstring = botName;
@@ -541,6 +541,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             contactName: contactName || contact.name || contact.pushname || extractedNumber,
             unreadCount: unreadCount + 1,
             threadid: threadID ?? "",
+            phoneIndex: phoneIndex,
             last_message: {
                 chat_id: msg.from,
                 from: msg.from ?? "",
@@ -566,6 +567,8 @@ async function handleNewMessagesJuta2(client, msg, botName) {
         }
         data.profilePicUrl = profilePicUrl;
 
+        
+
         const messageData = {
             chat_id: msg.from,
             from: msg.from ?? "",
@@ -578,7 +581,20 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             },
             timestamp: msg.timestamp ?? 0,
             type: type,
+            phoneIndex: phoneIndex,
         };
+
+        if(msg.hasQuotedMsg){
+          const quotedMsg = await msg.getQuotedMessage();
+          messageData.text.context.quoted_content.body = quotedMsg.body;
+          const authorNumber = '+'+(quotedMsg.from).split('@')[0];
+          const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+          if(authorData){
+            messageData.text.context.quoted_author = authorData.contactName;
+          }else{
+            messageData.text.context.quoted_author = authorNumber;
+          }
+      }
             
         if((sender.to).includes('@g.us')){
             const authorNumber = '+'+(msg.author).split('@')[0];
@@ -587,7 +603,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             if(authorData){
                 messageData.author = authorData.contactName;
             }else{
-                messageData.author = msg.author;
+                messageData.author = authorNumber;
             }
         }
         if (msg.type === 'audio') {

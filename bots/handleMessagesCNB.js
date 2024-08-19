@@ -207,7 +207,7 @@ async function processMessage(message) {
         // Add any other message processing logic here
     }, { timeout: 60000 }); // 60 seconds timeout
 }
-async function handleNewMessagesCNB(client, msg, botName) {
+async function handleNewMessagesCNB(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
     //const url=req.originalUrl
     // Find the positions of the '/' characters
@@ -338,6 +338,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
                 companyName: null,
                 contactName: contactName || contact.name || contact.pushname || extractedNumber,
                 unreadCount: unreadCount + 1,
+                phoneIndex: phoneIndex,
                 threadid: threadID ?? "",
                 last_message: {
                     chat_id: msg.from,
@@ -365,6 +366,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
                 },
                 timestamp: msg.timestamp ?? 0,
                 type: type,
+                phoneIndex: phoneIndex,
             };
             let profilePicUrl = "";
             if (contact.getProfilePicUrl()) {

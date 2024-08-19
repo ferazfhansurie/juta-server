@@ -328,6 +328,7 @@ const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplate
 const { handleNewMessagesZahinTravel } = require('./bots/handleMessagesZahinTravel.js');
 const { handleNewMessagesJuta2 } = require('./bots/handleMessagesJuta2.js');
 const { handleApplyRadarBlast } = require('./blast/applyRadarBlast.js');
+const { handleNewMessagesTest } = require('./bots/handleMessagesTest.js');
 
 
 
@@ -372,7 +373,7 @@ const customHandlers = {
   '001': handleNewMessagesJuta2,
   '020': handleNewMessagesCNB,
   '042': handleNewMessagesZahinTravel,
-  // Add more custom handlers for other bots as needed
+  '057': handleNewMessagesTest,
 };
 
 
@@ -970,16 +971,16 @@ async function scheduleAllMessages() {
     }
 }
 
-function setupMessageHandler(client, botName) {
+function setupMessageHandler(client, botName, phoneIndex) {
   client.on('message', async (msg) => {
       console.log(`DEBUG: Message received for bot ${botName}`);
       try {
           // Check if there's a custom handler for this bot
           if (customHandlers[botName]) {
-              await customHandlers[botName](client, msg, botName);
+              await customHandlers[botName](client, msg, botName, phoneIndex);
           } else {
               // Use the default template handler if no custom handler is defined
-              await handleNewMessagesTemplateWweb(client, msg, botName);
+              await handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex);
           }
       } catch (error) {
           console.error(`ERROR in message handling for bot ${botName}:`, error);
@@ -989,7 +990,7 @@ function setupMessageHandler(client, botName) {
 
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
 
-async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) {
+async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retryCount = 0) {
     const maxRetries = 5;
     const baseDelay = 1000; // 1 second base delay
 
@@ -1044,6 +1045,7 @@ async function saveContactWithRateLimit(botName, contact, chat, retryCount = 0) 
             contactName: contact.name || contact.pushname || chat.name || phoneNumber,
             unreadCount: chat.unreadCount || 0,
             threadid: '', // You might want to generate or retrieve this
+            phoneIndex: phoneIndex,
             last_message: {
                 chat_id:contact.id.user + idsuffix,
                 from: msg.from || contact.id.user + idsuffix,
@@ -1293,27 +1295,27 @@ async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
 //     }
 // }
 
-async function processChats(client, botName) {
-    try {
-        const chats = await client.getChats();
-        const totalChats = chats.length;
-        let processedChats = 0;
+async function processChats(client, botName, phoneIndex) {
+  try {
+      const chats = await client.getChats();
+      const totalChats = chats.length;
+      let processedChats = 0;
 
-        for (const chat of chats) {
-            if (chat.isGroup) {
-                processedChats++;
-                continue;
-            }
-            const contact = await chat.getContact();
-            await saveContactWithRateLimit(botName, contact, chat);
-            processedChats++;
-            
-            broadcastProgress(botName, 'processing_chats', processedChats / totalChats);
-        }
-        console.log(`Finished saving contacts for bot ${botName}`);
-    } catch (error) {
-        console.error(`Error processing chats for bot ${botName}:`, error);
-    }
+      for (const chat of chats) {
+          if (chat.isGroup) {
+              processedChats++;
+              continue;
+          }
+          const contact = await chat.getContact();
+          await saveContactWithRateLimit(botName, contact, chat, phoneIndex);
+          processedChats++;
+          
+          broadcastProgress(botName, 'processing_chats', processedChats / totalChats, phoneIndex);
+      }
+      console.log(`Finished saving contacts for bot ${botName} Phone ${phoneIndex + 1}`);
+  } catch (error) {
+      console.error(`Error processing chats for bot ${botName} Phone ${phoneIndex + 1}:`, error);
+  }
 }
 
 async function initializeBots(botNames) {
@@ -1332,34 +1334,46 @@ async function main(reinitialize = false) {
   const companiesRef = db.collection('companies');
   const snapshot = await companiesRef.get();
   
-  const botNames = [];
+  const botConfigs = [];
 
   snapshot.forEach(doc => {
-      const companyId = doc.id;    
-      const data = doc.data();
-      if (data.v2) {
-          botNames.push(companyId);
-      }
+    const companyId = doc.id;    
+    const data = doc.data();
+    if (data.v2) {
+      botConfigs.push({
+        botName: companyId,
+        phoneCount: data.phoneCount || 1, // Default to 1 if phoneCount is not set
+        v2: data.v2
+      });
+    }
   });
-  console.log(`Found ${botNames.length} bots to initialize`);
+  console.log(`Found ${botConfigs.length} bots to initialize`);
 
   if (reinitialize) {
-      console.log('Reinitializing, clearing existing bot instances...');
-      for (const [botName, botData] of botMap.entries()) {
-          if (botData.client) {
-              await botData.client.destroy();
+    console.log('Reinitializing, clearing existing bot instances...');
+    for (const [botName, botData] of botMap.entries()) {
+      if (Array.isArray(botData)) {
+        for (const clientData of botData) {
+          if (clientData.client) {
+            await clientData.client.destroy();
           }
+        }
+      } else if (botData && botData.client) {
+        await botData.client.destroy();
       }
-      botMap.clear();
+    }
+    botMap.clear();
   }
-
   console.log('Obliterating all jobs...');
   await obiliterateAllJobs();
   
   
 
   console.log('Initializing bots...');
-  await initializeBots(botNames);
+  for (const config of botConfigs) {
+    console.log(`Initializing bot ${config.botName} with ${config.phoneCount} phone(s)...`);
+    await initializeBot(config.botName, config.phoneCount);
+  }
 
   console.log('Scheduling all messages...');
   await scheduleAllMessages();
@@ -2198,13 +2212,14 @@ async function createChannel(projectId, token, companyID) {
 
 app.post('/api/channel/create/:companyID', async (req, res) => {
     const { companyID } = req.params;
+    const phoneCount = 1;
 //
     try {
         // Create the assistant
         await createAssistant(companyID);
 
         // Initialize only the new bot
-        await initializeBot(companyID);
+        await initializeBot(companyID, phoneCount);
 
         res.json({ message: 'Channel created successfully and new bot initialized', newBotId: companyID });
     } catch (error) {
@@ -2213,14 +2228,23 @@ app.post('/api/channel/create/:companyID', async (req, res) => {
     }
 });
 
-async function initializeBot(botName) {
+async function initializeBot(botName, phoneCount = 1) {
     try {
-      console.log(`Starting initialization for bot: ${botName}`);
+      console.log(`Starting initialization for bot: ${botName} with ${phoneCount} phone(s)`);
+      const clients = [];
+      let clientName = ""
+      
+      for (let i = 0; i < phoneCount; i++) {
+        if(phoneCount == 1){
+          clientName = botName
+        } else {
+          clientName = `${botName}_phone${i + 1}`
+        }
         const client = new Client({
             authStrategy: new LocalAuth({
-                clientId: botName,
+                clientId: clientName,
             }),
-            puppeteer: { headless: true,executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',args: [
+            puppeteer: { headless: true,executablePath: 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',args: [
               '--no-sandbox',
               '--disable-setuid-sandbox',
               '--disable-dev-shm-usage',
@@ -2232,54 +2256,40 @@ async function initializeBot(botName) {
               '--disable-gpu-driver-bug-workarounds',
               '--disable-accelerated-2d-canvas',
            ], }
-          });
-        botMap.set(botName, { client, status: 'initializing', qrCode: null });
-        broadcastAuthStatus(botName, 'initializing');
+        });
 
+        clients.push({ client, status: 'initializing', qrCode: null });
+      
         client.on('qr', async (qr) => {
-            console.log(`${botName} - QR RECEIVED`);
-            try {
-                const qrCodeData = await qrcode.toDataURL(qr);
-                botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
-                broadcastAuthStatus(botName, 'qr', qrCodeData); // Pass qrCodeData to broadcastAuthStatus
-            } catch (err) {
-                console.error('Error generating QR code:', err);
-            }
-        });
+          console.log(`${botName} Phone ${i + 1} - QR RECEIVED`);
+          try {
+              const qrCodeData = await qrcode.toDataURL(qr);
+              clients[i] = { ...clients[i], status: 'qr', qrCode: qrCodeData };
+              broadcastAuthStatus(botName, 'qr', qrCodeData, i);
+          } catch (err) {
+              console.error('Error generating QR code:', err);
+          }
+      });
 
-        client.on('authenticated', () => {
-            console.log(`${botName} - AUTHENTICATED`);
-            botMap.set(botName, { client, status: 'authenticated', qrCode: null });
-            broadcastAuthStatus(botName, 'authenticated');
-        });
 
-        client.on('ready', async () => {
-            console.log(`${botName} - READY`);
-            botMap.set(botName, { client, status: 'ready', qrCode: null });
-            setupMessageHandler(client, botName);
+      client.on('authenticated', () => {
+        console.log(`${botName} Phone ${i + 1} - AUTHENTICATED`);
+        clients[i] = { ...clients[i], status: 'authenticated', qrCode: null };
+        broadcastAuthStatus(botName, 'authenticated', null, i);
+    });
 
-            // try {
-            //     const chats = await client.getChats();
-            //     const totalChats = chats.length;
-            //     let processedChats = 0;
 
-            //     for (const chat of chats) {
-            //         if (chat.isGroup) {
-            //             processedChats++;
-            //             continue;
-            //         }
-            //         const contact = await chat.getContact();
-            //         await saveContactWithRateLimit(botName, contact, chat);
-            //         processedChats++;
-                    
-            //         // Send overall progress update
-            //         broadcastProgress(botName, 'processing_chats', processedChats / totalChats);
-            //     }
-            //     console.log(`Finished saving contacts for bot ${botName}`);
-            // } catch (error) {
-            //     console.error(`Error processing chats for bot ${botName}:`, error);
-            // }
-        });
+    client.on('ready', async () => {
+      console.log(`${botName} Phone ${i + 1} - READY`);
+      clients[i] = { ...clients[i], status: 'ready', qrCode: null };
+      setupMessageHandler(client, botName, i);
+
+      try {
+          await processChats(client, botName, i);
+      } catch (error) {
+          console.error(`Error processing chats for bot ${botName} Phone ${i + 1}:`, error);
+      }
+  });
 
         client.on('auth_failure', msg => {
             console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
@@ -2298,47 +2308,71 @@ async function initializeBot(botName) {
         await client.initialize();
         console.log(`Bot ${botName} initialization`);
         console.log(`DEBUG: Bot ${botName} initialized successfully`);
-    } catch (error) {
+       }
+
+        botMap.set(botName, clients);
+        console.log(`Bot ${botName} initialization complete for all phones`);
+      } catch (error) {
         console.error(`Error initializing bot ${botName}:`, error);
         botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
     }
 }
 
+
 async function createAssistant(companyID) {
   const OPENAI_API_KEY = process.env.OPENAIKEY; // Ensure your environment variable is set
-console.log('creating ass');
-  const payload = {
-    name: companyID,
-    model: 'gpt-4o', // Ensure this model is supported and available
-  };
-
-  // Debugging: Log the payload being sent to OpenAI
-  console.log('Payload to OpenAI:', JSON.stringify(payload));
+  console.log('Creating project and assistant for', companyID);
 
   try {
-    const response = await axios.post('https://api.openai.com/v1/assistants', payload, {
+    // Step 1: Create a new project
+    const projectPayload = {
+      name: companyID,
+      purpose: `Project for ${companyID}`
+    };
+
+    const projectResponse = await axios.post('https://api.openai.com/v1/projects', projectPayload, {
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
-        'OpenAI-Beta':'assistants=v2'
+        'OpenAI-Beta': 'assistants=v2'
       },
     });
 
-    console.log('OpenAI Response:', response.data);
-    const assistantId = response.data.id;
-    const companiesCollection = db.collection('companies');
-        
+    console.log('Project created:', projectResponse.data);
+    const projectId = projectResponse.data.id;
 
-      // Save the whapiToken to a new document
-      await companiesCollection.doc(companyID).set({
-          assistantId: assistantId,
-          v2: true
-      }, { merge: true });
-   return;
+    // Step 2: Create an assistant in the new project
+    const assistantPayload = {
+      name: `Assistant_${companyID}`,
+      model: 'gpt-4o', // Ensure this model is supported and available
+      project: projectId
+    };
+
+    const assistantResponse = await axios.post('https://api.openai.com/v1/assistants', assistantPayload, {
+      headers: {
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+        'Content-Type': 'application/json',
+        'OpenAI-Beta': 'assistants=v2'
+      },
+    });
+
+    console.log('Assistant created:', assistantResponse.data);
+    const assistantId = assistantResponse.data.id;
+
+    // Save project and assistant IDs to Firebase
+    const companiesCollection = db.collection('companies');
+    await companiesCollection.doc(companyID).set({
+      projectId: projectId,
+      assistantId: assistantId,
+      v2: true
+    }, { merge: true });
+
+    console.log(`Project and Assistant created and saved for ${companyID}`);
+    return { projectId, assistantId };
     
   } catch (error) {
-    console.error('Error creating OpenAI assistant:', error.response ? error.response.data : error.message);
-    res.status(500).json({ error: 'Failed to create assistant' });
+    console.error('Error creating project and assistant:', error.response ? error.response.data : error.message);
+    throw new Error('Failed to create project and assistant');
   }
 }
 
