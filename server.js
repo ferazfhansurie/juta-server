@@ -2347,14 +2347,12 @@ async function createAssistant(companyID) {
     // Step 1: Create a new project
     const projectPayload = {
       name: companyID,
-      purpose: `Project for ${companyID}`
     };
 
-    const projectResponse = await axios.post('https://api.openai.com/v1/projects', projectPayload, {
+    const projectResponse = await axios.post('https://api.openai.com/v1/organization/projects', projectPayload, {
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
+        'Content-Type': 'application/json'
       },
     });
 
@@ -2364,7 +2362,8 @@ async function createAssistant(companyID) {
     // Step 2: Create an assistant in the new project
     const assistantPayload = {
       name: `Assistant_${companyID}`,
-      model: 'gpt-4o', // Ensure this model is supported and available
+      model: 'gpt-4', // Ensure this model is supported and available
+      instructions: `You are an assistant for ${companyID}. Please help with any inquiries.`,
       project: projectId
     };
 
@@ -2372,7 +2371,7 @@ async function createAssistant(companyID) {
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v2'
+        'OpenAI-Beta': 'assistants=v1'
       },
     });
 
