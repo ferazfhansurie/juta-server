@@ -557,7 +557,7 @@ async function handleNewMessagesJuta2(client, msg, botName) {
         };
 
         let profilePicUrl = "";
-        if (contact.getProfilePicUr()) {
+        if (contact.getProfilePicUrl()) {
           try {
             profilePicUrl = await contact.getProfilePicUrl() || "";
           } catch (error) {
