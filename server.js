@@ -366,6 +366,7 @@ app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 
 //spreadsheet
 const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
+const { off } = require('process');
 
 
 
@@ -2277,8 +2278,14 @@ async function initializeBot(botName, phoneCount = 1) {
           console.log(`${botName} Phone ${i + 1} - QR RECEIVED`);
           try {
               const qrCodeData = await qrcode.toDataURL(qr);
-              clients[i] = { ...clients[i], status: 'qr', qrCode: qrCodeData };
-              broadcastAuthStatus(botName, 'qr', qrCodeData, i);
+
+              if(phoneCount != 1){
+                clients[i] = { ...clients[i], status: 'qr', qrCode: qrCodeData };
+                
+                broadcastAuthStatus(botName, 'qr', qrCodeData, i);
+              } else {
+                broadcastAuthStatus(botName, 'qr', qrCodeData); // Pass qrCodeData to broadcastAuthStatus
+              }
           } catch (err) {
               console.error('Error generating QR code:', err);
           }
@@ -2286,9 +2293,13 @@ async function initializeBot(botName, phoneCount = 1) {
 
 
       client.on('authenticated', () => {
-        console.log(`${botName} Phone ${i + 1} - AUTHENTICATED`);
-        clients[i] = { ...clients[i], status: 'authenticated', qrCode: null };
-        broadcastAuthStatus(botName, 'authenticated', null, i);
+        if(phoneCount != 1){
+          console.log(`${botName} Phone ${i + 1} - AUTHENTICATED`);
+          clients[i] = { ...clients[i], status: 'authenticated', qrCode: null };
+          broadcastAuthStatus(botName, 'authenticated', null, i);
+        } else {
+          broadcastAuthStatus(botName, 'authenticated');
+        }
     });
 
 
