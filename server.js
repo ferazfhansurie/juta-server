@@ -2297,11 +2297,7 @@ async function initializeBot(botName, phoneCount = 1) {
       clients[i] = { ...clients[i], status: 'ready', qrCode: null };
       setupMessageHandler(client, botName, i);
 
-      try {
-          await processChats(client, botName, i);
-      } catch (error) {
-          console.error(`Error processing chats for bot ${botName} Phone ${i + 1}:`, error);
-      }
+      
   });
 
         client.on('auth_failure', msg => {
