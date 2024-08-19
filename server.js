@@ -1006,10 +1006,18 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
         if(msg == {}){
           return;
         }
+
+
         let idsuffix = '@c.us'
         if(chat.isGroup){
           idsuffix = '@g.us'
           phoneNumber = (msg.from).split('@')[0]
+        }
+
+        const extractedNumber = '+'+(msg.from).split('@')[0];
+        const existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
+        if(existingContact){
+          return;
         }
         let type = msg.type === 'chat' ? 'text' : msg.type;
         if(phoneNumber == 'status'){
@@ -1198,6 +1206,39 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
             console.error(`Failed to save contact after ${maxRetries} retries`);
         }
     }
+}
+
+async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
+  try {
+      // Check if phoneNumber is defined
+      if (!phoneNumber) {
+          throw new Error("Phone number is undefined or null");
+      }
+
+      // Initial fetch of config
+      //await fetchConfigFromDatabase(idSubstring);
+
+      let threadID;
+      let contactName;
+      let bot_status;
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+
+      if (querySnapshot.empty) {
+          console.log('No matching documents.');
+          return null;
+      } else {
+          const doc = querySnapshot.docs[0];
+          const contactData = doc.data();
+          contactName = contactData.name;
+          threadID = contactData.thread_id;
+          bot_status = contactData.bot_status;
+          return { ...contactData};
+      }
+  } catch (error) {
+      console.error('Error fetching or updating document:', error);
+      throw error;
+  }
 }
 
 async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
