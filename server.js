@@ -1833,14 +1833,23 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
   app.get('/api/bot-status/:botName', (req, res) => {
     const { botName } = req.params;
     const botData = botMap.get(botName);
-    //console.log(botData);
-    if (botData) {
-        const { status, qrCode } = botData;
-        res.json({ status, qrCode });
+  
+    if (botData && Array.isArray(botData)) {
+      // Multiple phones
+      const statusArray = botData.map((phone, index) => ({
+        phoneIndex: index,
+        status: phone.status,
+        qrCode: phone.qrCode
+      }));
+      res.json(statusArray);
+    } else if (botData) {
+      // Single phone
+      const { status, qrCode } = botData;
+      res.json([{ status, qrCode, phoneIndex: 0 }]);
     } else {
-        res.status(404).json({ error: 'Bot status not available' });
+      res.status(404).json({ error: 'Bot status not available' });
     }
-});
+  });
 
 app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
   console.log('send message');
