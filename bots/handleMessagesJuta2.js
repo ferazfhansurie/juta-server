@@ -556,17 +556,15 @@ async function handleNewMessagesJuta2(client, msg, botName) {
             },
         };
 
-        if (contact.getProfilePicUrl()) {
+        let profilePicUrl = "";
+        if (contact.getProfilePicUr()) {
           try {
-              data.profilePicUrl = await contact.getProfilePicUrl();
-              console.log('profile pic url: ' + data.profilePicUrl)
+            profilePicUrl = await contact.getProfilePicUrl() || "";
           } catch (error) {
-              console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
-              data.profilePicUrl = ""; // Set to empty string if there's an error
+            console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
           }
-      } else {
-          data.profilePicUrl = ""; // Set to empty string if getProfilePicUrl() returns falsy
-      }
+        }
+        data.profilePicUrl = profilePicUrl;
 
         const messageData = {
             chat_id: msg.from,
