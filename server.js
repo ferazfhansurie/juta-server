@@ -1835,17 +1835,22 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
     const botData = botMap.get(botName);
   
     if (botData && Array.isArray(botData)) {
-      // Multiple phones
-      const statusArray = botData.map((phone, index) => ({
-        phoneIndex: index,
-        status: phone.status,
-        qrCode: phone.qrCode
-      }));
-      res.json(statusArray);
+      if (botData.length === 1) {
+        // Single phone
+        const { status, qrCode } = botData[0];
+        res.json([{ status, qrCode }]);
+      } else {
+        // Multiple phones
+        const statusArray = botData.map((phone, index) => ({
+          phoneIndex: index,
+          status: phone.status,
+          qrCode: phone.qrCode
+        }));
+        res.json(statusArray);
+      }
     } else if (botData) {
-      // Single phone
-      const { status, qrCode } = botData;
-      res.json([{ status, qrCode, phoneIndex: 0 }]);
+      // Fallback for unexpected data structure
+      res.json([{ status: botData.status, qrCode: botData.qrCode }]);
     } else {
       res.status(404).json({ error: 'Bot status not available' });
     }
@@ -2252,7 +2257,7 @@ async function initializeBot(botName, phoneCount = 1) {
             authStrategy: new LocalAuth({
                 clientId: clientName,
             }),
-            puppeteer: { headless: true,executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',args: [
+            puppeteer: { headless: true,executablePath: 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',args: [
               '--no-sandbox',
               '--disable-setuid-sandbox',
               '--disable-dev-shm-usage',
