@@ -2362,59 +2362,41 @@ async function initializeBot(botName, phoneCount = 1) {
 
 
 async function createAssistant(companyID) {
-  const OPENAI_API_KEY = process.env.OPENAIADMINKEY; // Ensure your environment variable is set
-  console.log('Creating project and assistant for', companyID);
+  const OPENAI_API_KEY = process.env.OPENAIKEY; // Ensure your environment variable is set
+console.log('creating ass');
+  const payload = {
+    name: companyID,
+    model: 'gpt-4o', // Ensure this model is supported and available
+  };
+
+  // Debugging: Log the payload being sent to OpenAI
+  console.log('Payload to OpenAI:', JSON.stringify(payload));
 
   try {
-    // Step 1: Create a new project
-    const projectPayload = {
-      name: companyID,
-    };
-
-    const projectResponse = await axios.post('https://api.openai.com/v1/organization/projects', projectPayload, {
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json'
-      },
-    });
-
-    console.log('Project created:', projectResponse.data);
-    const projectId = projectResponse.data.id;
-
-    // Step 2: Create an assistant in the new project
-    const assistantPayload = {
-      name: `Assistant_${companyID}`,
-      model: 'gpt-4o', // Ensure this model is supported and available
-      instructions: `You are an assistant for ${companyID}. Please help with any inquiries.`,
-      project: projectId
-    };
-
-    const assistantResponse = await axios.post('https://api.openai.com/v1/assistants', assistantPayload, {
+    const response = await axios.post('https://api.openai.com/v1/assistants', payload, {
       headers: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
-        'OpenAI-Beta': 'assistants=v1'
+        'OpenAI-Beta':'assistants=v2'
       },
     });
 
-    console.log('Assistant created:', assistantResponse.data);
-    const assistantId = assistantResponse.data.id;
-
-    // Save project and assistant IDs to Firebase
+    console.log('OpenAI Response:', response.data);
+    const assistantId = response.data.id;
     const companiesCollection = db.collection('companies');
-    await companiesCollection.doc(companyID).set({
-      projectId: projectId,
-      assistantId: assistantId,
-      v2: true
-    }, { merge: true });
+        
 
-    console.log(`Project and Assistant created and saved for ${companyID}`);
-    return { projectId, assistantId };
-    
-  } catch (error) {
-    console.error('Error creating project and assistant:', error.response ? error.response.data : error.message);
-    throw new Error('Failed to create project and assistant');
-  }
+      // Save the whapiToken to a new document
+      await companiesCollection.doc(companyID).set({
+        assistantId: assistantId,
+        v2: true
+    }, { merge: true });
+ return;
+  
+} catch (error) {
+  console.error('Error creating OpenAI assistant:', error.response ? error.response.data : error.message);
+  res.status(500).json({ error: 'Failed to create assistant' });
+}
 }
 
 main().catch(error => {
