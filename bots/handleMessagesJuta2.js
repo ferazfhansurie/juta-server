@@ -586,14 +586,15 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
 
         if(msg.hasQuotedMsg){
           const quotedMsg = await msg.getQuotedMessage();
-          messageData.text.context.quoted_content.body = quotedMsg.body;
+          // Initialize the context and quoted_content structure
+          messageData.text.context = {
+            quoted_content: {
+              body: quotedMsg.body
+            }
+          };
           const authorNumber = '+'+(quotedMsg.from).split('@')[0];
           const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-          if(authorData){
-            messageData.text.context.quoted_author = authorData.contactName;
-          }else{
-            messageData.text.context.quoted_author = authorNumber;
-          }
+          messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
       }
             
         if((sender.to).includes('@g.us')){
