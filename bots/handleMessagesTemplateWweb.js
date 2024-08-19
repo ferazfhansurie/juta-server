@@ -253,15 +253,15 @@ async function handleNewMessagesTemplateWweb(client, msg, botName) {
                 type: type,
               };
 
+              let profilePicUrl = "";
               if (contact.getProfilePicUrl()) {
                 try {
-                    data.profilePicUrl = await contact.getProfilePicUrl();
-                    console.log('profile pic url: '+data.profilePicUrl)
+                  profilePicUrl = await contact.getProfilePicUrl() || "";
                 } catch (error) {
-                    console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
-                    contactData.profilePicUrl = "";
+                  console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
                 }
-            }
+              }
+              data.profilePicUrl = profilePicUrl;
 
               if((sender.to).includes('@g.us')){
                 const authorNumber = '+'+(msg.author).split('@')[0];
