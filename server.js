@@ -725,12 +725,17 @@ async function createUserInFirebase(userData) {
     const { companyId } = req.params;
     
     try {
+      let client;
       const botData = botMap.get(companyId);
-      if (!botData || !botData.client) {
+      if (!botData) {
         return res.status(404).json({ error: 'WhatsApp client not found for this company' });
       }
-      
-      const client = botData.client;
+      if(botData.length == 1){
+        client = botData[0].client;
+      }
+      if(!client){
+        return res.status(404).json({ error: 'WhatsApp client not found for this company' });
+      }      
       await syncContacts(client, companyId);
       
       res.json({ success: true, message: 'Contact synchronization started' });
@@ -1865,12 +1870,15 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
   console.log(req.body);
   console.log(message)
   try {
+    let client;
     // 1. Get the client for this company from botMap
     const botData = botMap.get(companyId);
     if (!botData) {
       return res.status(404).send('WhatsApp client not found for this company');
     }
-    const client = botData[0].client;
+    if(botData.length == 1){
+      client = botData[0].client;
+    }
     if (!client) {
       return res.status(404).send('No active WhatsApp client found for this company');
     }
@@ -1961,12 +1969,18 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
   console.log(req.body);
 
   try {
+    let client;
     // 1. Get the client for this company from botMap
     const botData = botMap.get(companyId);
-    if (!botData || !botData.client) {
+    if (!botData) {
       return res.status(404).send('WhatsApp client not found for this company');
     }
-    const client = botData.client;
+    if(botData.length == 1){
+      client = botData[0].client;
+    }
+    if (!client) {
+      return res.status(404).send('No active WhatsApp client found for this company');
+    }
 
     // 2. Use wwebjs to send the image message
     const media = await MessageMedia.fromUrl(imageUrl);
@@ -2034,12 +2048,18 @@ app.post('/api/v2/messages/document/:companyId/:chatId', async (req, res) => {
   console.log(req.body);
 
   try {
+    let client;
     // 1. Get the client for this company from botMap
     const botData = botMap.get(companyId);
-    if (!botData || !botData.client) {
+    if (!botData) {
       return res.status(404).send('WhatsApp client not found for this company');
     }
-    const client = botData.client;
+    if(botData.length == 1){
+      client = botData[0].client;
+    }
+    if (!client) {
+      return res.status(404).send('No active WhatsApp client found for this company');
+    }
 
     // 2. Use wwebjs to send the document message
     const media = await MessageMedia.fromUrl(documentUrl, { unsafeMime: true, filename: filename });
