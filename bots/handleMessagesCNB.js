@@ -287,7 +287,7 @@ async function handleNewMessagesCNB(client, msg, botName) {
                 if((sender.to).includes('@g.us')){
                     firebaseTags = ['stop bot']
                 }else{
-                    const tag = await assignNewContactToEmployee(contactID, idSubstring);
+                    const tag = await assignNewContactToEmployee(contactID, idSubstring,client);
                     firebaseTags = [tag];
                 }
             }
