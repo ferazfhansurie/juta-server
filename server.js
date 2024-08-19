@@ -1106,7 +1106,6 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
                
                     messageData.author = msg.author;
         
-
             }
 
             
@@ -2244,7 +2243,7 @@ async function initializeBot(botName, phoneCount = 1) {
             authStrategy: new LocalAuth({
                 clientId: clientName,
             }),
-            puppeteer: { headless: true,executablePath: 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',args: [
+            puppeteer: { headless: true,executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',args: [
               '--no-sandbox',
               '--disable-setuid-sandbox',
               '--disable-dev-shm-usage',
