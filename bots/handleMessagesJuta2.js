@@ -557,14 +557,16 @@ async function handleNewMessagesJuta2(client, msg, botName) {
         };
 
         if (contact.getProfilePicUrl()) {
-            try {
-                data.profilePicUrl = await contact.getProfilePicUrl();
-                console.log('profile pic url: '+data.profilePicUrl)
-            } catch (error) {
-                console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
-                contactData.profilePicUrl = "";
-            }
-        }
+          try {
+              data.profilePicUrl = await contact.getProfilePicUrl();
+              console.log('profile pic url: ' + data.profilePicUrl)
+          } catch (error) {
+              console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
+              data.profilePicUrl = ""; // Set to empty string if there's an error
+          }
+      } else {
+          data.profilePicUrl = ""; // Set to empty string if getProfilePicUrl() returns falsy
+      }
 
         const messageData = {
             chat_id: msg.from,
@@ -1271,6 +1273,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
       return JSON.stringify({ error: 'Failed to search contacts', details: error.message });
     }
   }
+
   async function tagContact(idSubstring, phoneNumber, tag) {
     try {
       // Fetch contact data using the existing function
