@@ -1839,7 +1839,7 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
       if (botData.length === 1) {
         // Single phone
         const { status, qrCode } = botData[0];
-        res.json([{ status, qrCode }]);
+        res.json({ status, qrCode });
       } else {
         // Multiple phones
         const statusArray = botData.map((phone, index) => ({
