@@ -1870,8 +1870,10 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
     if (!botData || !botData.client) {
       return res.status(404).send('WhatsApp client not found for this company');
     }
-    const client = botData.client;
-
+    const client = botData[0].client;
+    if (!client) {
+      return res.status(404).send('No active WhatsApp client found for this company');
+    }
     // 2. Use wwebjs to send the message
     let sentMessage;
     if (quotedMessageId) {
