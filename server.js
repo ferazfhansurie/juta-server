@@ -1867,7 +1867,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
   try {
     // 1. Get the client for this company from botMap
     const botData = botMap.get(companyId);
-    if (!botData || !botData.client) {
+    if (!botData) {
       return res.status(404).send('WhatsApp client not found for this company');
     }
     const client = botData[0].client;
