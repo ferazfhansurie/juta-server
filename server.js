@@ -2340,7 +2340,7 @@ async function initializeBot(botName, phoneCount = 1) {
 
 
 async function createAssistant(companyID) {
-  const OPENAI_API_KEY = process.env.OPENAIKEY; // Ensure your environment variable is set
+  const OPENAI_API_KEY = process.env.OPENAIADMINKEY; // Ensure your environment variable is set
   console.log('Creating project and assistant for', companyID);
 
   try {
@@ -2362,7 +2362,7 @@ async function createAssistant(companyID) {
     // Step 2: Create an assistant in the new project
     const assistantPayload = {
       name: `Assistant_${companyID}`,
-      model: 'gpt-4', // Ensure this model is supported and available
+      model: 'gpt-4o', // Ensure this model is supported and available
       instructions: `You are an assistant for ${companyID}. Please help with any inquiries.`,
       project: projectId
     };
