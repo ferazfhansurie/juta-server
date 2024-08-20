@@ -745,7 +745,7 @@ async function createUserInFirebase(userData) {
     }
   });
 
-  async function syncContacts(client, companyId) {
+  async function syncContacts(client, companyId, phoneIndex = 1) {
     try {
       const chats = await client.getChats();
       const totalChats = chats.length;
@@ -756,7 +756,7 @@ async function createUserInFirebase(userData) {
           console.log(`group chat: ${chat.name}`);
         }
         const contact = await chat.getContact();
-        await saveContactWithRateLimit(companyId, contact, chat);
+        await saveContactWithRateLimit(companyId, contact, chat, phoneIndex);
         processedChats++;
         
         // Send overall progress update
@@ -1201,7 +1201,7 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
             const retryDelay = baseDelay * Math.pow(2, retryCount);
             console.log(`Retrying in ${retryDelay}ms...`);
             await delay(retryDelay);
-            await saveContactWithRateLimit(botName, contact, chat, retryCount + 1);
+            await saveContactWithRateLimit(botName, contact, chat, phoneIndex,retryCount + 1);
         } else {
             console.error(`Failed to save contact after ${maxRetries} retries`);
         }
