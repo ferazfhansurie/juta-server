@@ -744,6 +744,7 @@ if (!contactData) {
                         fileSize: msg._data.size,
                     };
                 } else {
+                  console.log(msg)
                     messageData[msg.type] = {
                         mimetype: media.mimetype,
                         data: media.data,
