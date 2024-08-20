@@ -744,7 +744,6 @@ if (!contactData) {
                         fileSize: msg._data.size,
                     };
                 } else {
-                  console.log(msg)
                     messageData[msg.type] = {
                         mimetype: media.mimetype,
                         data: media.data,
@@ -765,6 +764,9 @@ if (!contactData) {
                 if (msg.mediaKey) {
                     messageData[msg.type].mediaKey = msg.mediaKey;
                 }
+
+                console.log('messageData: ',messageData)
+                console.log('media: ',media)
               } else {
                   console.log(`Failed to download media for message: ${msg.id._serialized}`);
                   messageData.text = { body: "Media not available" };
