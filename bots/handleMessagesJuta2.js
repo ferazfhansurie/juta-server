@@ -40,23 +40,12 @@ const userTasks = new Map();
 
 // Function to add a task
 async function addTask(idSubstring, taskString, assignee, dueDate) {
-  if (!assignee || !dueDate) {
-      return JSON.stringify({ 
-          prompt: !assignee && !dueDate ? "Please provide an assignee and due date for the task." :
-                  !assignee ? "Please provide an assignee for the task." :
-                  "Please provide a due date for the task.",
-          taskString: taskString,
-          assignee: assignee,
-          dueDate: dueDate
-      });
-  }
-
   const companyRef = db.collection('companies').doc(idSubstring);
   const newTask = {
       text: taskString || 'Untitled Task',
       status: 'In Progress',
-      assignee: assignee,
-      dueDate: dueDate,
+      assignee: assignee || 'Unassigned',
+      dueDate: dueDate || 'No due date',
       createdAt: new Date().toISOString() // Use a regular Date object
   };
   
@@ -70,7 +59,7 @@ async function addTask(idSubstring, taskString, assignee, dueDate) {
       
       transaction.set(companyRef, { 
           tasks: tasks,
-          lastUpdated: admin.firestore.FieldValue.serverTimestamp() // This is fine as it's not in an array
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
   });
 
@@ -78,47 +67,29 @@ async function addTask(idSubstring, taskString, assignee, dueDate) {
       message: `Task added: ${newTask.text}, assigned to ${newTask.assignee}, due on ${newTask.dueDate}` 
   });
 }
-async function listAssignedTasks(idSubstring, assignee) {
-  const companyRef = db.collection('companies').doc(idSubstring);
-  const doc = await companyRef.get();
-  if (!doc.exists || !doc.data().tasks) {
-      return JSON.stringify({ message: "No tasks found for this company." });
-  }
-  const assignedTasks = doc.data().tasks.filter(task => 
-      task.assignee.toLowerCase() === assignee.toLowerCase()
-  );
-  if (assignedTasks.length === 0) {
-      return JSON.stringify({ message: `No tasks assigned to ${assignee}.` });
-  }
-  const tasks = assignedTasks.map((task, index) => 
-      `${index + 1}. [${task.status}] ${task.text} (Due: ${task.dueDate})`
-  ).join('\n');
-  return JSON.stringify({ tasks });
-}
-async function listTasks(idSubstring) {
-    const companyRef = db.collection('companies').doc(idSubstring);
-    const doc = await companyRef.get();
+
+async function listTasks(userId) {
+    const taskRef = db.collection('tasks').doc(userId);
+    const doc = await taskRef.get();
     if (!doc.exists || !doc.data().tasks || doc.data().tasks.length === 0) {
-        return JSON.stringify({ message: "There are no tasks for this company." });
+        return JSON.stringify({ message: "You have no tasks." });
     }
     const tasks = doc.data().tasks.map((task, index) => 
-        `${index + 1}. [${task.status}] ${task.text} (Assigned to: ${task.assignee}, Due: ${task.dueDate})`
+        `${index + 1}. [${task.status}] ${task.text}`
     ).join('\n');
     return JSON.stringify({ tasks });
 }
 
-async function updateTaskStatus(idSubstring, taskIndex, newStatus) {
-    const companyRef = db.collection('companies').doc(idSubstring);
-    const doc = await companyRef.get();
+async function updateTaskStatus(userId, taskIndex, newStatus) {
+    const taskRef = db.collection('tasks').doc(userId);
+    const doc = await taskRef.get();
+    console.log('taskIndex',taskIndex)
     if (!doc.exists || !doc.data().tasks || taskIndex < 0 || taskIndex >= doc.data().tasks.length) {
         return JSON.stringify({ message: "Invalid task number." });
     }
     const tasks = doc.data().tasks;
     tasks[taskIndex].status = newStatus;
-    await companyRef.update({ 
-        tasks: tasks,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-    });
+    await taskRef.update({ tasks: tasks });
     return JSON.stringify({ message: `Task "${tasks[taskIndex].text}" status updated to ${newStatus}.` });
 }
 
@@ -1358,388 +1329,366 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
     }
   }
   // Modify the handleToolCalls function to include the new tool
-async function handleToolCalls(toolCalls, idSubstring, client) {
+async function handleToolCalls(toolCalls,idSubstring,client) {
     console.log('Handling tool calls...');
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
-        console.log(`Processing tool call: ${toolCall.function.name}`);
-        switch (toolCall.function.name) {
-          case 'listAssignedTasks':
-                try {
-                    console.log('Listing assigned tasks...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const result = await listAssignedTasks(idSubstring, args.assignee);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: result,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for listAssignedTasks:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'searchContacts':
-                try {
-                    console.log('Searching contacts...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const searchResults = await searchContacts(idSubstring, args.searchTerm);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: searchResults,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for searchContacts:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'tagContact':
-                try {
-                    console.log('Tagging contact...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const result = await tagContact(idSubstring, args.phoneNumber, args.tag);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: result,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for tagContact:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'getContactsAddedToday':
-                try {
-                    console.log('Getting contacts added today...');
-                    const result = await getContactsAddedToday(idSubstring);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify(result),
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for getContactsAddedToday:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'listAssignedContacts':
-                try {
-                    console.log('Listing assigned contacts...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const result = await listAssignedContacts(idSubstring, args.assigneeName, args.limit);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: result,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for listAssignedContacts:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'listContactsWithTag':
-                try {
-                    console.log('Listing contacts with tag...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const result = await listContactsWithTag(idSubstring, args.tag, args.limit);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: result,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for listContactsWithTag:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'sendMessage':
-                try {
-                    console.log('Sending message...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const result = await sendMessage(client, args.phoneNumber, args.message, idSubstring);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: result,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for sendMessage:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'searchWeb':
-                try {
-                    console.log('Searching the web...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const searchResults = await searchWeb(args.query);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: searchResults,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for searchWeb:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'createGoogleCalendarEvent':
-                try {
-                    console.log('Parsing arguments for createGoogleCalendarEvent...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    console.log('Arguments:', args);
-                    
-                    console.log('Calling createGoogleCalendarEvent...');
-                    const result = await createGoogleCalendarEvent(args.summary, args.description, args.startDateTime, args.endDateTime);
-                    
-                    console.log('Event created successfully, preparing tool output...');
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify(result),
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for createGoogleCalendarEvent:');
-                    console.error(error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }      
-                break;
-            case 'getTodayDate':
-                console.log('Getting today\'s date...');
-                const todayDate = getTodayDate();
-                toolOutputs.push({
-                    tool_call_id: toolCall.id,
-                    output: JSON.stringify({ date: todayDate }),
-                });
-                break;
-            case 'fetchContactData':
-                try {
-                    console.log('Fetching contact data...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const contactData = await fetchContactData(args.phoneNumber, idSubstring);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: contactData,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for fetchContactData:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'getTotalContacts':
-                try {
-                    console.log('Getting total contacts...');
-                    const totalContacts = await getTotalContacts(idSubstring);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ totalContacts }),
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for getTotalContacts:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'addTask':
-                try {
-                    console.log('Adding task...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const result = await addTask(idSubstring, args.taskString, args.assignee, args.dueDate);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: result,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for addTask:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'listTasks':
-                try {
-                    console.log('Listing tasks...');
-                    const result = await listTasks(idSubstring);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: result,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for listTasks:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'updateTaskStatus':
-                try {
-                    console.log('Updating task status...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const result = await updateTaskStatus(idSubstring, args.taskIndex, args.newStatus);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: result,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for updateTaskStatus:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'fetchMultipleContactsData':
-                try {
-                    console.log('Fetching multiple contacts data...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const contactsData = await fetchMultipleContactsData(args.phoneNumbers, idSubstring);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: contactsData,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for fetchMultipleContactsData:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            case 'listContacts':
-                try {
-                    console.log('Listing contacts...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    const contactsList = await listContacts(idSubstring, args.limit, args.offset);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: contactsList,
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for listContacts:', error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }
-                break;
-            default:
-                console.warn(`Unknown function called: ${toolCall.function.name}`);
+      console.log(`Processing tool call: ${toolCall.function.name}`);
+      switch (toolCall.function.name) {
+        case 'searchContacts':
+  try {
+    console.log('Searching contacts...');
+    const args = JSON.parse(toolCall.function.arguments);
+    const searchResults = await searchContacts(idSubstring, args.searchTerm);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: searchResults,
+    });
+  } catch (error) {
+    console.error('Error in handleToolCalls for searchContacts:', error);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: JSON.stringify({ error: error.message }),
+    });
+  }
+  break;
+        case 'tagContact':
+  try {
+    console.log('Tagging contact...');
+    const args = JSON.parse(toolCall.function.arguments);
+    const result = await tagContact(idSubstring, args.phoneNumber, args.tag);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: result,
+    });
+  } catch (error) {
+    console.error('Error in handleToolCalls for tagContact:', error);
+    toolOutputs.push({
+      tool_call_id: toolCall.id,
+      output: JSON.stringify({ error: error.message }),
+    });
+  }
+  break;
+        case 'getContactsAddedToday':
+            try {
+              console.log('Getting contacts added today...');
+              const result = await getContactsAddedToday(idSubstring);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify(result),
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for getContactsAddedToday:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
+        case 'listAssignedContacts':
+            try {
+              console.log('Listing assigned contacts...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const result = await listAssignedContacts(idSubstring, args.assigneeName, args.limit);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: result,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for listAssignedContacts:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
+        case 'listContactsWithTag':
+        try {
+          console.log('Listing contacts with tag...');
+          const args = JSON.parse(toolCall.function.arguments);
+          const result = await listContactsWithTag(idSubstring, args.tag, args.limit);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: result,
+          });
+        } catch (error) {
+          console.error('Error in handleToolCalls for listContactsWithTag:', error);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: error.message }),
+          });
         }
+        break;
+        case 'sendMessage':
+            try {
+              console.log('Sending message...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const result = await sendMessage(client,args.phoneNumber, args.message,idSubstring);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: result,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for sendMessage:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
+        case 'searchWeb':
+            try {
+              console.log('Searching the web...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const searchResults = await searchWeb(args.query);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: searchResults,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for searchWeb:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
+        case 'createGoogleCalendarEvent':
+          try {
+            console.log('Parsing arguments for createGoogleCalendarEvent...');
+            const args = JSON.parse(toolCall.function.arguments);
+            console.log('Arguments:', args);
+    
+            console.log('Calling createGoogleCalendarEvent...');
+            const result = await createGoogleCalendarEvent(args.summary, args.description, args.startDateTime, args.endDateTime);
+            
+            console.log('Event created successfully, preparing tool output...');
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify(result),
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for createGoogleCalendarEvent:');
+            console.error(error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }      
+          break;
+        case 'getTodayDate':
+          console.log('Getting today\'s date...');
+          const todayDate = getTodayDate();
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ date: todayDate }),
+          });
+          break;
+          case 'fetchContactData':
+            try {
+              console.log('Fetching contact data...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const contactData = await fetchContactData(args.phoneNumber, idSubstring);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: contactData,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for fetchContactData:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
+          case 'getTotalContacts':
+            try {
+              console.log('Getting total contacts...');
+              const totalContacts = await getTotalContacts(idSubstring);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ totalContacts }),
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for getTotalContacts:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
+            case 'addTask':
+              try {
+                  console.log('Adding task...');
+                  const args = JSON.parse(toolCall.function.arguments);
+                  if (!args.taskString) {
+                      throw new Error("Task description is required");
+                  }
+                  const result = await addTask(
+                      idSubstring, 
+                      args.taskString, 
+                      args.assignee || 'Unassigned', 
+                      args.dueDate || 'No due date'
+                  );
+                  toolOutputs.push({
+                      tool_call_id: toolCall.id,
+                      output: result,
+                  });
+              } catch (error) {
+                  console.error('Error in handleToolCalls for addTask:', error);
+                  toolOutputs.push({
+                      tool_call_id: toolCall.id,
+                      output: JSON.stringify({ error: error.message }),
+                  });
+              }
+              break;
+        case 'listTasks':
+          try {
+            console.log('Listing tasks...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const result = await listTasks(args.userId);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: result,
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for listTasks:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
+        case 'updateTaskStatus':
+          try {
+            console.log('Updating task status...');
+            const args = JSON.parse(toolCall.function.arguments);
+            const result = await updateTaskStatus(args.userId, args.taskIndex, args.newStatus);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: result,
+            });
+          } catch (error) {
+            console.error('Error in handleToolCalls for updateTaskStatus:', error);
+            toolOutputs.push({
+              tool_call_id: toolCall.id,
+              output: JSON.stringify({ error: error.message }),
+            });
+          }
+          break;
+          case 'fetchMultipleContactsData':
+        try {
+          console.log('Fetching multiple contacts data...');
+          const args = JSON.parse(toolCall.function.arguments);
+          const contactsData = await fetchMultipleContactsData(args.phoneNumbers, idSubstring);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: contactsData,
+          });
+        } catch (error) {
+          console.error('Error in handleToolCalls for fetchMultipleContactsData:', error);
+          toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: error.message }),
+          });
+        }
+        break;
+        case 'listContacts':
+            try {
+              console.log('Listing contacts...');
+              const args = JSON.parse(toolCall.function.arguments);
+              const contactsList = await listContacts(idSubstring, args.limit, args.offset);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: contactsList,
+              });
+            } catch (error) {
+              console.error('Error in handleToolCalls for listContacts:', error);
+              toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({ error: error.message }),
+              });
+            }
+            break;
+        default:
+          console.warn(`Unknown function called: ${toolCall.function.name}`);
+      }
     }
     console.log('Finished handling tool calls');
     return toolOutputs;
-}
+  }
 
 // Modify the handleOpenAIAssistant function to include the new tool
-async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client) {
+async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring,client) {
     console.log(ghlConfig.assistantId);
     let assistantId = ghlConfig.assistantId;
-    if (tags !== undefined && tags.includes('team')) { 
+    if(tags !== undefined && tags.includes('team')){ 
         assistantId = ghlConfig.assistantIdTeam;
     }
    
     await addMessage(threadID, message);
     
     const tools = [
-      {
-        type: "function",
-        function: {
-            name: "listAssignedTasks",
-            description: "List tasks assigned to a specific person",
-            parameters: {
+        {
+            type: "function",
+            function: {
+              name: "searchContacts",
+              description: "Search for contacts based on name, phone number, or tags",
+              parameters: {
                 type: "object",
                 properties: {
-                    assignee: { type: "string", description: "Name of the person assigned to the tasks" },
+                  idSubstring: { 
+                    type: "string", 
+                    description: "ID substring for the company" 
+                  },
+                  searchTerm: { 
+                    type: "string", 
+                    description: "Term to search for in contact names, phone numbers, or tags" 
+                  }
                 },
-                required: ["assignee"],
+                required: ["idSubstring", "searchTerm"],
+              },
             },
-        },
-    },
+          },
         {
             type: "function",
             function: {
-                name: "searchContacts",
-                description: "Search for contacts based on name, phone number, or tags",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        idSubstring: { 
-                            type: "string", 
-                            description: "ID substring for the company" 
-                        },
-                        searchTerm: { 
-                            type: "string", 
-                            description: "Term to search for in contact names, phone numbers, or tags" 
-                        }
-                    },
-                    required: ["idSubstring", "searchTerm"],
+              name: "tagContact",
+              description: "Tag or assign a contact. Assigning a contact is done by tagging them with the assignee's name.",
+              parameters: {
+                type: "object",
+                properties: {
+                  idSubstring: { 
+                    type: "string", 
+                    description: "ID substring for the company" 
+                  },
+                  phoneNumber: { 
+                    type: "string", 
+                    description: "Phone number of the contact to tag or assign" 
+                  },
+                  tag: { 
+                    type: "string", 
+                    description: "Tag to add to the contact. For assignments, use the assignee's name as the tag." 
+                  }
                 },
+                required: ["idSubstring", "phoneNumber", "tag"],
+              },
             },
-        },
+          },
         {
             type: "function",
             function: {
-                name: "tagContact",
-                description: "Tag or assign a contact. Assigning a contact is done by tagging them with the assignee's name.",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        idSubstring: { 
-                            type: "string", 
-                            description: "ID substring for the company" 
-                        },
-                        phoneNumber: { 
-                            type: "string", 
-                            description: "Phone number of the contact to tag or assign" 
-                        },
-                        tag: { 
-                            type: "string", 
-                            description: "Tag to add to the contact. For assignments, use the assignee's name as the tag." 
-                        }
-                    },
-                    required: ["idSubstring", "phoneNumber", "tag"],
+              name: "getContactsAddedToday",
+              description: "Get the number and details of contacts added today",
+              parameters: {
+                type: "object",
+                properties: {
+                  idSubstring: { type: "string", description: "ID substring for the company" },
                 },
+                required: ["idSubstring"],
+              },
             },
-        },
-        {
-            type: "function",
-            function: {
-                name: "getContactsAddedToday",
-                description: "Get the number and details of contacts added today",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        idSubstring: { type: "string", description: "ID substring for the company" },
-                    },
-                    required: ["idSubstring"],
-                },
-            },
-        },
+          },
         {
             type: "function",
             function: {
@@ -1764,200 +1713,204 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
         {
             type: "function",
             function: {
-                name: "listContactsWithTag",
-                description: "List contacts that have a specific tag",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        tag: { 
-                            type: "string",
-                            description: "The tag to search for" 
-                        },
-                        limit: {
-                            type: "number",
-                            description: "Maximum number of contacts to return (default 10)"
-                        }
-                    },
-                    required: ["tag"],
+              name: "listContactsWithTag",
+              description: "List contacts that have a specific tag",
+              parameters: {
+                type: "object",
+                properties: {
+                  tag: { 
+                    type: "string",
+                    description: "The tag to search for" 
+                  },
+                  limit: {
+                    type: "number",
+                    description: "Maximum number of contacts to return (default 10)"
+                  }
                 },
+                required: ["tag"],
+              },
             },
-        },
+          },
         {
             type: "function",
             function: {
-                name: "sendMessage",
-                description: "Send a WhatsApp message to a specified phone number",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        phoneNumber: { 
-                            type: "string",
-                            description: "The phone number to send the message to (with country code, e.g., +1234567890)" 
-                        },
-                        message: {
-                            type: "string",
-                            description: "The message to send"
-                        }
-                    },
-                    required: ["phoneNumber", "message"],
+              name: "sendMessage",
+              description: "Send a WhatsApp message to a specified phone number",
+              parameters: {
+                type: "object",
+                properties: {
+                  phoneNumber: { 
+                    type: "string",
+                    description: "The phone number to send the message to (with country code, e.g., +1234567890)" 
+                  },
+                  message: {
+                    type: "string",
+                    description: "The message to send"
+                  }
                 },
+                required: ["phoneNumber", "message"],
+              },
             },
-        },
+          },
         {
             type: "function",
             function: {
-                name: "searchWeb",
-                description: "Search the web for information",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        query: { 
-                            type: "string",
-                            description: "The search query" 
-                        },
-                    },
-                    required: ["query"],
+              name: "searchWeb",
+              description: "Search the web for information",
+              parameters: {
+                type: "object",
+                properties: {
+                  query: { 
+                    type: "string",
+                    description: "The search query" 
+                  },
                 },
+                required: ["query"],
+              },
             },
-        },
+          },
         {
             type: "function",
             function: {
-                name: "fetchMultipleContactsData",
-                description: "Fetch data for multiple contacts given their phone numbers",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        phoneNumbers: { 
-                            type: "array", 
-                            items: { type: "string" },
-                            description: "Array of phone numbers to fetch data for" 
-                        },
-                    },
-                    required: ["phoneNumbers"],
+              name: "fetchMultipleContactsData",
+              description: "Fetch data for multiple contacts given their phone numbers",
+              parameters: {
+                type: "object",
+                properties: {
+                  phoneNumbers: { 
+                    type: "array", 
+                    items: { type: "string" },
+                    description: "Array of phone numbers to fetch data for" 
+                  },
                 },
+                required: ["phoneNumbers"],
+              },
             },
-        },
-        {
+          },
+          {
             type: "function",
             function: {
-                name: "listContacts",
-                description: "List contacts with pagination",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        idSubstring: { type: "string", description: "ID substring for the company" },
-                        limit: { type: "number", description: "Number of contacts to return (default 10)" },
-                        offset: { type: "number", description: "Number of contacts to skip (default 0)" },
-                    },
-                    required: ["idSubstring"],
+              name: "listContacts",
+              description: "List contacts with pagination",
+              parameters: {
+                type: "object",
+                properties: {
+                  idSubstring: { type: "string", description: "ID substring for the company" },
+                  limit: { type: "number", description: "Number of contacts to return (default 10)" },
+                  offset: { type: "number", description: "Number of contacts to skip (default 0)" },
                 },
+                required: ["idSubstring"],
+              },
             },
-        },
-        {
-            type: "function",
-            function: {
-                name: "createGoogleCalendarEvent",
-                description: "Schedule a meeting in Google Calendar",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        summary: { type: "string", description: "Title of the event" },
-                        description: { type: "string", description: "Description of the event" },
-                        startDateTime: { type: "string", description: "Start date and time in ISO 8601 format" },
-                        endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
-                    },
-                    required: ["summary", "startDateTime", "endDateTime"],
-                },
+          },
+      {
+        type: "function",
+        function: {
+          name: "createGoogleCalendarEvent",
+          description: "Schedule a meeting in Google Calendar",
+          parameters: {
+            type: "object",
+            properties: {
+              summary: { type: "string", description: "Title of the event" },
+              description: { type: "string", description: "Description of the event" },
+              startDateTime: { type: "string", description: "Start date and time in ISO 8601 format" },
+              endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
             },
+            required: ["summary", "startDateTime", "endDateTime"],
+          },
         },
-        {
-            type: "function",
-            function: {
-                name: "getTodayDate",
-                description: "Get today's date in YYYY-MM-DD format",
-                parameters: {
-                    type: "object",
-                    properties: {},
-                },
+      },
+      {
+        type: "function",
+        function: {
+          name: "getTodayDate",
+          description: "Get today's date in YYYY-MM-DD format",
+          parameters: {
+            type: "object",
+            properties: {},
+          },
+        },
+      },
+      {
+        type: "function",
+        function: {
+          name: "fetchContactData",
+          description: "Fetch contact data for a given phone number",
+          parameters: {
+            type: "object",
+            properties: {
+              phoneNumber: { type: "string", description: "Phone number of the contact" },
+              idSubstring: { type: "string", description: "ID substring for the company" },
             },
+            required: ["phoneNumber", "idSubstring"],
+          },
         },
-        {
-            type: "function",
-            function: {
-                name: "fetchContactData",
-                description: "Fetch contact data for a given phone number",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        phoneNumber: { type: "string", description: "Phone number of the contact" },
-                        idSubstring: { type: "string", description: "ID substring for the company" },
-                    },
-                    required: ["phoneNumber", "idSubstring"],
-                },
+      },
+      {
+        type: "function",
+        function: {
+          name: "getTotalContacts",
+          description: "Get the total number of contacts for a company",
+          parameters: {
+            type: "object",
+            properties: {
+              idSubstring: { type: "string", description: "ID substring for the company" },
             },
+            required: ["idSubstring"],
+          },
         },
-        {
-            type: "function",
-            function: {
-                name: "getTotalContacts",
-                description: "Get the total number of contacts for a company",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        idSubstring: { type: "string", description: "ID substring for the company" },
-                    },
-                    required: ["idSubstring"],
-                },
+      },
+
+      {
+        type: "function",
+        function: {
+          name: "addTask",
+          description: "Add a new task for a user",
+          parameters: {
+            type: "object",
+            properties: {
+              userId: { type: "string", description: "User ID (phone number)" },
+              taskString: { type: "string", description: "Task description" },
             },
+            required: ["userId", "taskString"],
+          },
         },
-        {
-            type: "function",
-            function: {
-                name: "addTask",
-                description: "Add a new task for the company",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        taskString: { type: "string", description: "Task description" },
-                        assignee: { type: "string", description: "Person assigned to the task" },
-                        dueDate: { type: "string", description: "Due date for the task (YYYY-MM-DD format)" },
-                    },
-                    required: ["taskString", "assignee", "dueDate"],
-                },
+      },
+      {
+        type: "function",
+        function: {
+          name: "listTasks",
+          description: "List all tasks for a user",
+          parameters: {
+            type: "object",
+            properties: {
+              userId: { type: "string", description: "User ID (phone number)" },
             },
+            required: ["userId"],
+          },
         },
-        {
-            type: "function",
-            function: {
-                name: "listTasks",
-                description: "List all tasks for the company",
-                parameters: {
-                    type: "object",
-                    properties: {},
-                },
+      },
+      {
+        type: "function",
+        function: {
+          name: "updateTaskStatus",
+          description: "Update the status of a task",
+          parameters: {
+            type: "object",
+            properties: {
+              userId: { type: "string", description: "User ID (phone number)" },
+              taskIndex: { type: "number", description: "Index of the task to update" },
+              newStatus: { type: "string", description: "New status for the task" },
             },
+            required: ["userId", "taskIndex", "newStatus"],
+          },
         },
-        {
-            type: "function",
-            function: {
-                name: "updateTaskStatus",
-                description: "Update the status of a task",
-                parameters: {
-                    type: "object",
-                    properties: {
-                        taskIndex: { type: "number", description: "Index of the task to update" },
-                        newStatus: { type: "string", description: "New status for the task" },
-                    },
-                    required: ["taskIndex", "newStatus"],
-                },
-            },
-        },
+      },
     ];
   
-    const answer = await runAssistant(assistantId, threadID, tools, idSubstring, client);
+    const answer = await runAssistant(assistantId, threadID, tools,idSubstring,client);
     return answer;
-}
+  }
 
 async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
     console.log('Sending request to Whapi.Cloud...');
@@ -1976,7 +1929,7 @@ async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
 }
 
 
-async function saveThreadIDGHL(contactID, threadID) {
+async function saveThreadIDGHL(contactID,threadID){
     const options = {
         method: 'PUT',
         url: `https://services.leadconnectorhq.com/contacts/${contactID}`,
@@ -1988,7 +1941,7 @@ async function saveThreadIDGHL(contactID, threadID) {
         },
         data: {
             customFields: [
-                { key: 'threadid', field_value: threadID }
+                {key: 'threadid', field_value: threadID}
             ],
         }
     };
@@ -1999,32 +1952,30 @@ async function saveThreadIDGHL(contactID, threadID) {
         console.error(error);
     }
 }
-
 async function searchWeb(query) {
     try {
-        const response = await axios.post('https://google.serper.dev/search', {
-            q: query
-        }, {
-            headers: {
-                'X-API-KEY': process.env.SERPER_API_KEY,
-                'Content-Type': 'application/json'
-            }
-        });
-    
-        // Extract and format the search results
-        const results = response.data.organic.slice(0, 3).map(result => ({
-            title: result.title,
-            snippet: result.snippet,
-            link: result.link
-        }));
-    
-        return JSON.stringify(results);
+      const response = await axios.post('https://google.serper.dev/search', {
+        q: query
+      }, {
+        headers: {
+          'X-API-KEY': process.env.SERPER_API_KEY,
+          'Content-Type': 'application/json'
+        }
+      });
+  
+      // Extract and format the search results
+      const results = response.data.organic.slice(0, 3).map(result => ({
+        title: result.title,
+        snippet: result.snippet,
+        link: result.link
+      }));
+  
+      return JSON.stringify(results);
     } catch (error) {
-        console.error('Error searching the web:', error);
-        return JSON.stringify({ error: 'Failed to search the web' });
+      console.error('Error searching the web:', error);
+      return JSON.stringify({ error: 'Failed to search the web' });
     }
-}
-
+  }
 async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
     
     // Construct the Firestore document path
@@ -2040,7 +1991,7 @@ async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
     }
 }
 
-async function createContact(name, number) {
+async function createContact(name,number){
     const options = {
         method: 'POST',
         url: 'https://services.leadconnectorhq.com/contacts/',
@@ -2074,15 +2025,15 @@ async function getContact(number) {
             number: number
         },
         headers: {
-            Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
-            Version: '2021-07-28',
-            Accept: 'application/json'
+          Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
+          Version: '2021-07-28',
+          Accept: 'application/json'
         }
     };
   
     try {
-        const response = await axios.request(options);
-        return (response.data.contact);
+      const response = await axios.request(options);
+      return(response.data.contact);
     } catch (error) {
         console.error(error);
     }
