@@ -205,7 +205,7 @@ wss.on('connection', (ws,req) => {
     });
   }
   const botStatusMap = new Map();
-  function broadcastAuthStatus(botName, status, qrCode = null) {
+  function broadcastAuthStatus(botName, status, qrCode = null, i = 1) {
 
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN && client.companyId === botName) {
@@ -214,7 +214,8 @@ wss.on('connection', (ws,req) => {
           type: 'auth_status', 
           botName, 
           status,
-          qrCode: status === 'qr' ? qrCode : null // Include qrCode only when status is 'qr'
+          qrCode: status === 'qr' ? qrCode : null, // Include qrCode only when status is 'qr'
+          phoneIndex: i
         }));
       }
     });
