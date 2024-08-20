@@ -1248,24 +1248,6 @@ async function sendDailyContactReport(client, idSubstring) {
     await client.sendMessage(groupChatId, message);
 }
 
-// Schedule the daily report
-async function scheduleDailyReport(client, idSubstring) {
-    const companyRef = db.collection('companies').doc(idSubstring);
-    const doc = await companyRef.get();
-    if (doc.exists && doc.data().isDailyReportScheduled) {
-        console.log('Daily report already scheduled');
-        return;
-    }
-
-    cron.schedule('0 21 * * *', async () => {
-        await sendDailyContactReport(client, idSubstring);
-    }, {
-        timezone: "Asia/Kuala_Lumpur"
-    });
-
-    await companyRef.update({ isDailyReportScheduled: true });
-    console.log('Daily report scheduled');
-}
 
 async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
     try {
