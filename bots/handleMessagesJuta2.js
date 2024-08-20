@@ -411,7 +411,24 @@ async function fetchContactData(phoneNumber, idSubstring) {
       return JSON.stringify({ error: 'Failed to fetch contact data' });
     }
   }
+  async function storeVideoData(videoData, filename) {
+    const bucket = admin.storage().bucket();
+    const uniqueFilename = `${uuidv4()}_${filename}`;
+    const file = bucket.file(`videos/${uniqueFilename}`);
 
+    await file.save(Buffer.from(videoData, 'base64'), {
+        metadata: {
+            contentType: 'video/mp4', // Adjust this based on the actual video type
+        },
+    });
+
+    const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2500', // Adjust expiration as needed
+    });
+
+    return url;
+}
 // Add these new functions to fetch contact statistics
 async function getTotalContacts(idSubstring) {
     try {
@@ -739,6 +756,15 @@ if (!contactData) {
                         pageCount: msg._data.pageCount,
                         fileSize: msg._data.size,
                     };
+                }else if (msg.type === 'video') {
+                      messageData.video = {
+                          mimetype: media.mimetype,
+                          filename: msg._data.filename || "",
+                          caption: msg._data.caption || "",
+                      };
+                      // Store video data separately or use a cloud storage solution
+                      const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                      messageData.video.url = videoUrl;
                 } else {
                     messageData[msg.type] = {
                         mimetype: media.mimetype,
