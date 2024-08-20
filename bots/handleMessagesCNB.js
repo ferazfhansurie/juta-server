@@ -465,7 +465,7 @@ async function handleNewMessagesCNB(client, msg, botName, phoneIndex) {
                 }
             }
               const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-              //await contactRef.set(contactData, { merge: true });
+              await contactRef.set(contactData, { merge: true });
               const messagesRef = contactRef.collection('messages');
               const messageDoc = messagesRef.doc(msg.id._serialized);
               await messageDoc.set(messageData, { merge: true });
