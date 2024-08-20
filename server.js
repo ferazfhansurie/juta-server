@@ -2422,7 +2422,7 @@ async function initializeBot(botName, phoneCount = 1) {
               if(phoneCount != 1){
                 clients[i] = { ...clients[i], status: 'qr', qrCode: qrCodeData };
                 
-                broadcastAuthStatus(botName, 'qr', qrCodeData, i);
+                broadcastAuthStatus(`${botName}_phone${i + 1}`, 'qr', qrCodeData, i);
               } else {
                 broadcastAuthStatus(botName, 'qr', qrCodeData); // Pass qrCodeData to broadcastAuthStatus
               }
@@ -2436,7 +2436,7 @@ async function initializeBot(botName, phoneCount = 1) {
         if(phoneCount != 1){
           console.log(`${botName} Phone ${i + 1} - AUTHENTICATED`);
           clients[i] = { ...clients[i], status: 'authenticated', qrCode: null };
-          broadcastAuthStatus(botName, 'authenticated', null, i);
+          broadcastAuthStatus(`${botName}_phone${i + 1}`, 'authenticated', null, i);
         } else {
           broadcastAuthStatus(botName, 'authenticated');
         }
