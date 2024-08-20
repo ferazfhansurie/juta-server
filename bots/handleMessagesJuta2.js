@@ -764,7 +764,7 @@ if (!contactData) {
                       };
                       // Store video data separately or use a cloud storage solution
                       const videoUrl = await storeVideoData(media.data, msg._data.filename);
-                      messageData.video.url = videoUrl;
+                      messageData.video.link = videoUrl;
                 } else {
                     messageData[msg.type] = {
                         mimetype: media.mimetype,
