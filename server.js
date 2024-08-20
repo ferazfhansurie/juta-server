@@ -1990,6 +1990,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
       timestamp: sentMessage.timestamp ?? 0,
       type: type2,
       ack: sentMessage.ack ?? 0,
+      phoneIndex: phoneIndex,
     };
     
     const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
