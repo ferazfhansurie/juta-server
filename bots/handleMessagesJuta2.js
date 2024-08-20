@@ -853,7 +853,7 @@ if (!contactData) {
                 var context = "";
 
                 query = `${messageBody}`;
-             if(!(sender.to.includes('@g.us')) || msg.body.toLowerCase().startsWith('@juta')){
+             if(!(sender.to.includes('@g.us')) || (msg.body.toLowerCase().startsWith('@juta') && phoneIndex == 0)){
                 answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client);
                 parts = answer.split(/\s*\|\|\s*/);
                 
