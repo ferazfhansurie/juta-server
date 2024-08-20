@@ -59,7 +59,7 @@ class applyRadarSpreadsheet {
     }
   }
 
-  async processRow(rowIndex) {
+  async processRow(row) {
     const [
         timestamp,
         name,
@@ -79,7 +79,7 @@ class applyRadarSpreadsheet {
       ] = row;
 
     if (waSent === 'Sent') {
-      console.log(`Row ${rowIndex} already processed. Skipping.`);
+      console.log(`Row already processed. Skipping.`);
       return;
     }
   
