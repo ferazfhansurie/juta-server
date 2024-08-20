@@ -334,7 +334,6 @@ async function scheduleDailyReport(client, idSubstring) {
       timezone: "Asia/Kuala_Lumpur"
   });
 
-  await companyRef.update({ isDailyReportScheduled: true });
   console.log('Daily report and task reminder scheduled');
 }
   async function scheduleReminderMessage(eventSummary, startDateTime, chatId) {
@@ -494,9 +493,6 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
 
         // Set up the daily report schedule
         await scheduleDailyReport(client, idSubstring);
-
-        // Set up task reminders
-        scheduleTaskReminders(client);
 
         const sender = {
             to: msg.from,
