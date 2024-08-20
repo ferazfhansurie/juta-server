@@ -458,26 +458,58 @@ async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
                 const media = await msg.downloadMedia();
                 if (media) {
                     if (msg.type === 'image') {
-                        messageData.image = {
+                      messageData.image = {
+                          mimetype: media.mimetype,
+                          data: media.data,  // This is the base64-encoded data
+                          filename: msg._data.filename || "",
+                          caption: msg._data.caption || "",
+                      };
+                      // Add width and height if available
+                      if (msg._data.width) messageData.image.width = msg._data.width;
+                      if (msg._data.height) messageData.image.height = msg._data.height;
+                    } else if (msg.type === 'document') {
+                        messageData.document = {
                             mimetype: media.mimetype,
                             data: media.data,  // This is the base64-encoded data
-                            filename: media.filename ?? "",
-                            caption: msg.body ?? "",
-                            width: msg._data.width,
-                            height: msg._data.height
+                            filename: msg._data.filename || "",
+                            caption: msg._data.caption || "",
+                            pageCount: msg._data.pageCount,
+                            fileSize: msg._data.size,
                         };
+                    }else if (msg.type === 'video') {
+                          messageData.video = {
+                              mimetype: media.mimetype,
+                              filename: msg._data.filename || "",
+                              caption: msg._data.caption || "",
+                          };
+                          // Store video data separately or use a cloud storage solution
+                          const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                          messageData.video.link = videoUrl;
                     } else {
                         messageData[msg.type] = {
                             mimetype: media.mimetype,
-                            data: media.data,  // This is the base64-encoded data
-                            filename: media.filename ?? "",
-                            caption: msg.body ?? "",
+                            data: media.data,
+                            filename: msg._data.filename || "",
+                            caption: msg._data.caption || "",
                         };
                     }
-                    if (media.filesize) {
-                        messageData[msg.type].filesize = media.filesize;
+        
+                    // Add thumbnail information if available
+                    if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                        messageData[msg.type].thumbnail = {
+                            height: msg._data.thumbnailHeight,
+                            width: msg._data.thumbnailWidth,
+                        };
                     }
-                } else {
+        
+                    // Add media key if available
+                    if (msg.mediaKey) {
+                        messageData[msg.type].mediaKey = msg.mediaKey;
+                    }
+    
+                    console.log('messageData: ',messageData)
+                    console.log('media: ',media)
+                  }  else {
                     console.log(`Failed to download media for message: ${msg.id._serialized}`);
                     messageData.text = { body: "Media not available" };
                 }
