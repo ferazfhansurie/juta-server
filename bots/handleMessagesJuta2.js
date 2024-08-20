@@ -724,45 +724,45 @@ if (!contactData) {
           try {
               const media = await msg.downloadMedia();
               if (media) {
-                if (message.type === 'image') {
+                if (msg.type === 'image') {
                   messageData.image = {
                       mimetype: media.mimetype,
                       data: media.data,  // This is the base64-encoded data
-                      filename: message._data.filename || "",
-                      caption: message._data.caption || "",
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
                   };
                   // Add width and height if available
-                  if (message._data.width) messageData.image.width = message._data.width;
-                  if (message._data.height) messageData.image.height = message._data.height;
-                } else if (message.type === 'document') {
+                  if (msg._data.width) messageData.image.width = msg._data.width;
+                  if (msg._data.height) messageData.image.height = msg._data.height;
+                } else if (msg.type === 'document') {
                     messageData.document = {
                         mimetype: media.mimetype,
                         data: media.data,  // This is the base64-encoded data
-                        filename: message._data.filename || "",
-                        caption: message._data.caption || "",
-                        pageCount: message._data.pageCount,
-                        fileSize: message._data.size,
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
+                        pageCount: msg._data.pageCount,
+                        fileSize: msg._data.size,
                     };
                 } else {
-                    messageData[message.type] = {
+                    messageData[msg.type] = {
                         mimetype: media.mimetype,
                         data: media.data,
-                        filename: message._data.filename || "",
-                        caption: message._data.caption || "",
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
                     };
                 }
     
                 // Add thumbnail information if available
-                if (message._data.thumbnailHeight && message._data.thumbnailWidth) {
-                    messageData[message.type].thumbnail = {
-                        height: message._data.thumbnailHeight,
-                        width: message._data.thumbnailWidth,
+                if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                    messageData[msg.type].thumbnail = {
+                        height: msg._data.thumbnailHeight,
+                        width: msg._data.thumbnailWidth,
                     };
                 }
     
                 // Add media key if available
-                if (message.mediaKey) {
-                    messageData[message.type].mediaKey = message.mediaKey;
+                if (msg.mediaKey) {
+                    messageData[msg.type].mediaKey = msg.mediaKey;
                 }
               } else {
                   console.log(`Failed to download media for message: ${msg.id._serialized}`);
