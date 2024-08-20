@@ -720,30 +720,62 @@ async function createUserInFirebase(userData) {
     }
   });
 
-  // New route for syncing contacts
-  app.post('/api/sync-contacts/:companyId', async (req, res) => {
-    const { companyId } = req.params;
-    
-    try {
-      let client;
-      const botData = botMap.get(companyId);
-      if (!botData) {
-        return res.status(404).json({ error: 'WhatsApp client not found for this company' });
-      }
-      if(botData.length == 1){
-        client = botData[0].client;
-      }
-      if(!client){
-        return res.status(404).json({ error: 'WhatsApp client not found for this company' });
-      }      
-      await syncContacts(client, companyId);
-      
-      res.json({ success: true, message: 'Contact synchronization started' });
-    } catch (error) {
-      console.error(`Error starting contact sync for ${companyId}:`, error);
-      res.status(500).json({ error: 'Failed to start contact synchronization' });
+// New route for syncing contacts
+app.post('/api/sync-contacts/:companyId', async (req, res) => {
+  const { companyId } = req.params;
+  const { phoneIndex } = req.body; // Optional parameter to specify which phone to sync
+  
+  try {
+    const botData = botMap.get(companyId);
+    if (!botData) {
+      return res.status(404).json({ error: 'WhatsApp client not found for this company' });
     }
-  });
+
+    let syncPromises = [];
+
+    if (botData.length === 1) {
+      // If there's only one client, use it directly
+      const client = botData[0].client;
+      if (!client) {
+        return res.status(404).json({ error: 'WhatsApp client not found for this company' });
+      }
+      syncPromises.push(syncContacts(client, companyId, 0));
+    } else if (phoneIndex !== undefined) {
+      // Sync specific phone if phoneIndex is provided
+      if (phoneIndex < 0 || phoneIndex >= botData.length) {
+        return res.status(400).json({ error: 'Invalid phone index' });
+      }
+      const client = botData[phoneIndex].client;
+      if (!client) {
+        return res.status(404).json({ error: `WhatsApp client not found for phone index ${phoneIndex}` });
+      }
+      syncPromises.push(syncContacts(client, companyId, phoneIndex));
+    } else {
+      // Sync all phones if no specific index is provided and there are multiple clients
+      syncPromises = botData.map((data, index) => {
+        if (data.client) {
+          return syncContacts(data.client, companyId, index);
+        }
+      }).filter(Boolean); // Remove any undefined promises
+    }
+
+    if (syncPromises.length === 0) {
+      return res.status(404).json({ error: 'No valid WhatsApp clients found for synchronization' });
+    }
+
+    // Start syncing process for all applicable clients
+    Promise.all(syncPromises).then(() => {
+      console.log(`Contact synchronization completed for company ${companyId}`);
+    }).catch(error => {
+      console.error(`Error during contact sync for company ${companyId}:`, error);
+    });
+    
+    res.json({ success: true, message: 'Contact synchronization started' });
+  } catch (error) {
+    console.error(`Error starting contact sync for ${companyId}:`, error);
+    res.status(500).json({ error: 'Failed to start contact synchronization' });
+  }
+});
 
   async function syncContacts(client, companyId, phoneIndex = 1) {
     try {
@@ -1962,6 +1994,51 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
     res.json({ success: true, messageId: sentMessage.id._serialized });
   } catch (error) {
     console.error('Error sending message:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Edit message route
+app.put('/api/v2/messages/:companyId/:chatId/:messageId', async (req, res) => {
+  console.log('Edit message');
+  const { companyId, chatId, messageId } = req.params;
+  const { newMessage } = req.body;
+
+  try {
+    let phoneNumber = '+'+(chatId).split('@')[0];
+    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
+    const messageRef = contactRef.collection('messages').doc(messageId);
+
+    // Update the message in Firebase
+    await messageRef.update({
+      'text.body': newMessage,
+      edited: true,
+      editedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    res.json({ success: true, messageId: messageId });
+  } catch (error) {
+    console.error('Error editing message:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// Delete message route
+app.delete('/api/v2/messages/:companyId/:chatId/:messageId', async (req, res) => {
+  console.log('Delete message');
+  const { companyId, chatId, messageId } = req.params;
+
+  try {
+    let phoneNumber = '+'+(chatId).split('@')[0];
+    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
+    const messageRef = contactRef.collection('messages').doc(messageId);
+
+    // Delete the message from Firebase
+    await messageRef.delete();
+
+    res.json({ success: true, messageId: messageId });
+  } catch (error) {
+    console.error('Error deleting message:', error);
     res.status(500).send('Internal Server Error');
   }
 });
