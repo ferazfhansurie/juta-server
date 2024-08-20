@@ -40,30 +40,43 @@ const userTasks = new Map();
 
 // Function to add a task
 async function addTask(idSubstring, taskString, assignee, dueDate) {
-    const companyRef = db.collection('companies').doc(idSubstring);
-    const newTask = {
-        text: taskString,
-        status: 'In Progress',
-        assignee: assignee,
-        dueDate: dueDate,
-        createdAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-    
-    await db.runTransaction(async (transaction) => {
-        const doc = await transaction.get(companyRef);
-        let tasks = [];
-        if (doc.exists) {
-            tasks = doc.data().tasks || [];
-        }
-        tasks.push(newTask);
-        
-        transaction.set(companyRef, { 
-            tasks: tasks,
-            lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-    });
+  if (!assignee || !dueDate) {
+      return JSON.stringify({ 
+          prompt: !assignee && !dueDate ? "Please provide an assignee and due date for the task." :
+                  !assignee ? "Please provide an assignee for the task." :
+                  "Please provide a due date for the task.",
+          taskString: taskString,
+          assignee: assignee,
+          dueDate: dueDate
+      });
+  }
 
-    return JSON.stringify({ message: `Task added: ${taskString}, assigned to ${assignee}, due on ${dueDate}` });
+  const companyRef = db.collection('companies').doc(idSubstring);
+  const newTask = {
+      text: taskString || 'Untitled Task',
+      status: 'In Progress',
+      assignee: assignee,
+      dueDate: dueDate,
+      createdAt: new Date().toISOString() // Use a regular Date object
+  };
+  
+  await db.runTransaction(async (transaction) => {
+      const doc = await transaction.get(companyRef);
+      let tasks = [];
+      if (doc.exists) {
+          tasks = doc.data().tasks || [];
+      }
+      tasks.push(newTask);
+      
+      transaction.set(companyRef, { 
+          tasks: tasks,
+          lastUpdated: admin.firestore.FieldValue.serverTimestamp() // This is fine as it's not in an array
+      }, { merge: true });
+  });
+
+  return JSON.stringify({ 
+      message: `Task added: ${newTask.text}, assigned to ${newTask.assignee}, due on ${newTask.dueDate}` 
+  });
 }
 async function listAssignedTasks(idSubstring, assignee) {
   const companyRef = db.collection('companies').doc(idSubstring);
