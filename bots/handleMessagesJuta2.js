@@ -721,38 +721,58 @@ if (!contactData) {
         }
 
         if (msg.hasMedia &&  msg.type !== 'audio') {
-            try {
-                const media = await msg.downloadMedia();
-                if (media) {
-                    if (msg.type === 'image') {
-                        messageData.image = {
-                            mimetype: media.mimetype,
-                            data: media.data,  // This is the base64-encoded data
-                            filename: media.filename ?? "",
-                            caption: msg.body ?? "",
-                            width: msg._data.width,
-                            height: msg._data.height
-                        };
-                    } else {
-                        messageData[msg.type] = {
-                            mimetype: media.mimetype,
-                            data: media.data,  // This is the base64-encoded data
-                            filename: media.filename ?? "",
-                            caption: msg.body ?? "",
-                        };
-                    }
-                    if (media.filesize) {
-                        messageData[msg.type].filesize = media.filesize;
-                    }
+          try {
+              const media = await msg.downloadMedia();
+              if (media) {
+                if (message.type === 'image') {
+                  messageData.image = {
+                      mimetype: media.mimetype,
+                      data: media.data,  // This is the base64-encoded data
+                      filename: message._data.filename || "",
+                      caption: message._data.caption || "",
+                  };
+                  // Add width and height if available
+                  if (message._data.width) messageData.image.width = message._data.width;
+                  if (message._data.height) messageData.image.height = message._data.height;
+                } else if (message.type === 'document') {
+                    messageData.document = {
+                        mimetype: media.mimetype,
+                        data: media.data,  // This is the base64-encoded data
+                        filename: message._data.filename || "",
+                        caption: message._data.caption || "",
+                        pageCount: message._data.pageCount,
+                        fileSize: message._data.size,
+                    };
                 } else {
-                    console.log(`Failed to download media for message: ${msg.id._serialized}`);
-                    messageData.text = { body: "Media not available" };
+                    messageData[message.type] = {
+                        mimetype: media.mimetype,
+                        data: media.data,
+                        filename: message._data.filename || "",
+                        caption: message._data.caption || "",
+                    };
                 }
-            } catch (error) {
-                console.error(`Error handling media for message ${msg.id._serialized}:`, error);
-                messageData.text = { body: "Error handling media" };
-            }
-        }
+    
+                // Add thumbnail information if available
+                if (message._data.thumbnailHeight && message._data.thumbnailWidth) {
+                    messageData[message.type].thumbnail = {
+                        height: message._data.thumbnailHeight,
+                        width: message._data.thumbnailWidth,
+                    };
+                }
+    
+                // Add media key if available
+                if (message.mediaKey) {
+                    messageData[message.type].mediaKey = message.mediaKey;
+                }
+              } else {
+                  console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                  messageData.text = { body: "Media not available" };
+              }
+          } catch (error) {
+              console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+              messageData.text = { body: "Error handling media" };
+          }
+      }
 
         const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
         const messagesRef = contactRef.collection('messages');
@@ -1034,26 +1054,46 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
         try {
             const media = await msg.downloadMedia();
             if (media) {
-                if (msg.type === 'image') {
-                    messageData.image = {
-                        mimetype: media.mimetype,
-                        data: media.data,  // This is the base64-encoded data
-                        filename: media.filename ?? "",
-                        caption: msg.body ?? "",
-                        width: msg._data.width,
-                        height: msg._data.height
-                    };
-                } else {
-                    messageData[msg.type] = {
-                        mimetype: media.mimetype,
-                        data: media.data,  // This is the base64-encoded data
-                        filename: media.filename ?? "",
-                        caption: msg.body ?? "",
-                    };
-                }
-                if (media.filesize) {
-                    messageData[msg.type].filesize = media.filesize;
-                }
+              if (message.type === 'image') {
+                messageData.image = {
+                    mimetype: media.mimetype,
+                    data: media.data,  // This is the base64-encoded data
+                    filename: message._data.filename || "",
+                    caption: message._data.caption || "",
+                };
+                // Add width and height if available
+                if (message._data.width) messageData.image.width = message._data.width;
+                if (message._data.height) messageData.image.height = message._data.height;
+              } else if (message.type === 'document') {
+                  messageData.document = {
+                      mimetype: media.mimetype,
+                      data: media.data,  // This is the base64-encoded data
+                      filename: message._data.filename || "",
+                      caption: message._data.caption || "",
+                      pageCount: message._data.pageCount,
+                      fileSize: message._data.size,
+                  };
+              } else {
+                  messageData[message.type] = {
+                      mimetype: media.mimetype,
+                      data: media.data,
+                      filename: message._data.filename || "",
+                      caption: message._data.caption || "",
+                  };
+              }
+  
+              // Add thumbnail information if available
+              if (message._data.thumbnailHeight && message._data.thumbnailWidth) {
+                  messageData[message.type].thumbnail = {
+                      height: message._data.thumbnailHeight,
+                      width: message._data.thumbnailWidth,
+                  };
+              }
+  
+              // Add media key if available
+              if (message.mediaKey) {
+                  messageData[message.type].mediaKey = message.mediaKey;
+              }
             } else {
                 console.log(`Failed to download media for message: ${msg.id._serialized}`);
                 messageData.text = { body: "Media not available" };
