@@ -1945,9 +1945,12 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
   console.log('send message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const { message, quotedMessageId } = req.body;
+  const { message, quotedMessageId, phoneIndex: requestedPhoneIndex } = req.body;
   console.log(req.body);
   console.log(message)
+
+  const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
+
   try {
     let client;
     // 1. Get the client for this company from botMap
@@ -1955,9 +1958,8 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
     if (!botData) {
       return res.status(404).send('WhatsApp client not found for this company');
     }
-    if(botData.length == 1){
-      client = botData[0].client;
-    }
+    client = botData[phoneIndex].client;
+    
     if (!client) {
       return res.status(404).send('No active WhatsApp client found for this company');
     }
