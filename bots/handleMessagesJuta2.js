@@ -78,6 +78,7 @@ async function listTasks(userId) {
 async function updateTaskStatus(userId, taskIndex, newStatus) {
     const taskRef = db.collection('tasks').doc(userId);
     const doc = await taskRef.get();
+    console.log('taskIndex',taskIndex)
     if (!doc.exists || !doc.data().tasks || taskIndex < 0 || taskIndex >= doc.data().tasks.length) {
         return JSON.stringify({ message: "Invalid task number." });
     }
