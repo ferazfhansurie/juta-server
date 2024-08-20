@@ -367,6 +367,7 @@ app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 
 //spreadsheet
 const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
+const applyRadarSpreadsheet = require('./spreadsheet/applyradarspreadsheet.js');
 const { off } = require('process');
 
 
@@ -1462,6 +1463,10 @@ async function main(reinitialize = false) {
   const msuAutomation = new msuSpreadsheet(botMap);
   msuAutomation.initialize();
 
+  console.log('Checking for new rows apply radar...');
+  const applyRadarAutomation = new applyRadarSpreadsheet(botMap);
+  applyRadarAutomation.initialize();
+
   console.log('Initialization complete');
   // Send ready signal to PM2
   if (process.send) {
@@ -2452,24 +2457,39 @@ async function initializeBot(botName, phoneCount = 1) {
       
   });
 
-        client.on('auth_failure', msg => {
-            console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
-            botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
+          client.on('auth_failure', msg => {
+            console.error(`${botName} Phone ${i + 1} - AUTHENTICATION FAILURE`, msg);
+            if (phoneCount > 1) {
+                clients[i] = { ...clients[i], status: 'auth_failure', qrCode: null };
+                broadcastAuthStatus(botName, 'auth_failure', null, i);
+            } else {
+                botMap.set(botName, [{ client, status: 'auth_failure', qrCode: null }]);
+                broadcastAuthStatus(botName, 'auth_failure');
+            }
         });
 
         client.on('disconnected', (reason) => {
-            console.log(`${botName} - DISCONNECTED:`, reason);
-            botMap.set(botName, { client, status: 'disconnected', qrCode: null });
+            console.log(`${botName} Phone ${i + 1} - DISCONNECTED:`, reason);
+            if (phoneCount > 1) {
+                clients[i] = { ...clients[i], status: 'disconnected', qrCode: null };
+                broadcastAuthStatus(botName, 'disconnected', null, i);
+            } else {
+                botMap.set(botName, [{ client, status: 'disconnected', qrCode: null }]);
+                broadcastAuthStatus(botName, 'disconnected');
+            }
         });
 
         client.on('remote_session_saved', () => {
-            console.log(`${botName} - REMOTE SESSION SAVED`);
+            console.log(`${botName} Phone ${i + 1} - REMOTE SESSION SAVED`);
         });
 
         await client.initialize();
-        console.log(`Bot ${botName} initialization`);
-        console.log(`DEBUG: Bot ${botName} initialized successfully`);
-       }
+        console.log(`Bot ${botName} Phone ${i + 1} initialization complete`);
+        console.log(`DEBUG: Bot ${botName} Phone ${i + 1} initialized successfully`);
+        }
+
+        botMap.set(botName, clients);
+        console.log(`Bot ${botName} initialization complete for all ${phoneCount} phone(s)`);
 
         botMap.set(botName, clients);
         console.log(`Bot ${botName} initialization complete for all phones`);

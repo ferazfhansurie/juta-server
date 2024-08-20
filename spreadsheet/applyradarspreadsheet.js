@@ -6,11 +6,12 @@ const util = require('util');
 const readFileAsync = util.promisify(fs.readFile);
 const writeFileAsync = util.promisify(fs.writeFile);
 
-class applyRadar {
+class applyRadarSpreadsheet {
   constructor(botMap) {
-    this.botName = '001';
-    this.spreadsheetId = '1_rW9VE-B6nT52aXiK6YhY8728sSawqSp0LIUiRCK5RA';
-    this.range = 'Sheet1!A:S';
+    this.botName = '060';
+    this.spreadsheetId = '11OH6bQCBlWiW_8Qb2aTehwgD_i5Oyfddri1jZxhXdpE';
+    this.sheetName = 'Tactical LP - UNITEN';
+    this.range = `${this.sheetName}!A:S`; // Update this line
     this.LAST_PROCESSED_ROW_FILE = `last_processed_row_${this.botName}.json`;
     this.botMap = botMap;
 
@@ -58,9 +59,25 @@ class applyRadar {
     }
   }
 
-  async processRow(row) {
-    const [timestamp, leadsource, name, email, phoneNumber, icNumber, fieldOfStudy, levelOfQualification, nationality, modeOfStudy, articleName, colIssued, distributed, noName1, noName2, counselor, waSent, noName3, jutasWaSent, rowIndex] = row;
-  
+  async processRow(rowIndex) {
+    const [
+        timestamp,
+        name,
+        email,
+        phoneNumber,
+        qualificationLevel,
+        faculty,
+        preferredLevelOfStudy,
+        preferredProgramme,
+        leadSource,
+        utmSource,
+        utmMedium,
+        utmName,
+        utmTerm,
+        utmContent,
+        waSent
+      ] = row;
+
     if (waSent === 'Sent') {
       console.log(`Row ${rowIndex} already processed. Skipping.`);
       return;
@@ -73,10 +90,10 @@ class applyRadar {
       console.log(`WhatsApp client not found for bot ${this.botName}`);
       return;
     }
-    const client = botData.client;
+    const client = botData[0].client;
   
     // Construct the message
-    const message = `Hello ${name},\n\nThank you for your interest in our programs. We have received your inquiry regarding:\n\nField of Study: ${fieldOfStudy}\nLevel of Qualification: ${levelOfQualification}\nMode of Study: ${modeOfStudy}\n\nOur team will contact you shortly with more information. If you have any immediate questions, please don't hesitate to reply to this message.\n\nBest regards,\nYour Education Team`;
+    const message = `Hello ${name},\n\nThank you for submitting your enquiries to UNITEN for ${preferredProgramme}\nMay I know about your education background a bit before out counsellor contacts you? So we can start with:\n\nWhat is your highest level of qualification?\n\nReply 1 - SPM/Equivalent leavers\n\nReply 2 - STPM/Foundation/Diploma/Equivalent\n\nReply 3 - Bachelor Degree\n\nReply 4 - Master Degree`;
   
     // Send the message to the phone number from the row
     try {
@@ -95,7 +112,7 @@ class applyRadar {
     try {
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: `Sheet1!Q${rowIndex}`, // Column Q is for "WA Sent"
+        range: `${this.sheetName}!O${rowIndex}`, // Column Q is for "WA Sent"
         valueInputOption: 'USER_ENTERED',
         resource: {
           values: [['Sent']]
@@ -150,4 +167,4 @@ class applyRadar {
   }
 }
 
-module.exports = msuSpreadsheet;
+module.exports = applyRadarSpreadsheet;
