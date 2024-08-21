@@ -166,7 +166,7 @@ class applyRadarSpreadsheet {
     const botData = this.botMap.get(this.botName);
     console.log("botMap: ", this.botMap);
     console.log("botData: ", botData);
-    if (!botData || !botData.client) {
+    if (!botData || !botData[0].client) {
       console.log(`WhatsApp client not found for bot ${this.botName}`);
       return;
     }
