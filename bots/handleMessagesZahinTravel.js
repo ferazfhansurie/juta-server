@@ -661,7 +661,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
 
                             // Send message to group chat
                             //const groupChatId = ghlConfig.groupChatId; // Assuming you have this in your config
-                            await client.sendMessage('601121677522@c.us', groupMessage);
+                            await client.sendMessage('120363303647719937@g.us', groupMessage);
 
                         }
                     }
