@@ -2092,8 +2092,10 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
   console.log('send image message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const { imageUrl, caption } = req.body;
+  const { imageUrl, caption , phoneIndex: requestedPhoneIndex} = req.body;
   console.log(req.body);
+
+  const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
 
   try {
     let client;
@@ -2102,13 +2104,11 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
     if (!botData) {
       return res.status(404).send('WhatsApp client not found for this company');
     }
-    if(botData.length == 1){
-      client = botData[0].client;
-    }
+    client = botData[phoneIndex].client;
+    
     if (!client) {
       return res.status(404).send('No active WhatsApp client found for this company');
     }
-
     // 2. Use wwebjs to send the image message
     const media = await MessageMedia.fromUrl(imageUrl);
     const sentMessage = await client.sendMessage(chatId, media, { caption });
@@ -2171,8 +2171,9 @@ app.post('/api/v2/messages/document/:companyId/:chatId', async (req, res) => {
   console.log('send document message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const { documentUrl, filename, caption } = req.body;
+  const { documentUrl, filename, caption, phoneIndex: requestedPhoneIndex } = req.body;
   console.log(req.body);
+  const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
 
   try {
     let client;
@@ -2181,9 +2182,8 @@ app.post('/api/v2/messages/document/:companyId/:chatId', async (req, res) => {
     if (!botData) {
       return res.status(404).send('WhatsApp client not found for this company');
     }
-    if(botData.length == 1){
-      client = botData[0].client;
-    }
+    client = botData[phoneIndex].client;
+    
     if (!client) {
       return res.status(404).send('No active WhatsApp client found for this company');
     }
