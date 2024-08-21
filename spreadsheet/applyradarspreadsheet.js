@@ -164,8 +164,6 @@ class applyRadarSpreadsheet {
   await db.collection('companies').doc('060').collection('contacts').doc(extractedNumber).set(data, {merge: true});    
 
     const botData = this.botMap.get(this.botName);
-    console.log("botMap: ", this.botMap);
-    console.log("botData: ", botData);
     if (!botData || !botData[0].client) {
       console.log(`WhatsApp client not found for bot ${this.botName}`);
       return;
