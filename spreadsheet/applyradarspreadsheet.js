@@ -63,7 +63,7 @@ class applyRadarSpreadsheet {
       for (let i = lastProcessedRow + 1; i < rows.length; i++) {
         const row = rows[i];
         console.log("current row: ", row);
-        await this.processRow(row);
+        await this.processRow(row, i + 1);
         newLastProcessedRow = i;
       }
 
@@ -75,7 +75,7 @@ class applyRadarSpreadsheet {
     }
   }
 
-  async processRow(row) {
+  async processRow(row, rowIndex) {
     const [
         timestamp,
         name,
@@ -160,7 +160,7 @@ class applyRadarSpreadsheet {
           type: 'text',
       },
   };
-  await this.addMessagetoFirebase(data, extractedNumber, threadID);
+  await this.addMessagetoFirebase(message, '060', extractedNumber);
   await db.collection('companies').doc('060').collection('contacts').doc(extractedNumber).set(data, {merge: true});    
 
     const botData = this.botMap.get(this.botName);
