@@ -164,6 +164,10 @@ async function handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex) {
                     firebaseTags = ['stop bot']
                 }
             }
+
+            if(!(contactData.tags.includes('blasted'))){
+                return;
+            }
             
             let type = '';
             if(msg.type == 'chat'){
