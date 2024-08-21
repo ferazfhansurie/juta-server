@@ -59,7 +59,8 @@ async function fetchEmployeesFromFirebase(idSubstring) {
                 name: data.name,
                 email: data.email,
                 phoneNumber: data.phoneNumber,
-                assignedContacts: data.assignedContacts || 0
+                assignedContacts: data.assignedContacts || 0,
+                employeeId: data.employeeId
             });
             console.log(`Added employee ${data.name} to group ${data.group}`);
         } else {
@@ -180,8 +181,13 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
         console.log('No available employees in any group');
         return [];
     }
-
-    const tags = [currentGroup, assignedEmployee.name, assignedEmployee.phoneNumber];
+    let tags;
+    if(assignedEmployee.employeeId){
+        tags = [currentGroup, assignedEmployee.name, assignedEmployee.employeeId];
+    }else{
+        tags = [currentGroup, assignedEmployee.name, assignedEmployee.phoneNumber];
+    }
+    
     
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name} in group ${currentGroup}`);
 
