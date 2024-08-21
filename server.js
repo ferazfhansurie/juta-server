@@ -323,6 +323,7 @@ const { handleNewMessagesTastyPuga} = require('./bots/handleMessagesPugaTasty.js
 const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
 const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
+const { handleNewMessagesApplyRadar2 } = require('./bots/handleMessagesApplyRadar2.js');
 const { handleNewMessagesApel } = require('./bots/handleMessagesApel.js');
 const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js');
 const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb.js');
@@ -377,6 +378,7 @@ const customHandlers = {
   '042': handleNewMessagesZahinTravel,
   '044': handleNewMessagesApel,
   '057': handleNewMessagesTest,
+  '060': handleNewMessagesApplyRadar2,
 };
 
 

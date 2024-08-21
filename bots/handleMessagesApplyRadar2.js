@@ -10,6 +10,7 @@ const OpenAI = require('openai');
 const axios = require('axios').default;
 const { Client } = require('whatsapp-web.js');
 
+const moment = require('moment-timezone');
 
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
@@ -84,7 +85,7 @@ const messageQueue = new Map();
 const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
 
-async function handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex) {
+async function handleNewMessagesApplyRadar2(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
     //const url=req.originalUrl
@@ -164,7 +165,11 @@ async function handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex) {
                     firebaseTags = ['stop bot']
                 }
             }
-
+            if(!(contactData.tags.includes('blasted'))){
+                return;
+            }
+            
+           
             
             let type = '';
             if(msg.type == 'chat'){
@@ -338,7 +343,33 @@ async function handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex) {
                         const check = part.toLowerCase();
                         if (part) {
                             const sentMessage = await client.sendMessage(msg.from, part);
-    
+                            //await addtagbookedGHL(contactID, 'idle');                                                    
+                            if (check.includes('uniten') && check.includes('video')) {
+                                console.log(`sending video uniten`);
+                                
+                                const videoMessage = await client.sendMessage(msg.from, {video: {url: "https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/UNITEN%20(1).mp4?alt=media&token=f7f86107-9edf-4627-a0af-9cdd8c89a6a9", filename: `UNITEN Video.mp4`}});
+                                await addMessagetoFirebase(videoMessage, idSubstring, extractedNumber);
+
+                                // Schedule a reminder message for 6 PM Malaysia time
+                                const reminderMessage = "Hang tight! Our fantastic counsellor, Ms. Anisa, will contact you soon! 🤓 Our counsellors are available from 9:30 AM to 6:00 PM on weekdays.";
+                                await scheduleReminderMessage(reminderMessage, msg.from);
+                            } 
+
+                            if(check.includes('our counsellor will be contacting you soon')) {
+
+                                // Schedule a reminder message for 6 PM Malaysia time
+                                const reminderMessage = "Hang tight! Our fantastic counsellor, Ms. Anisa, will contact you soon! 🤓 Our counsellors are available from 9:30 AM to 6:00 PM on weekdays.";
+                                await scheduleReminderMessage(reminderMessage, msg.from);
+
+                            }
+                            if (check.includes('patience')) {
+                                //await addtagbookedGHL(contactID, 'stop bot');
+                            } 
+                            if(check.includes('get back to you as soon as possible')){
+                                console.log('check includes');
+                            
+                            await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
+                            }
                             // Save the message to Firebase
                             const sentMessageData = {
                                 chat_id: sentMessage.from,
@@ -403,6 +434,226 @@ async function removeTagBookedGHL(contactID, tag) {
     } catch (error) {
         console.error('Error removing tag from contact:', error);
     }
+}
+async function scheduleReminderMessage(reminderMessage, chatId) {
+    const reminderTime = moment().tz('Asia/Kuala_Lumpur').set({hour: 18, minute: 0, second: 0, millisecond: 0});
+  
+    // Convert to seconds and ensure it's an integer
+    const scheduledTimeSeconds = Math.floor(reminderTime.valueOf() / 1000);
+  
+    console.log('Scheduling reminder for:', reminderTime.format());
+    console.log('Scheduled time in seconds:', scheduledTimeSeconds);
+    
+      const scheduledMessage = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: "060", // Assuming this is the correct company ID
+        createdAt: admin.firestore.Timestamp.now(),
+        documentUrl: "",
+        fileName: null,
+        mediaUrl: "",
+        message: reminderMessage,
+        mimeType: null,
+        repeatInterval: 0,
+        repeatUnit: "days",
+        scheduledTime: {
+            seconds: scheduledTimeSeconds,
+            nanoseconds: 0
+          },
+        status: "scheduled",
+        v2: true,
+        whapiToken: null
+      };
+  
+    try {
+      console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
+      const response = await axios.post(`http://localhost:8443/api/schedule-message/060`, scheduledMessage);
+      console.log('Reminder scheduled successfully:', response.data);
+    } catch (error) {
+      console.error('Error scheduling reminder:', error.response ? error.response.data : error.message);
+      if (error.response && error.response.data) {
+        console.error('Server response:', error.response.data);
+      }
+    }
+  }
+async function transcribeAudio(audioData) {
+    try {
+        const formData = new FormData();
+        formData.append('file', Buffer.from(audioData, 'base64'), {
+            filename: 'audio.ogg',
+            contentType: 'audio/ogg',
+        });
+        formData.append('model', 'whisper-1');
+        formData.append('response_format', 'json');
+
+        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${process.env.OPENAIKEY}`,
+            },
+        });
+
+        return response.data.text;
+    } catch (error) {
+        console.error('Error transcribing audio:', error);
+        return '';
+    }
+}
+
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
+    console.log('Adding message to Firebase');
+    console.log('idSubstring:', idSubstring);
+    console.log('extractedNumber:', extractedNumber);
+
+    if (!extractedNumber || !extractedNumber.startsWith('+60')) {
+        console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
+        return;
+    }
+
+    if (!idSubstring) {
+        console.error('Invalid idSubstring for Firebase document path');
+        return;
+    }
+    let messageBody = msg.body;
+    let audioData = null;
+    let type = '';
+    if(msg.type === 'chat'){
+        type ='text'
+      }else{
+        type = msg.type;
+      }
+    if (msg.hasMedia && msg.type === 'audio') {
+        console.log('Voice message detected');
+        const media = await msg.downloadMedia();
+        const transcription = await transcribeAudio(media.data);
+        console.log('Transcription:', transcription);
+                
+        messageBody = transcription;
+        audioData = media.data;
+        console.log(msg);
+    }
+    const messageData = {
+        chat_id: msg.from,
+        from: msg.from ?? "",
+        from_me: msg.fromMe ?? false,
+        id: msg.id._serialized ?? "",
+        status: "delivered",
+        text: {
+            body: messageBody ?? ""
+        },
+        timestamp: msg.timestamp ?? 0,
+        type: type,
+    };
+
+    if((msg.from).includes('@g.us')){
+        const authorNumber = '+'+(msg.author).split('@')[0];
+
+        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        if(authorData){
+            messageData.author = authorData.contactName;
+        }else{
+            messageData.author = msg.author;
+        }
+    }
+
+    if (msg.type === 'audio') {
+        messageData.audio = {
+            mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+            data: audioData // This is the base64 encoded audio data
+        };
+    }
+
+    if (msg.hasMedia &&  msg.type !== 'audio') {
+        try {
+            const media = await msg.downloadMedia();
+            if (media) {
+              if (msg.type === 'image') {
+                messageData.image = {
+                    mimetype: media.mimetype,
+                    data: media.data,  // This is the base64-encoded data
+                    filename: msg._data.filename || "",
+                    caption: msg._data.caption || "",
+                };
+                // Add width and height if available
+                if (msg._data.width) messageData.image.width = msg._data.width;
+                if (msg._data.height) messageData.image.height = msg._data.height;
+              } else if (msg.type === 'document') {
+                  messageData.document = {
+                      mimetype: media.mimetype,
+                      data: media.data,  // This is the base64-encoded data
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                      pageCount: msg._data.pageCount,
+                      fileSize: msg._data.size,
+                  };
+              }else if (msg.type === 'video') {
+                    messageData.video = {
+                        mimetype: media.mimetype,
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
+                    };
+                    // Store video data separately or use a cloud storage solution
+                    const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                    messageData.video.link = videoUrl;
+              } else {
+                  messageData[msg.type] = {
+                      mimetype: media.mimetype,
+                      data: media.data,
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                  };
+              }
+  
+              // Add thumbnail information if available
+              if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                  messageData[msg.type].thumbnail = {
+                      height: msg._data.thumbnailHeight,
+                      width: msg._data.thumbnailWidth,
+                  };
+              }
+  
+              // Add media key if available
+              if (msg.mediaKey) {
+                  messageData[msg.type].mediaKey = msg.mediaKey;
+              }
+
+              
+            }  else {
+                console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                messageData.text = { body: "Media not available" };
+            }
+        } catch (error) {
+            console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+            messageData.text = { body: "Error handling media" };
+        }
+    }
+
+    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+    const messagesRef = contactRef.collection('messages');
+
+    const messageDoc = messagesRef.doc(msg.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+    console.log(messageData);
+    await addNotificationToUser(idSubstring, messageData);
+}
+
+async function storeVideoData(videoData, filename) {
+    const bucket = admin.storage().bucket();
+    const uniqueFilename = `${uuidv4()}_${filename}`;
+    const file = bucket.file(`videos/${uniqueFilename}`);
+
+    await file.save(Buffer.from(videoData, 'base64'), {
+        metadata: {
+            contentType: 'video/mp4', // Adjust this based on the actual video type
+        },
+    });
+
+    const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2500', // Adjust expiration as needed
+    });
+
+    return url;
 }
 
 async function getContactById(contactId) {
@@ -533,7 +784,7 @@ async function checkingStatus(threadId, runId) {
             const answer = latestMessage[0].text.value;
             return answer;
         } catch(error){
-            console.log("error from handleNewMessageswwebjs: "+error)
+            console.log("error from handleNewMessagesApplyRadar2: "+error)
             throw error;
         }
     }
@@ -707,4 +958,4 @@ async function fetchConfigFromDatabase(idSubstring) {
     }
 }
 
-module.exports = { handleNewMessagesTemplateWweb };
+module.exports = { handleNewMessagesApplyRadar2 };
