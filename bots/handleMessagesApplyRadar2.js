@@ -346,8 +346,10 @@ async function handleNewMessagesApplyRadar2(client, msg, botName, phoneIndex) {
                             //await addtagbookedGHL(contactID, 'idle');                                                    
                             if (check.includes('uniten') && check.includes('video')) {
                                 console.log(`sending video uniten`);
-                                
-                                const videoMessage = await client.sendMessage(msg.from, {video: {url: "https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/UNITEN%20(1).mp4?alt=media&token=f7f86107-9edf-4627-a0af-9cdd8c89a6a9", filename: `UNITEN Video.mp4`}});
+                                const imageUrl = "https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/UNITEN%20(1).mp4?alt=media&token=f7f86107-9edf-4627-a0af-9cdd8c89a6a9"
+                                const media = await MessageMedia.fromUrl(imageUrl);
+                                const videoMessage = await client.sendMessage(msg.from, media);
+
                                 await addMessagetoFirebase(videoMessage, idSubstring, extractedNumber);
 
                                 // Schedule a reminder message for 6 PM Malaysia time
