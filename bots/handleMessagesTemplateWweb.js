@@ -165,7 +165,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex) {
                 }
             }
 
-            if(!(contactData.tags.includes('blasted'))){
+            if(!(contactData.tags.includes('blasted')) && idSubstring == '060'){
                 return;
             }
             
