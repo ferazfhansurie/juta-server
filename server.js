@@ -2126,7 +2126,7 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
       status: "delivered",
       image: {
         mimetype: media.mimetype,
-        url: imageUrl,
+        link: imageUrl,
         caption: caption ?? "",
       },
       timestamp: sentMessage.timestamp ?? 0,
@@ -2205,7 +2205,7 @@ app.post('/api/v2/messages/document/:companyId/:chatId', async (req, res) => {
       status: "delivered",
       document: {
         mimetype: media.mimetype,
-        url: documentUrl,
+        link: documentUrl,
         filename: filename,
         caption: caption ?? "",
       },
