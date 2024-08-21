@@ -519,6 +519,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
         const extractedNumber = '+'+(sender.to).split('@')[0];
 
         if (msg.fromMe){
+            console.log(msg);
             await addMessagetoFirebase(msg, idSubstring, extractedNumber);
             return;
         }
