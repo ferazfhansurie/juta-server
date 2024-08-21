@@ -1340,38 +1340,49 @@ async function checkingStatus(threadId, runId) {
 }
 
 // Modify the waitForCompletion function to handle tool calls
-async function waitForCompletion(threadId, runId,idSubstring,client) {
-    return new Promise((resolve, reject) => {
-      const maxAttempts = 30;
-      let attempts = 0;
-      const pollingInterval = setInterval(async () => {
-        attempts++;
-        try {
-          const runObject = await openai.beta.threads.runs.retrieve(threadId, runId);
-          if (runObject.status === 'completed') {
-            clearInterval(pollingInterval);
-            const messagesList = await openai.beta.threads.messages.list(threadId);
-            const latestMessage = messagesList.data[0].content[0].text.value;
-            resolve(latestMessage);
-          } else if (runObject.status === 'requires_action') {
-            clearInterval(pollingInterval);
-            console.log('Run requires action, handling tool calls...');
-            const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
-            const toolOutputs = await handleToolCalls(toolCalls,idSubstring,client);
-            console.log('Submitting tool outputs...');
-            await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
-            console.log('Tool outputs submitted, restarting wait for completion...');
-            resolve(await waitForCompletion(threadId, runId,idSubstring,client));
-          } else if (attempts >= maxAttempts) {
-            clearInterval(pollingInterval);
-            reject(new Error("Timeout: Assistant did not complete in time"));
-          }
-        } catch (error) {
-          clearInterval(pollingInterval);
-          reject(error);
+async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0) {
+    const maxDepth = 5; // Maximum recursion depth
+    const maxAttempts = 30;
+    const pollingInterval = 2000; // 2 seconds
+  
+    console.log(`Waiting for completion (depth: ${depth}, runId: ${runId})...`);
+  
+    if (depth >= maxDepth) {
+      console.error(`Max recursion depth reached for runId: ${runId}`);
+      return "I apologize, but I'm having trouble completing this task. Could you please try rephrasing your request?";
+    }
+  
+    for (let attempts = 0; attempts < maxAttempts; attempts++) {
+      try {
+        const runObject = await openai.beta.threads.runs.retrieve(threadId, runId);
+        console.log(`Run status: ${runObject.status} (attempt ${attempts + 1})`);
+  
+        if (runObject.status === 'completed') {
+          const messagesList = await openai.beta.threads.messages.list(threadId);
+          const latestMessage = messagesList.data[0].content[0].text.value;
+          return latestMessage;
+        } else if (runObject.status === 'requires_action') {
+          console.log('Run requires action, handling tool calls...');
+          const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
+          const toolOutputs = await handleToolCalls(toolCalls, idSubstring, client);
+          console.log('Submitting tool outputs...');
+          await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
+          console.log('Tool outputs submitted, restarting wait for completion...');
+          return await waitForCompletion(threadId, runId, idSubstring, client, depth + 1);
+        } else if (['failed', 'cancelled', 'expired'].includes(runObject.status)) {
+          console.error(`Run ${runId} ended with status: ${runObject.status}`);
+          return `I encountered an error (${runObject.status}). Please try your request again.`;
         }
-      }, 2000);
-    });
+  
+        await new Promise(resolve => setTimeout(resolve, pollingInterval));
+      } catch (error) {
+        console.error(`Error in waitForCompletion (depth: ${depth}, runId: ${runId}): ${error}`);
+        return "I'm sorry, but I encountered an error while processing your request. Please try again.";
+      }
+    }
+  
+    console.error(`Timeout: Assistant did not complete in time (depth: ${depth}, runId: ${runId})`);
+    return "I'm sorry, but it's taking longer than expected to process your request. Please try again or rephrase your question.";
   }
 
 

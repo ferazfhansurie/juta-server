@@ -2496,9 +2496,6 @@ async function initializeBot(botName, phoneCount = 1) {
 
         botMap.set(botName, clients);
         console.log(`Bot ${botName} initialization complete for all ${phoneCount} phone(s)`);
-
-        botMap.set(botName, clients);
-        console.log(`Bot ${botName} initialization complete for all phones`);
       } catch (error) {
         console.error(`Error initializing bot ${botName}:`, error);
         botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
