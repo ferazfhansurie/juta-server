@@ -47,6 +47,7 @@ class applyRadarSpreadsheet {
       // Process new rows
       for (let i = lastProcessedRow + 1; i < rows.length; i++) {
         const row = rows[i];
+        console.log("current row: ", row);
         await this.processRow(row);
         newLastProcessedRow = i;
       }
