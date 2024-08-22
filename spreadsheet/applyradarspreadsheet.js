@@ -106,7 +106,12 @@ class applyRadarSpreadsheet {
     const thread = await this.createThread();
     let threadID = thread.id;
     const extractedNumber = '+'+(phoneNumber);
-
+    const contactData = await this.getContactDataFromDatabaseByPhone(extractedNumber, '060');
+    if(contactData){
+      console.log('Contact already exists in database');
+      await this.markRowAsDuplicate(rowIndex);
+      return;
+    }
     await this.saveThreadIDFirebase(extractedNumber, threadID, '060')
     const formattedPhoneNumber = phoneNumber.startsWith('60') ? phoneNumber : `60${phoneNumber}`;
     const data = {
@@ -200,6 +205,22 @@ class applyRadarSpreadsheet {
     }
   }
 
+  async markRowAsDuplicate(rowIndex) {
+    try {
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: `${this.sheetName}!O${rowIndex}`, // Column Q is for "WA Sent"
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+          values: [['Duplicate']]
+        }
+      });
+      console.log(`Marked row ${rowIndex} as sent in "WA Sent" column`);
+    } catch (error) {
+      console.error(`Error marking row ${rowIndex} as sent:`, error);
+    }
+  }
+
   async addMessage(threadId, message) {
     const response = await openai.beta.threads.messages.create(
         threadId,
@@ -210,6 +231,40 @@ class applyRadarSpreadsheet {
     );
     return response;
 }
+
+async getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
+  try {
+      // Check if phoneNumber is defined
+      if (!phoneNumber) {
+          throw new Error("Phone number is undefined or null");
+      }
+
+      // Initial fetch of config
+      //await fetchConfigFromDatabase(idSubstring);
+
+      let threadID;
+      let contactName;
+      let bot_status;
+      const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+      const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+
+      if (querySnapshot.empty) {
+          console.log('No matching documents.');
+          return null;
+      } else {
+          const doc = querySnapshot.docs[0];
+          const contactData = doc.data();
+          contactName = contactData.name;
+          threadID = contactData.thread_id;
+          bot_status = contactData.bot_status;
+          return { ...contactData};
+      }
+  } catch (error) {
+      console.error('Error fetching or updating document:', error);
+      throw error;
+  }
+}
+
 async saveThreadIDFirebase(contactID, threadID, idSubstring) {
     
   // Construct the Firestore document path
