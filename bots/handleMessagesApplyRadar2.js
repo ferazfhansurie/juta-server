@@ -165,11 +165,13 @@ async function handleNewMessagesApplyRadar2(client, msg, botName, phoneIndex) {
             } else {
                 if((sender.to).includes('@g.us')){
                     firebaseTags = ['stop bot']
+                }else {
+                    firebaseTags = ['stop bot']
                 }
             }
-            if(!(contactData.tags.includes('blasted'))){
-                return;
-            }
+            // if(!(contactData.tags.includes('blasted'))){
+            //     return;
+            // }
             
            
             
