@@ -1427,6 +1427,7 @@ async function main(reinitialize = false) {
         phoneCount: data.phoneCount || 1, // Default to 1 if phoneCount is not set
         v2: data.v2
       });
+      console.log('Found bot ' + companyId);
     }
   });
   console.log(`Found ${botConfigs.length} bots to initialize`);
