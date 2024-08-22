@@ -1050,6 +1050,8 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
           phoneNumber = (msg.from).split('@')[0]
         }
 
+        console.log('Saving contact: ' + msg.from);
+
         const extractedNumber = '+'+(msg.from).split('@')[0];
         const existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
         if(existingContact){
