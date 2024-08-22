@@ -580,6 +580,9 @@ async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
                     const part = parts[i].trim();   
                     const check = part.toLowerCase();
                     if (part) {
+                        if (check.includes('a nice small trip!')) {
+                            part = part.replace(/small trip/i, 'fun trip');
+                        }
                         const sentMessage = await client.sendMessage(msg.from, part);
 
                         // Save the message to Firebase
