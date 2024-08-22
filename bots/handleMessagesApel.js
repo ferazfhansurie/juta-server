@@ -112,7 +112,7 @@ async function handleNewMessagesApel(req, res) {
             let currentStep;
             const senderTo = sender.to;
             const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-            const chat = await getChatMetadata(message.chat_id);
+            //const chat = await getChatMetadata(message.chat_id);
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             
             console.log(contactData);
@@ -144,7 +144,7 @@ async function handleNewMessagesApel(req, res) {
                 await customWait(2500); 
 
                 contactID = extractedNumber;
-                contactName = chat.name ?? extractedNumber;
+                contactName = extractedNumber ?? extractedNumber;
              
                 const thread = await createThread();
                 threadID = thread.id;
@@ -156,7 +156,7 @@ async function handleNewMessagesApel(req, res) {
             if(contactData){
                 firebaseTags=   contactData.tags??[];
             }
-            console.log(chat);
+           /* console.log(chat);
             const data = {
                 additionalEmails: [],
                 address1: null,
@@ -209,11 +209,11 @@ async function handleNewMessagesApel(req, res) {
                 },
             };
       
-            await addNotificationToUser(idSubstring, message);
+           
             
             // Add the data to Firestore
-            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data);    
-            
+            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data);  */  
+            await addNotificationToUser(idSubstring, message);
             //reset bot command
             if (message.text.body.includes('/resetbot')) {
                 const thread = await createThread();
