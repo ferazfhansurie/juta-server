@@ -1051,12 +1051,19 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
         }
 
         console.log('Saving contact: ' + msg.from);
-
+        let tags;
         const extractedNumber = '+'+(msg.from).split('@')[0];
         const existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
         if(existingContact){
-          return;
+          if(existingContact.tags){
+            tags = existingContact.tags;
+          } else{
+            tags = ['stop bot']
+          }
+        } else{
+          tags = ['stop bot']
         }
+
         let type = msg.type === 'chat' ? 'text' : msg.type;
         if(phoneNumber == 'status'){
           return;
@@ -1067,13 +1074,13 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
             assignedTo: null,
             businessId: null,
             phone: '+'+phoneNumber,
-            tags:['stop bot'],
+            tags:tags,
             chat: {
                 contact_id: '+'+phoneNumber,
                 id: msg.from || contact.id.user + idsuffix,
                 name: contact.name || contact.pushname || chat.name || phoneNumber,
                 not_spam: true,
-                tags: ['stop bot'], // You might want to populate this with actual tags if available
+                tags: tags, // You might want to populate this with actual tags if available
                 timestamp: chat.timestamp || Date.now(),
                 type: 'contact',
                 unreadCount: chat.unreadCount || 0,
