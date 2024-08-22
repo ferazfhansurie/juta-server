@@ -1,4 +1,4 @@
-// handleMessagesTemplateWweb.js
+// handleMessagesTemplate.js
 
 //STEP BY STEP GUIDE
 //1. CHANGE all handleMessagesTemplate to -> handleMessages<YourBotName>
@@ -8,8 +8,6 @@
 
 const OpenAI = require('openai');
 const axios = require('axios').default;
-const { Client } = require('whatsapp-web.js');
-
 
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
@@ -44,25 +42,19 @@ async function addNotificationToUser(companyId, message) {
             return;
         }
 
-        // Filter out undefined values from the message object
-        const cleanMessage = Object.fromEntries(
-            Object.entries(message).filter(([_, value]) => value !== undefined)
-        );
-
         // Add the new message to the notifications subcollection of the user's document
         querySnapshot.forEach(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...cleanMessage, read: false };
+            const updatedMessage = { ...message, read: false };
         
             await notificationsRef.add(updatedMessage);
-            console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
+            console.log(`Notification ${message} added to user with companyId: ${companyId}`);
         });
     } catch (error) {
         console.error('Error adding notification: ', error);
     }
 }
-
 
 async function getChatMetadata(chatId,) {
     const url = `https://gate.whapi.cloud/chats/${chatId}`;
@@ -80,35 +72,34 @@ async function getChatMetadata(chatId,) {
     }
 }
 
-const messageQueue = new Map();
-const MAX_QUEUE_SIZE = 5;
-const RATE_LIMIT_DELAY = 5000; // 5 seconds
-
-async function handleNewMessagesApel(client, msg, botName, phoneIndex) {
-    console.log('Handling new Messages '+botName);
-
-    //const url=req.originalUrl
+async function handleNewMessagesApel(req, res) {
+    const url=req.originalUrl
 
     // Find the positions of the '/' characters
-    //const firstSlash = url.indexOf('/');
-    //const secondSlash = url.indexOf('/', firstSlash + 1);
+    const firstSlash = url.indexOf('/');
+    const secondSlash = url.indexOf('/', firstSlash + 1);
 
     // Extract the substring between the first and second '/'
-    //const idSubstring = url.substring(firstSlash + 1, secondSlash);
-    const idSubstring = botName;
+    const idSubstring = "036"
+
     try {
+        console.log('Handling new messages from Apel...');
 
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring);
 
-        //const receivedMessages = req.body.messages;
-            if (msg.fromMe){
-                return;
+        const receivedMessages = req.body.messages;
+
+        for (const message of receivedMessages) {
+            if (message.from_me) break;
+
+            if(!message.chat_id.includes("whatsapp")){
+                break;
             }
 
             const sender = {
-                to: msg.from,
-                name:msg.notifyName,
+                to: message.chat_id,
+                name:message.from_name
             };
 
             
@@ -119,20 +110,26 @@ async function handleNewMessagesApel(client, msg, botName, phoneIndex) {
             let answer;
             let parts;
             let currentStep;
-            const extractedNumber = '+'+(sender.to).split('@')[0];
-            const chat = await msg.getChat();
+            const senderTo = sender.to;
+            const extractedNumber = '+' + senderTo.match(/\d+/)[0];
+            const chat = await getChatMetadata(message.chat_id);
             const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
-            let unreadCount = 0;
-            let stopTag = contactData?.tags || [];
-            const contact = await chat.getContact()
-
+            
             console.log(contactData);
             if (contactData !== null) {
-                stopTag = contactData.tags;
+                const stopTag = contactData.tags;
                 console.log(stopTag);
-                    unreadCount = contactData.unreadCount ?? 0;
+                if (message.from_me){
+                    if(stopTag.includes('idle')){
+                    }
+                    break;
+                }
+                if(stopTag.includes('stop bot')){
+                    console.log('Bot stopped for this message');
+                    continue;
+                }else {
                     contactID = extractedNumber;
-                    contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
+                    contactName = contactData.fullNameLowerCase;
                 
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
@@ -142,14 +139,13 @@ async function handleNewMessagesApel(client, msg, botName, phoneIndex) {
                         await saveThreadIDFirebase(contactID, threadID, idSubstring)
                         //await saveThreadIDGHL(contactID,threadID);
                     }
-                
+                }
             }else{
-                
                 await customWait(2500); 
 
                 contactID = extractedNumber;
-                contactName = contact.pushname || contact.name || extractedNumber;
-                
+                contactName = chat.name ?? extractedNumber;
+             
                 const thread = await createThread();
                 threadID = thread.id;
                 console.log(threadID);
@@ -159,24 +155,8 @@ async function handleNewMessagesApel(client, msg, botName, phoneIndex) {
             let firebaseTags =['']
             if(contactData){
                 firebaseTags=   contactData.tags??[];
-            } else {
-                if((sender.to).includes('@g.us')){
-                    firebaseTags = ['stop bot']
-                }
             }
-
-           
-            
-            let type = '';
-            if(msg.type == 'chat'){
-                type ='text'
-              }else{
-                type = msg.type;
-              }
-            
-            if(extractedNumber.includes('status')){
-                return;
-            }
+            console.log(chat);
             const data = {
                 additionalEmails: [],
                 address1: null,
@@ -185,140 +165,69 @@ async function handleNewMessagesApel(client, msg, botName, phoneIndex) {
                 phone:extractedNumber,
                 tags:firebaseTags,
                 chat: {
+                    chat_pic: chat.chat_pic ?? "",
+                    chat_pic_full: chat.chat_pic_full ?? "",
                     contact_id: extractedNumber,
-                    id: msg.from,
-                    name: contactName || contact.name || contact.pushname || extractedNumber,
+                    id: message.chat_id,
+                    name: chat.from_name??extractedNumber,
                     not_spam: true,
                     tags: firebaseTags,
-                    timestamp: chat.timestamp || Date.now(),
+                    timestamp: message.timestamp,
                     type: 'contact',
                     unreadCount: 0,
                     last_message: {
-                        chat_id: msg.from,
-                        from: msg.from ?? "",
-                        from_me: msg.fromMe ?? false,
-                        id: msg._data.id.id ?? "",
-                        source: chat.deviceType ?? "",
+                        chat_id: chat.id,
+                        device_id: message.device_id ?? "",
+                        from: message.from ?? "",
+                        from_me: message.from_me ?? false,
+                        id: message.id ?? "",
+                        source: message.source ?? "",
                         status: "delivered",
-                        text: {
-                            body:msg.body ?? ""
-                        },
-                        timestamp: msg.timestamp ?? 0,
-                        type: type,
+                        text: message.text ?? "",
+                        timestamp: message.timestamp ?? 0,
+                        type: message.type ?? "",
                     },
                 },
-                chat_id: msg.from,
+                chat_id: message.chat_id,
+                chat_pic: chat.chat_pic ?? "",
+                chat_pic_full: chat.chat_pic_full ?? "",
                 city: null,
                 companyName: null,
-                contactName: contactName || contact.name || contact.pushname || extractedNumber,
-                unreadCount: unreadCount + 1,
-                phoneIndex: phoneIndex,
+                contactName: chat.from_name??extractedNumber,
                 threadid: threadID ?? "",
                 last_message: {
-                    chat_id: msg.from,
-                    from: msg.from ?? "",
-                    from_me: msg.fromMe ?? false,
-                    id: msg._data.id.id ?? "",
-                    source: chat.deviceType ?? "",
+                    chat_id: chat.id,
+                    device_id: message.device_id ?? "",
+                    from: message.from ?? "",
+                    from_me: message.from_me ?? false,
+                    id: message.id ?? "",
+                    source: message.source ?? "",
                     status: "delivered",
-                    text: {
-                        body:msg.body ?? ""
-                    },
-                    timestamp: msg.timestamp ?? 0,
-                    type: type,
+                    text: message.text ?? "",
+                    timestamp: message.timestamp ?? 0,
+                    type: message.type ?? "",
                 },
             };
-            const message =  {
-                chat_id: msg.from,
-                from: msg.from ?? "",
-                from_me: msg.fromMe ?? false,
-                id: msg._data.id.id ?? "",
-                source: chat.deviceType ?? "",
-                status: "delivered",
-                text: {
-                    body:msg.body ?? ""
-                },
-                timestamp: msg.timestamp ?? 0,
-                type: type,
-            };
-            console.log(data);
-            const messageData = {
-                chat_id: msg.from,
-                from: msg.from ?? "",
-                from_me: msg.fromMe ?? false,
-                id: msg.id._serialized ?? "",
-                source: chat.deviceType ?? "",
-                status: "delivered",
-                text: {
-                    body:msg.body ?? ""
-                },
-                timestamp: msg.timestamp ?? 0,
-                type: type,
-                phoneIndex: phoneIndex,
-              };
-
-              let profilePicUrl = "";
-              if (contact.getProfilePicUrl()) {
-                try {
-                  profilePicUrl = await contact.getProfilePicUrl() || "";
-                } catch (error) {
-                  console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
-                }
-              }
-              data.profilePicUrl = profilePicUrl;
-
-              if((sender.to).includes('@g.us')){
-                const authorNumber = '+'+(msg.author).split('@')[0];
-
-                const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-                if(authorData){
-                    messageData.author = authorData.contactName;
-                }else{
-                    messageData.author = msg.author;
-                }
-
-            }
-              
-              const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-              //await contactRef.set(contactData, { merge: true });
-              const messagesRef = contactRef.collection('messages');
-          
-              const messageDoc = messagesRef.doc(msg.id._serialized);
-              await messageDoc.set(messageData, { merge: true });
-              console.log(msg);
-           await addNotificationToUser(idSubstring, messageData);
+      
+            await addNotificationToUser(idSubstring, message);
             
             // Add the data to Firestore
-            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-            if (msg.fromMe){
-                if(stopTag.includes('idle')){
-                }
-                return;
-            }
-            if(stopTag.includes('stop bot')){
-                console.log('Bot stopped for this message');
-                return;
-            }
+            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data);    
+            
             //reset bot command
-            if (msg.body.includes('/resetbot')) {
+            if (message.text.body.includes('/resetbot')) {
                 const thread = await createThread();
                 threadID = thread.id;
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 //await saveThreadIDGHL(contactID,threadID);
-                client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
-                //await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
-                return;
+                await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
+                break;
             }
-            if(ghlConfig.stopbot){
-                if(ghlConfig.stopbot == true){
-                    console.log('bot stop all');
-                    return;
-                }
-            }
+
             if(firebaseTags !== undefined){
                 if(firebaseTags.includes('stop bot')){
                     console.log('bot stop');
-                return;
+                break;
                 }
             }
 
@@ -326,25 +235,26 @@ async function handleNewMessagesApel(client, msg, botName, phoneIndex) {
             switch (currentStep) {
                 case steps.START:
                     var context = "";
-
-                    query = `${msg.body} user_name: ${contactName} `;
-                    
+                    if (message.context?.quoted_content?.body != null) {
+                        context = message.context.quoted_content.body;
+                        query = `${message.text.body} user_name: ${contactName} user replied to your previous message: ${context}`;
+                    } else {
+                        query = `${message.text.body} user_name: ${contactName} `;
+                    }
                     
                     answer= await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
                     
-                    await customWait(10000);
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();   
                         const check = part.toLowerCase();
                         if (part) {
-                            const sentMessage = await client.sendMessage(msg.from, part);
-                            //await addtagbookedGHL(contactID, 'idle');                                                    
+                            //await addtagbookedGHL(contactID, 'idle');
+                            await sendWhapiRequest('messages/text', { to: sender.to, body: part });
+                            
                             if (check.includes('here\'s your apel application guide.')) {
                                 console.log(`sending file APEL`);
-                                
-                                const documentMessage = await client.sendMessage(msg.from, {document: {url: "https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Apel%2FAPEL%20Application%20Guide%202.pdf?alt=media&token=35f193cc-9cf8-43a6-bc9d-cb778ea0e412", filename: `APEL Application Guide.pdf`}});
-                                await addMessagetoFirebase(documentMessage, idSubstring, extractedNumber);
+                                await sendWhapiRequest('messages/document', { to: sender.to, media: "https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Apel%2FAPEL%20Application%20Guide%202.pdf?alt=media&token=35f193cc-9cf8-43a6-bc9d-cb778ea0e412", filename: `APEL Application Guide.pdf`});
                             } 
                             if (check.includes('patience')) {
                                 //await addtagbookedGHL(contactID, 'stop bot');
@@ -352,36 +262,10 @@ async function handleNewMessagesApel(client, msg, botName, phoneIndex) {
                             if(check.includes('get back to you as soon as possible')){
                                 console.log('check includes');
                             
-                            await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
-                            }
-                            // Save the message to Firebase
-                            const sentMessageData = {
-                                chat_id: sentMessage.from,
-                                from: sentMessage.from ?? "",
-                                from_me: true,
-                                id: sentMessage.id._serialized ?? "",
-                                source: sentMessage.deviceType ?? "",
-                                status: "delivered",
-                                text: {
-                                    body: part
-                                },
-                                timestamp: sentMessage.timestamp,
-                                type: 'text',
-                                ack: sentMessage.ack ?? 0,
-                            };
-    
-                            const messageDoc = messagesRef.doc(sentMessage.id._serialized);
-    
-                            await messageDoc.set(sentMessageData, { merge: true });
-                            if (check.includes('patience')) {
-                            } 
-                            if(check.includes('get back to you as soon as possible')){
-                                console.log('check includes');
-                            
                                await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                             }
                         }
-                    }
+                    }
                     console.log('Response sent.');
                     userState.set(sender.to, steps.START);
                     break;
@@ -390,10 +274,12 @@ async function handleNewMessagesApel(client, msg, botName, phoneIndex) {
                     console.error('Unrecognized step:', currentStep);
                     break;
             }
-        return('All messages processed');
+        }
+
+        res.send('All messages processed');
     } catch (e) {
         console.error('Error:', e.message);
-        return(e.message);
+        res.send(e.message);
     }
 }
 
@@ -418,186 +304,6 @@ async function removeTagBookedGHL(contactID, tag) {
     } catch (error) {
         console.error('Error removing tag from contact:', error);
     }
-}
-
-async function transcribeAudio(audioData) {
-    try {
-        const formData = new FormData();
-        formData.append('file', Buffer.from(audioData, 'base64'), {
-            filename: 'audio.ogg',
-            contentType: 'audio/ogg',
-        });
-        formData.append('model', 'whisper-1');
-        formData.append('response_format', 'json');
-
-        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
-            headers: {
-                ...formData.getHeaders(),
-                'Authorization': `Bearer ${process.env.OPENAIKEY}`,
-            },
-        });
-
-        return response.data.text;
-    } catch (error) {
-        console.error('Error transcribing audio:', error);
-        return '';
-    }
-}
-
-async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
-    console.log('Adding message to Firebase');
-    console.log('idSubstring:', idSubstring);
-    console.log('extractedNumber:', extractedNumber);
-
-    if (!extractedNumber || !extractedNumber.startsWith('+60')) {
-        console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
-        return;
-    }
-
-    if (!idSubstring) {
-        console.error('Invalid idSubstring for Firebase document path');
-        return;
-    }
-    let messageBody = msg.body;
-    let audioData = null;
-    let type = '';
-    if(msg.type === 'chat'){
-        type ='text'
-      }else{
-        type = msg.type;
-      }
-    if (msg.hasMedia && msg.type === 'audio') {
-        console.log('Voice message detected');
-        const media = await msg.downloadMedia();
-        const transcription = await transcribeAudio(media.data);
-        console.log('Transcription:', transcription);
-                
-        messageBody = transcription;
-        audioData = media.data;
-        console.log(msg);
-    }
-    const messageData = {
-        chat_id: msg.from,
-        from: msg.from ?? "",
-        from_me: msg.fromMe ?? false,
-        id: msg.id._serialized ?? "",
-        status: "delivered",
-        text: {
-            body: messageBody ?? ""
-        },
-        timestamp: msg.timestamp ?? 0,
-        type: type,
-    };
-
-    if((msg.from).includes('@g.us')){
-        const authorNumber = '+'+(msg.author).split('@')[0];
-
-        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-        if(authorData){
-            messageData.author = authorData.contactName;
-        }else{
-            messageData.author = msg.author;
-        }
-    }
-
-    if (msg.type === 'audio') {
-        messageData.audio = {
-            mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
-            data: audioData // This is the base64 encoded audio data
-        };
-    }
-
-    if (msg.hasMedia &&  msg.type !== 'audio') {
-        try {
-            const media = await msg.downloadMedia();
-            if (media) {
-              if (msg.type === 'image') {
-                messageData.image = {
-                    mimetype: media.mimetype,
-                    data: media.data,  // This is the base64-encoded data
-                    filename: msg._data.filename || "",
-                    caption: msg._data.caption || "",
-                };
-                // Add width and height if available
-                if (msg._data.width) messageData.image.width = msg._data.width;
-                if (msg._data.height) messageData.image.height = msg._data.height;
-              } else if (msg.type === 'document') {
-                  messageData.document = {
-                      mimetype: media.mimetype,
-                      data: media.data,  // This is the base64-encoded data
-                      filename: msg._data.filename || "",
-                      caption: msg._data.caption || "",
-                      pageCount: msg._data.pageCount,
-                      fileSize: msg._data.size,
-                  };
-              }else if (msg.type === 'video') {
-                    messageData.video = {
-                        mimetype: media.mimetype,
-                        filename: msg._data.filename || "",
-                        caption: msg._data.caption || "",
-                    };
-                    // Store video data separately or use a cloud storage solution
-                    const videoUrl = await storeVideoData(media.data, msg._data.filename);
-                    messageData.video.link = videoUrl;
-              } else {
-                  messageData[msg.type] = {
-                      mimetype: media.mimetype,
-                      data: media.data,
-                      filename: msg._data.filename || "",
-                      caption: msg._data.caption || "",
-                  };
-              }
-  
-              // Add thumbnail information if available
-              if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
-                  messageData[msg.type].thumbnail = {
-                      height: msg._data.thumbnailHeight,
-                      width: msg._data.thumbnailWidth,
-                  };
-              }
-  
-              // Add media key if available
-              if (msg.mediaKey) {
-                  messageData[msg.type].mediaKey = msg.mediaKey;
-              }
-
-              
-            }  else {
-                console.log(`Failed to download media for message: ${msg.id._serialized}`);
-                messageData.text = { body: "Media not available" };
-            }
-        } catch (error) {
-            console.error(`Error handling media for message ${msg.id._serialized}:`, error);
-            messageData.text = { body: "Error handling media" };
-        }
-    }
-
-    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-    const messagesRef = contactRef.collection('messages');
-
-    const messageDoc = messagesRef.doc(msg.id._serialized);
-    await messageDoc.set(messageData, { merge: true });
-    console.log(messageData);
-    await addNotificationToUser(idSubstring, messageData);
-}
-
-async function storeVideoData(videoData, filename) {
-    const bucket = admin.storage().bucket();
-    const uniqueFilename = `${uuidv4()}_${filename}`;
-    const file = bucket.file(`videos/${uniqueFilename}`);
-
-    await file.save(Buffer.from(videoData, 'base64'), {
-        metadata: {
-            contentType: 'video/mp4', // Adjust this based on the actual video type
-        },
-    });
-
-    const [url] = await file.getSignedUrl({
-        action: 'read',
-        expires: '03-01-2500', // Adjust expiration as needed
-    });
-
-    return url;
 }
 
 async function getContactById(contactId) {
@@ -719,6 +425,7 @@ async function checkingStatus(threadId, runId) {
     );
     const status = runObject.status; 
     if(status == 'completed') {
+        clearInterval(pollingInterval);
         try{
             const messagesList = await openai.beta.threads.messages.list(threadId);
             const latestMessage = messagesList.body.data[0].content;
@@ -729,32 +436,20 @@ async function checkingStatus(threadId, runId) {
             return answer;
         } catch(error){
             console.log("error from handleNewMessagesApel: "+error)
-            throw error;
         }
+        
     }
-    return null; // Return null if not completed
 }
 
 async function waitForCompletion(threadId, runId) {
     return new Promise((resolve, reject) => {
-        const maxAttempts = 30; // Maximum number of attempts
-        let attempts = 0;
-        const pollingInterval = setInterval(async () => {
-            attempts++;
-            try {
-                const answer = await checkingStatus(threadId, runId);
-                if (answer) {
-                    clearInterval(pollingInterval);
-                    resolve(answer);
-                } else if (attempts >= maxAttempts) {
-                    clearInterval(pollingInterval);
-                    reject(new Error("Timeout: Assistant did not complete in time"));
-                }
-            } catch (error) {
+        pollingInterval = setInterval(async () => {
+            const answer = await checkingStatus(threadId, runId);
+            if (answer) {
                 clearInterval(pollingInterval);
-                reject(error);
+                resolve(answer);
             }
-        }, 2000); // Poll every 2 seconds
+        }, 1000);
     });
 }
 
@@ -772,13 +467,69 @@ async function runAssistant(assistantID,threadId) {
     const answer = await waitForCompletion(threadId, runId);
     return answer;
 }
+const rateLimitMap = new Map();
+const messageQueue = new Map();
+const processingThreads = new Set();
 
 async function handleOpenAIAssistant(message, threadID) {
-    console.log(ghlConfig.assistantId);
-    const assistantId = ghlConfig.assistantId;
-    await addMessage(threadID, message);
-    const answer = await runAssistant(assistantId,threadID);
-    return answer;
+    const assistantId = 'asst_DJNa5IXYrMjRdGSCkgkJHhlE';
+    
+    // Add message to queue
+    if (!messageQueue.has(threadID)) {
+        messageQueue.set(threadID, []);
+    }
+    messageQueue.get(threadID).push(message);
+
+    // If the thread is already being processed, return a promise that will resolve when it's this message's turn
+    if (processingThreads.has(threadID)) {
+        return new Promise((resolve) => {
+            const checkQueue = setInterval(() => {
+                if (messageQueue.get(threadID)[0] === message) {
+                    clearInterval(checkQueue);
+                    resolve(processQueue(threadID, assistantId));
+                }
+            }, 100);
+        });
+    }
+
+    // If the thread is not being processed, start processing
+    processingThreads.add(threadID);
+    return processQueue(threadID, assistantId);
+}
+
+async function processQueue(threadID, assistantId) {
+    while (messageQueue.get(threadID).length > 0) {
+        const currentMessage = messageQueue.get(threadID)[0];
+        
+        // Check if we've made a request for this threadID recently
+        const lastRequestTime = rateLimitMap.get(threadID) || 0;
+        const currentTime = Date.now();
+        const timeSinceLastRequest = currentTime - lastRequestTime;
+
+        // If less than 5 seconds have passed since the last request, wait
+        if (timeSinceLastRequest < 5000) {
+            const waitTime = 5000 - timeSinceLastRequest;
+            //console.log(Rate limiting: Waiting ${waitTime}ms before next request for threadID ${threadID});
+            await new Promise(resolve => setTimeout(resolve, waitTime));
+        }
+
+        // Update the last request time for this threadID
+        rateLimitMap.set(threadID, Date.now());
+
+        await addMessage(threadID, currentMessage);
+        const answer = await runAssistant(assistantId, threadID);
+
+        // Remove processed message from queue
+        messageQueue.get(threadID).shift();
+
+        // If this was the last message in the queue, remove the thread from processing
+        if (messageQueue.get(threadID).length === 0) {
+            processingThreads.delete(threadID);
+        }
+
+        // Return answer for the current message
+        return answer;
+    }
 }
 
 async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
