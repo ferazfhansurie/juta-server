@@ -108,7 +108,7 @@ class applyRadarSpreadsheet {
     const extractedNumber = '+'+(phoneNumber);
 
     await this.saveThreadIDFirebase(extractedNumber, threadID, '060')
-
+    const formattedPhoneNumber = phoneNumber.startsWith('60') ? phoneNumber : `60${phoneNumber}`;
     const data = {
       additionalEmails: [],
       address1: null,
@@ -118,7 +118,7 @@ class applyRadarSpreadsheet {
       tags: ['blasted'],
       chat: {
           contact_id: extractedNumber,
-          id: phoneNumber,
+          id: formattedPhoneNumber,
           name: name || extractedNumber,
           not_spam: true,
           tags: ['blasted'],
@@ -126,7 +126,7 @@ class applyRadarSpreadsheet {
           type: 'contact',
           unreadCount: 0,
           last_message: {
-              chat_id: phoneNumber,
+              chat_id: formattedPhoneNumber,
               from: "",
               from_me: true,
               id: "",
@@ -139,7 +139,7 @@ class applyRadarSpreadsheet {
               type:'text',
           },
       },
-      chat_id: phoneNumber,
+      chat_id: formattedPhoneNumber,
       city: null,
       companyName: null,
       contactName: name || extractedNumber,
@@ -147,7 +147,7 @@ class applyRadarSpreadsheet {
       threadid: threadID ?? "",
       phoneIndex: 0,
       last_message: {
-          chat_id: phoneNumber,
+          chat_id: formattedPhoneNumber,
           from: "",
           from_me: true,
           id: "",
@@ -173,7 +173,6 @@ class applyRadarSpreadsheet {
   
     // Send the message to the phone number from the row
     try {
-      const formattedPhoneNumber = phoneNumber.startsWith('60') ? phoneNumber : `60${phoneNumber}`;
       const sentMessage = await client.sendMessage(`${formattedPhoneNumber}@c.us`, message);
       console.log(`Message sent to ${name} (${phoneNumber})`);
       await this.addMessagetoFirebase(sentMessage, '060', extractedNumber);
