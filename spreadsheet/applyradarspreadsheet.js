@@ -160,7 +160,6 @@ class applyRadarSpreadsheet {
           type: 'text',
       },
   };
-  //await this.addMessagetoFirebase(message, '060', extractedNumber);
   await db.collection('companies').doc('060').collection('contacts').doc(extractedNumber).set(data, {merge: true});    
 
     const botData = this.botMap.get(this.botName);
@@ -175,9 +174,10 @@ class applyRadarSpreadsheet {
     // Send the message to the phone number from the row
     try {
       const formattedPhoneNumber = phoneNumber.startsWith('60') ? phoneNumber : `60${phoneNumber}`;
-      await client.sendMessage(`${formattedPhoneNumber}@c.us`, message);
+      const sentMessage = await client.sendMessage(`${formattedPhoneNumber}@c.us`, message);
       console.log(`Message sent to ${name} (${phoneNumber})`);
-      
+      await this.addMessagetoFirebase(sentMessage, '060', extractedNumber);
+
       // Mark the row as sent
       await this.markRowAsSent(rowIndex);
     } catch (error) {

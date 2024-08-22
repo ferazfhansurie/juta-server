@@ -446,14 +446,20 @@ async function handleDocumentMessage(message, sender, threadID) {
         try {
             // Convert document to image
             // Call the webhook with the image data
-            const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', message.document.link, sender.to, sender.name);
+            if(message.document.link){
+                const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', message.document.link, sender.to, sender.name);
+                // Use the webhook response as part of the query
+                query += `\n\nExamination Result: ${webhookResponse}`;
 
-            // Use the webhook response as part of the query
-            query += `\n\nExamination Result: ${webhookResponse}`;
+                // Process the query with OpenAI
+                const answer = await handleOpenAIAssistant(query, threadID);
+                await sendResponseParts(answer, sender.to);
+            } else {
+                const answer = "Sorry, I couldn't analyze that document. Could you try sending it again  as an image or asking a different question?";
+                await sendResponseParts(answer, sender.to);
+            }
 
-            // Process the query with OpenAI
-            const answer = await handleOpenAIAssistant(query, threadID);
-            await sendResponseParts(answer, sender.to);
+            
         } catch (error) {
             console.error("Error in document processing:", error);
             await sendWhapiRequest('messages/text', { 
