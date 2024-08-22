@@ -2554,11 +2554,42 @@ main().catch(error => {
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
   console.log('Graceful shutdown initiated');
-  // Perform cleanup operations here
-  // For example, close database connections, finish processing, etc.
-  
-  console.log('Cleanup complete, shutting down');
-  process.exit(0);
+
+  // Perform cleanup operations
+  try {
+    console.log('Closing all WhatsApp clients...');
+    const shutdownPromises = [];
+
+    for (const [botName, botData] of botMap.entries()) {
+      if (Array.isArray(botData)) {
+        // Multiple clients for this bot
+        for (const { client } of botData) {
+          if (client && typeof client.destroy === 'function') {
+            shutdownPromises.push(client.destroy().catch(err => console.error(`Error destroying client for bot ${botName}:`, err)));
+          }
+        }
+      } else if (botData && botData.client && typeof botData.client.destroy === 'function') {
+        // Single client for this bot
+        shutdownPromises.push(botData.client.destroy().catch(err => console.error(`Error destroying client for bot ${botName}:`, err)));
+      }
+    }
+
+    // Wait for all clients to be destroyed
+    await Promise.all(shutdownPromises);
+    console.log('All WhatsApp clients closed successfully');
+
+    // Clear the botMap
+    botMap.clear();
+
+    // Add any other cleanup operations here
+    // For example, close database connections, finish processing, etc.
+
+    console.log('Cleanup complete, shutting down');
+    process.exit(0);
+  } catch (error) {
+    console.error('Error during shutdown:', error);
+    process.exit(1);
+  }
 });
 
 
