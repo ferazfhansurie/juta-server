@@ -21,11 +21,11 @@ const openai = new OpenAI({
 const readFileAsync = util.promisify(fs.readFile);
 const writeFileAsync = util.promisify(fs.writeFile);
 
-class applyRadarSpreadsheetLPAPUPK {
+class msuSpreadsheetCOL {
   constructor(botMap) {
-    this.botName = '062';
-    this.spreadsheetId = '11OH6bQCBlWiW_8Qb2aTehwgD_i5Oyfddri1jZxhXdpE';
-    this.sheetName = 'Tactical LP - APU PK';
+    this.botName = '066';
+    this.spreadsheetId = '1pptzODIrK_uDZZxyKdbGjG-T2zNXOWTriGy03RD_AKg';
+    this.sheetName = 'Leads';
     this.range = `${this.sheetName}!A:S`; // Update this line
     this.DATA_FOLDER = path.join(__dirname, 'spreadsheetdata');
     this.LAST_PROCESSED_ROW_FILE = path.join(this.DATA_FOLDER, `last_processed_row_${this.sheetName}.json`);
@@ -79,21 +79,14 @@ class applyRadarSpreadsheetLPAPUPK {
   async processRow(row, rowIndex) {
     const [
       timestamp,
+      leadSource,
       name,
       email,
       phoneNumber,
-      city,
-      qualificationLevel,
-      chooseADomain,
-      preferredLevelOfStudy,
-      preferredProgramme,
-      perSemesterFeeBudget,
-      leadSource,
-      utmSource,
-      utmMedium,
-      utmName,
-      utmTerm,
-      utmContent,
+      icNumber,
+      programme,
+      colAttachment,
+      status,
       waSent
     ] = row;
 
@@ -101,21 +94,44 @@ class applyRadarSpreadsheetLPAPUPK {
       console.log(`Row already processed. Skipping.`);
       return;
     }
+    if (phoneNumber === undefined || phoneNumber === '') {
+      console.log(`Skipping row ${rowIndex} due to missing phone number.`);
+      return;
+    }
 
-    const message = `Hello ${name}, Greetings from ApplyRadar\n\nThank you for your interest in choosing Malaysia as your Study Abroad Destination.\n\nI am your study abroad counsellor, ready to assist you in your edcuation journey to Malaysia.`;
-    const message2 = `May I know what your current qualification is?\n\n1. SSC or O'Levels\n2.HSSC or A'Levels\n3.Diploma or equivalent\n4.Bachelor's Degree\n5.Master's Degree`;
+    
+    const message = `Greetings from Management Science University (MSU) 🏆, one of Malaysia's top University with a 99% employability rate. 😎\n\nThank you for your interest, ${name}, we've received your enquiry.\n\nWe can't wait for you to be part of the #MSUrians.`;
+    const message2 = `How would you prefer our counsellor to reach out to you?`;
+    const message3 = `Would WhatsApp or a phone call be more convenient for you?`;
+
+    // Create initial instructions for the assistant
+    const initialInstructions = `
+    - You will reply the user in english unless the user replied in Bahasa Melayu 
+
+    - You have already sent this to the user: ${message},${message2},${message3}
+
+    - Replace the [conditional offer letter link] to this link : ${colAttachment}
+
+    - Use only the ### Conditional Offer Letter FLOW not the ### Brochure Flow for this user
+    - Use only the ### Conditional Offer Letter FLOW not the ### Brochure Flow for this user
+    - Use only the ### Conditional Offer Letter FLOW not the ### Brochure Flow for this user
+  `;
+    
+    const extractedNumber = await this.formatPhoneNumber(phoneNumber, nationality);
+    const extractedNumberNoPlus = extractedNumber.startsWith('+') ? extractedNumber.slice(1) : extractedNumber;
+    
 
   
     console.log(`Processing row: ${name} (${phoneNumber})`);
-    const thread = await this.createThread();
+    const thread = await this.createThread(initialInstructions);
     let threadID = thread.id;
-    const extractedNumber = '+'+(phoneNumber);
+    console.log('threadID created: ', threadID);
     const contactData = await this.getContactDataFromDatabaseByPhone(extractedNumber, this.botName);
     if(contactData){
       console.log('Contact already exists in database');
       await this.markRowAsDuplicate(rowIndex);
       return;
-    }
+    }    
     await this.saveThreadIDFirebase(extractedNumber, threadID, this.botName)
     const data = {
       additionalEmails: [],
@@ -126,7 +142,7 @@ class applyRadarSpreadsheetLPAPUPK {
       tags: ['blasted'],
       chat: {
           contact_id: extractedNumber,
-          id: phoneNumber + '@c.us',
+          id: extractedNumberNoPlus + '@c.us',
           name: name || extractedNumber,
           not_spam: true,
           tags: ['blasted'],
@@ -134,20 +150,20 @@ class applyRadarSpreadsheetLPAPUPK {
           type: 'contact',
           unreadCount: 0,
           last_message: {
-              chat_id: phoneNumber +'@c.us',
+              chat_id: extractedNumberNoPlus +'@c.us',
               from: "",
               from_me: true,
               id: "",
               source: "",
               status: "delivered",
               text: {
-                  body: message2 ?? ""
+                  body: message3 ?? ""
               },
               timestamp: Date.now(),
               type:'text',
           },
       },
-      chat_id: phoneNumber + '@c.us',
+      chat_id: extractedNumberNoPlus+ '@c.us',
       city: null,
       companyName: null,
       contactName: name || extractedNumber,
@@ -155,14 +171,14 @@ class applyRadarSpreadsheetLPAPUPK {
       threadid: threadID ?? "",
       phoneIndex: 0,
       last_message: {
-          chat_id: phoneNumber + '@c.us',
+          chat_id: extractedNumberNoPlus + '@c.us',
           from: "",
           from_me: true,
           id: "",
           source: "",
           status: "delivered",
           text: {
-              body: message2 ?? ""
+              body: message3 ?? ""
           },
           timestamp: Date.now() ?? 0,
           type: 'text',
@@ -181,12 +197,15 @@ class applyRadarSpreadsheetLPAPUPK {
   
     // Send the message to the phone number from the row
     try {
-      const sentMessage = await client.sendMessage(`${phoneNumber}@c.us`, message);
-      console.log(`Message sent to ${name} (${phoneNumber})`);
+      const sentMessage = await client.sendMessage(`${extractedNumberNoPlus}@c.us`, message);
+      console.log(`Message sent to ${name} (${extractedNumberNoPlus})`);
       await this.addMessagetoFirebase(sentMessage, this.botName, extractedNumber);
-      const sentMessage2 = await client.sendMessage(`${phoneNumber}@c.us`, message2);
-      console.log(`Message 2 sent to ${name} (${phoneNumber})`);
+      const sentMessage2 = await client.sendMessage(`${extractedNumberNoPlus}@c.us`, message2);
+      console.log(`Message 2 sent to ${name} (${extractedNumberNoPlus})`);
       await this.addMessagetoFirebase(sentMessage2, this.botName, extractedNumber);
+      const sentMessage3 = await client.sendMessage(`${extractedNumberNoPlus}@c.us`, message3);
+      console.log(`Message 3 sent to ${name} (${extractedNumberNoPlus})`);
+      await this.addMessagetoFirebase(sentMessage3, this.botName, extractedNumber);
 
       // Mark the row as sent
       await this.markRowAsSent(rowIndex);
@@ -194,12 +213,103 @@ class applyRadarSpreadsheetLPAPUPK {
       console.error(`Error sending message to ${name} (${phoneNumber}):`, error);
     }
   }
+  async formatPhoneNumber(phoneNumber, nationality) {
+    phoneNumber = phoneNumber.replace(/-/g, '');
+
+    const countryPrefixes = {
+      'Afghanistan': '93',
+      'Albania': '355',
+      'Algeria': '213',
+      'Argentina': '54',
+      'Australia': '61',
+      'Bangladesh': '880',
+      'Brazil': '55',
+      'Canada': '1',
+      'China': '86',
+      'Egypt': '20',
+      'France': '33',
+      'Germany': '49',
+      'India': '91',
+      'Indonesia': '62',
+      'Iran': '98',
+      'Iraq': '964',
+      'Italy': '39',
+      'Japan': '81',
+      'Malaysia': '60',
+      'Malaysian': '60',
+      'Mexico': '52',
+      'Netherlands': '31',
+      'Nigeria': '234',
+      'Pakistan': '92',
+      'Philippines': '63',
+      'Russia': '7',
+      'Saudi Arabia': '966',
+      'Singapore': '65',
+      'South Africa': '27',
+      'South Korea': '82',
+      'Spain': '34',
+      'Sweden': '46',
+      'Switzerland': '41',
+      'Thailand': '66',
+      'Turkey': '90',
+      'United Arab Emirates': '971',
+      'United Kingdom': '44',
+      'United States': '1',
+      'Vietnam': '84'
+    };
+
+    if (phoneNumber.startsWith('+')) {
+      return phoneNumber;
+    }
   
+    if (phoneNumber.startsWith('6')) {
+      return '+' + phoneNumber;
+    }
+  
+    const countryPrefix = Object.entries(countryPrefixes).find(([country]) => 
+      nationality.toLowerCase().includes(country.toLowerCase())
+    );
+  
+    if (countryPrefix) {
+      return '+' + countryPrefix[1] + phoneNumber.replace(/^0+/, '');
+    }
+  
+    // Default case: if we can't determine the country, just add a '+' prefix
+    return '+' + phoneNumber;
+  }
+  async checkPhoneNumberDuplicate(phoneNumber) {
+    try {
+      const currentSheetRange = `${this.sheetName}!E:E`; // "Phone No." is in column E
+      const otherSheetName = 'COL Issued'; // Replace with the actual name of the other sheet
+      const otherSheetRange = `${otherSheetName}!E:E`; // "Phone No." is also in column E in the other sheet
+  
+      const [currentSheetResponse, otherSheetResponse] = await Promise.all([
+        this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.spreadsheetId,
+          range: currentSheetRange,
+        }),
+        this.sheets.spreadsheets.values.get({
+          spreadsheetId: this.spreadsheetId,
+          range: otherSheetRange,
+        })
+      ]);
+  
+      const currentSheetPhoneNumbers = currentSheetResponse.data.values?.flat() || [];
+      const otherSheetPhoneNumbers = otherSheetResponse.data.values?.flat() || [];
+  
+      // Combine phone numbers from both sheets and check for duplicates
+      const allPhoneNumbers = [...currentSheetPhoneNumbers, ...otherSheetPhoneNumbers];
+      return allPhoneNumbers.filter(num => num === phoneNumber).length > 1;
+    } catch (error) {
+      console.error('Error checking for phone number duplicates:', error);
+      return false;
+    }
+  }
   async markRowAsSent(rowIndex) {
     try {
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: `${this.sheetName}!Q${rowIndex}`, // Column Q is for "WA Sent"
+        range: `${this.sheetName}!J${rowIndex}`, // Column J is for "WA Sent"
         valueInputOption: 'USER_ENTERED',
         resource: {
           values: [['Sent']]
@@ -215,7 +325,7 @@ class applyRadarSpreadsheetLPAPUPK {
     try {
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: `${this.sheetName}!O${rowIndex}`, // Column Q is for "WA Sent"
+        range: `${this.sheetName}!J${rowIndex}`, // Column Q is for "WA Sent"
         valueInputOption: 'USER_ENTERED',
         resource: {
           values: [['Duplicate']]
@@ -451,11 +561,18 @@ async saveLastProcessedRow(lastProcessedRow) {
     });
   }
 
-  async createThread() {
-    console.log('Creating a new thread...');
+  async createThread(initialInstructions) {
+    console.log('Creating a new thread with initial instructions...');
     const thread = await openai.beta.threads.create();
+    
+    // Add the initial message to the thread
+    await openai.beta.threads.messages.create(thread.id, {
+      role: "user",
+      content: initialInstructions
+    });
+  
     return thread;
-}
+  }
 
   initialize() {
     // Run the check immediately when initialized
@@ -466,4 +583,4 @@ async saveLastProcessedRow(lastProcessedRow) {
   }
 }
 
-module.exports = applyRadarSpreadsheetLPAPUPK;
+module.exports = msuSpreadsheetCOL;

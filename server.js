@@ -371,6 +371,12 @@ const applyRadarSpreadsheetLPUniten = require('./spreadsheet/applyradarspreadshe
 const applyRadarSpreadsheetLPUnitenPK = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN PK).js');
 const applyRadarSpreadsheetLPMMUPK = require('./spreadsheet/applyradarspreadsheet(LP - MMU PK).js');
 const applyRadarSpreadsheetLPAPUPK = require('./spreadsheet/applyradarspreadsheet(LP - APU PK).js');
+const msuSpreadsheetPartTime = require('./spreadsheet/msuspreadsheet(PartTime).js');
+const msuSpreadsheetApel = require('./spreadsheet/msuspreadsheet(Apel).js');
+const msuSpreadsheetCOL = require('./spreadsheet/msuspreadsheet(COL).js');
+const msuSpreadsheetLeads = require('./spreadsheet/msuspreadsheet(Leads).js');
+
+
 const { off } = require('process');
 
 
@@ -1478,8 +1484,15 @@ async function main(reinitialize = false) {
 
   // Run the check immediately when the server starts
   console.log('Checking for new rows msu...');
-  const msuAutomation = new msuSpreadsheet(botMap);
-  msuAutomation.initialize();
+  const msuAutomationApel = new msuSpreadsheetApel(botMap);
+  const msuAutomationCOL = new msuSpreadsheetCOL(botMap);
+  const msuAutomationPartTime = new msuSpreadsheetPartTime(botMap);
+  const msuAutomationLeads = new msuSpreadsheetLeads(botMap);
+
+  msuAutomationApel.initialize();
+  msuAutomationCOL.initialize();
+  msuAutomationPartTime.initialize();
+  msuAutomationLeads.initialize();
 
   console.log('Checking for new rows apply radar...');
   const applyRadarAutomationLPUniten = new applyRadarSpreadsheetLPUniten(botMap);

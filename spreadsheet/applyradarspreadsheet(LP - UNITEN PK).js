@@ -290,7 +290,7 @@ async addMessagetoFirebase(msg, idSubstring, extractedNumber){
   console.log('idSubstring:', idSubstring);
   console.log('extractedNumber:', extractedNumber);
 
-  if (!extractedNumber || !extractedNumber.startsWith('+60')) {
+  if (!extractedNumber) {
       console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
       return;
   }
