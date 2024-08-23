@@ -25,7 +25,7 @@ class msuSpreadsheetCOL {
   constructor(botMap) {
     this.botName = '066';
     this.spreadsheetId = '1pptzODIrK_uDZZxyKdbGjG-T2zNXOWTriGy03RD_AKg';
-    this.sheetName = 'Leads';
+    this.sheetName = 'COL Issued';
     this.range = `${this.sheetName}!A:S`; // Update this line
     this.DATA_FOLDER = path.join(__dirname, 'spreadsheetdata');
     this.LAST_PROCESSED_ROW_FILE = path.join(this.DATA_FOLDER, `last_processed_row_${this.sheetName}.json`);
