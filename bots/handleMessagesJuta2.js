@@ -499,7 +499,26 @@ async function getTotalContacts(idSubstring) {
     }
   }
 
+  async function checkAndScheduleDailyReport(client, idSubstring) {
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    const configRef = db.collection('companies').doc(idSubstring);
 
+    try {
+        const doc = await configRef.get();
+        const lastScheduledDate = doc.data().lastScheduledDate;
+
+        if (lastScheduledDate !== today) {
+            // Schedule the daily report
+            await scheduleDailyReport(client, idSubstring);
+
+            // Update the lastScheduledDate in Firebase
+            await configRef.update({ lastScheduledDate: today });
+            console.log(`Daily report scheduled for ${today}`);
+        }
+    } catch (error) {
+        console.error('Error checking or scheduling daily report:', error);
+    }
+}
 async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
@@ -509,7 +528,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
         await fetchConfigFromDatabase(idSubstring);
 
         // Set up the daily report schedule
-        await scheduleDailyReport(client, idSubstring);
+        await checkAndScheduleDailyReport(client, idSubstring);
 
         const sender = {
             to: msg.from,
