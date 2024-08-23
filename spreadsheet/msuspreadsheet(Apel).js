@@ -115,7 +115,7 @@ class msuSpreadsheetApel {
 - You have already sent this to the user: ${message},${message2},${message3}
   `;
     
-    const extractedNumber = await this.formatPhoneNumber(phoneNumber, nationality);
+    const extractedNumber = await this.formatPhoneNumber(phoneNumber);
     const extractedNumberNoPlus = extractedNumber.startsWith('+') ? extractedNumber.slice(1) : extractedNumber;
     
 
@@ -211,66 +211,24 @@ class msuSpreadsheetApel {
       console.error(`Error sending message to ${name} (${phoneNumber}):`, error);
     }
   }
-  async formatPhoneNumber(phoneNumber, nationality) {
+  async formatPhoneNumber(phoneNumber) {
     phoneNumber = phoneNumber.replace(/-/g, '');
 
-    const countryPrefixes = {
-      'Afghanistan': '93',
-      'Albania': '355',
-      'Algeria': '213',
-      'Argentina': '54',
-      'Australia': '61',
-      'Bangladesh': '880',
-      'Brazil': '55',
-      'Canada': '1',
-      'China': '86',
-      'Egypt': '20',
-      'France': '33',
-      'Germany': '49',
-      'India': '91',
-      'Indonesia': '62',
-      'Iran': '98',
-      'Iraq': '964',
-      'Italy': '39',
-      'Japan': '81',
-      'Malaysia': '60',
-      'Malaysian': '60',
-      'Mexico': '52',
-      'Netherlands': '31',
-      'Nigeria': '234',
-      'Pakistan': '92',
-      'Philippines': '63',
-      'Russia': '7',
-      'Saudi Arabia': '966',
-      'Singapore': '65',
-      'South Africa': '27',
-      'South Korea': '82',
-      'Spain': '34',
-      'Sweden': '46',
-      'Switzerland': '41',
-      'Thailand': '66',
-      'Turkey': '90',
-      'United Arab Emirates': '971',
-      'United Kingdom': '44',
-      'United States': '1',
-      'Vietnam': '84'
-    };
+    
 
     if (phoneNumber.startsWith('+')) {
       return phoneNumber;
     }
   
-    if (phoneNumber.startsWith('6')) {
+    if (phoneNumber.startsWith('60')) {
       return '+' + phoneNumber;
+    }else {
+      return '+60' + phoneNumber;
     }
   
-    const countryPrefix = Object.entries(countryPrefixes).find(([country]) => 
-      nationality.toLowerCase().includes(country.toLowerCase())
-    );
+    
   
-    if (countryPrefix) {
-      return '+' + countryPrefix[1] + phoneNumber.replace(/^0+/, '');
-    }
+   
   
     // Default case: if we can't determine the country, just add a '+' prefix
     return '+' + phoneNumber;
