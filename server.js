@@ -787,7 +787,7 @@ app.post('/api/sync-contacts/:companyId', async (req, res) => {
       const chats = await client.getChats();
       const totalChats = chats.length;
       let processedChats = 0;
-  
+      console.log('Found ' + totalChats + ' chats');
       for (const chat of chats) {
         if (chat.isGroup) {
           console.log(`group chat: ${chat.name}`);
@@ -795,7 +795,7 @@ app.post('/api/sync-contacts/:companyId', async (req, res) => {
         const contact = await chat.getContact();
         await saveContactWithRateLimit(companyId, contact, chat, phoneIndex);
         processedChats++;
-        
+        console.log(`Processed ${processedChats} chats out of ${totalChats}`);
         // Send overall progress update
         broadcastProgress(companyId, 'syncing_contacts', processedChats / totalChats);
       }
