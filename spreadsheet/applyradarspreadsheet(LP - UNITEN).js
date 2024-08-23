@@ -21,13 +21,13 @@ const openai = new OpenAI({
 const readFileAsync = util.promisify(fs.readFile);
 const writeFileAsync = util.promisify(fs.writeFile);
 
-class applyRadarSpreadsheet {
+class applyRadarSpreadsheetLPUniten {
   constructor(botMap) {
     this.botName = '060';
     this.spreadsheetId = '11OH6bQCBlWiW_8Qb2aTehwgD_i5Oyfddri1jZxhXdpE';
     this.sheetName = 'Tactical LP - UNITEN';
     this.range = `${this.sheetName}!A:S`; // Update this line
-    this.LAST_PROCESSED_ROW_FILE = `last_processed_row_${this.botName}.json`;
+    this.LAST_PROCESSED_ROW_FILE = path.join('last_processed_row', `last_processed_row_${this.sheetName}.json`);
     this.botMap = botMap;
 
     this.auth = new google.auth.GoogleAuth({
@@ -123,7 +123,7 @@ class applyRadarSpreadsheet {
       tags: ['blasted'],
       chat: {
           contact_id: extractedNumber,
-          id: formattedPhoneNumber,
+          id: formattedPhoneNumber + '@c.us',
           name: name || extractedNumber,
           not_spam: true,
           tags: ['blasted'],
@@ -131,7 +131,7 @@ class applyRadarSpreadsheet {
           type: 'contact',
           unreadCount: 0,
           last_message: {
-              chat_id: formattedPhoneNumber,
+              chat_id: formattedPhoneNumber + '@c.us',
               from: "",
               from_me: true,
               id: "",
@@ -144,7 +144,7 @@ class applyRadarSpreadsheet {
               type:'text',
           },
       },
-      chat_id: formattedPhoneNumber,
+      chat_id: formattedPhoneNumber + '@c.us',
       city: null,
       companyName: null,
       contactName: name || extractedNumber,
@@ -152,7 +152,7 @@ class applyRadarSpreadsheet {
       threadid: threadID ?? "",
       phoneIndex: 0,
       last_message: {
-          chat_id: formattedPhoneNumber,
+          chat_id: formattedPhoneNumber + '@c.us',
           from: "",
           from_me: true,
           id: "",
@@ -459,4 +459,4 @@ async addMessagetoFirebase(msg, idSubstring, extractedNumber){
   }
 }
 
-module.exports = applyRadarSpreadsheet;
+module.exports = applyRadarSpreadsheetLPUniten;

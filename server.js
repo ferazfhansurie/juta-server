@@ -362,13 +362,15 @@ app.post('/sunz/hook/messages', handleNewMessagesSunz);
 app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/apel/hook/messages', handleNewMessagesApel);
-app.post('/applyradar/hook/messages', handleNewMessagesApplyRadar);
 app.post('/applyradar/hook/blast', handleApplyRadarBlast);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 
 //spreadsheet
 const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
-const applyRadarSpreadsheet = require('./spreadsheet/applyradarspreadsheet.js');
+const applyRadarSpreadsheetLPUniten = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN).js');
+const applyRadarSpreadsheetLPUnitenPK = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN PK).js');
+const applyRadarSpreadsheetLPMMUPK = require('./spreadsheet/applyradarspreadsheet(LP - MMU PK).js');
+const applyRadarSpreadsheetLPAPUPK = require('./spreadsheet/applyradarspreadsheet(LP - APU PK).js');
 const { off } = require('process');
 
 
@@ -380,6 +382,7 @@ const customHandlers = {
   '044': handleNewMessagesApel,
   '057': handleNewMessagesTest,
   '060': handleNewMessagesApplyRadar2,
+  '062': handleNewMessagesApplyRadar,
 };
 
 
@@ -1479,8 +1482,15 @@ async function main(reinitialize = false) {
   msuAutomation.initialize();
 
   console.log('Checking for new rows apply radar...');
-  const applyRadarAutomation = new applyRadarSpreadsheet(botMap);
-  applyRadarAutomation.initialize();
+  const applyRadarAutomationLPUniten = new applyRadarSpreadsheetLPUniten(botMap);
+  const applyRadarAutomationLPUnitenPK = new applyRadarSpreadsheetLPUnitenPK(botMap);
+  const applyRadarAutomationLPMMUPK = new applyRadarSpreadsheetLPMMUPK(botMap);
+  const applyRadarAutomationLPAPUPK = new applyRadarSpreadsheetLPAPUPK(botMap);
+
+  applyRadarAutomationLPUniten.initialize();
+  applyRadarAutomationLPUnitenPK.initialize();
+  applyRadarAutomationLPMMUPK.initialize();
+  applyRadarAutomationLPAPUPK.initialize(); 
 
   console.log('Initialization complete');
   // Send ready signal to PM2
