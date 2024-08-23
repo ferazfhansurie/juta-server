@@ -1067,7 +1067,14 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
           tags = ['stop bot']
         }
 
-        let type = msg.type === 'chat' ? 'text' : msg.type;
+        let type = ''
+        if(msg.type == 'chat'){
+          type ='text'
+        }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
+          return;
+        }else{
+          type = msg.type;
+        }
         if(phoneNumber == 'status'){
           return;
         }

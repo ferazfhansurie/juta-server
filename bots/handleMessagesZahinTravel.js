@@ -350,9 +350,11 @@ async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
 
         if(msg.type == 'chat'){
             type ='text'
+          }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
+            return;
         }else{
             type = msg.type;
-        }
+          }
 
         if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
             console.log('Voice message detected');
