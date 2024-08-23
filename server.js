@@ -1056,8 +1056,10 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
         const extractedNumber = '+'+(msg.from).split('@')[0];
         const existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
         if(existingContact){
+          console.log('Found existing contact for: ' + extractedNumber);
           if(existingContact.tags){
             tags = existingContact.tags;
+            console.log('Found existing tags: ' + tags);
           } else{
             tags = ['stop bot']
           }
@@ -1074,7 +1076,7 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
             address1: null,
             assignedTo: null,
             businessId: null,
-            phone: '+'+phoneNumber,
+            phone: extractedNumber,
             tags:tags,
             chat: {
                 contact_id: '+'+phoneNumber,
@@ -1229,7 +1231,7 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
             await batch.commit();
           }
           
-          //console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
+          console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
         }
         
         // Send final progress update for this contact
@@ -1238,19 +1240,12 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
         //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
         
         // Delay before next operation
-        console.log(`Succesfully saved contact ${phoneNumber} for bot ${botName}`);
+        console.log(`Succesfully saved contact ${extractedNumber} for bot ${botName}`);
         await customWait(baseDelay);
     } catch (error) {
         console.error(`Error saving contact for bot ${botName}:`, error);
         
-        if (retryCount < maxRetries) {
-            const retryDelay = baseDelay * Math.pow(2, retryCount);
-            console.log(`Retrying in ${retryDelay}ms...`);
-            await delay(retryDelay);
-            await saveContactWithRateLimit(botName, contact, chat, phoneIndex,retryCount + 1);
-        } else {
-            console.error(`Failed to save contact after ${maxRetries} retries`);
-        }
+        
     }
 }
 
