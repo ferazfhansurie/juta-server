@@ -1163,9 +1163,9 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
             };
 
             if(chat.isGroup){
-               
-                    messageData.author = msg.author;
-        
+              if(msg.author){
+                messageData.author = msg.author;
+              }
             }
 
             
@@ -1253,6 +1253,8 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
         }
     }
 }
+
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
   try {
