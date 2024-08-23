@@ -1273,9 +1273,7 @@ async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
       } else {
           const doc = querySnapshot.docs[0];
           const contactData = doc.data();
-          contactName = contactData.name;
-          threadID = contactData.thread_id;
-          bot_status = contactData.bot_status;
+          
           return { ...contactData};
       }
   } catch (error) {
