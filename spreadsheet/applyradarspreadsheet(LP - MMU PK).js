@@ -27,7 +27,8 @@ class applyRadarSpreadsheetLPMMUPK {
     this.spreadsheetId = '11OH6bQCBlWiW_8Qb2aTehwgD_i5Oyfddri1jZxhXdpE';
     this.sheetName = 'Tactical LP - MMU PK';
     this.range = `${this.sheetName}!A:S`; // Update this line
-    this.LAST_PROCESSED_ROW_FILE = path.join('last_processed_row', `last_processed_row_${this.sheetName}.json`);
+    this.DATA_FOLDER = path.join(__dirname, 'spreadsheetdata');
+    this.LAST_PROCESSED_ROW_FILE = path.join(this.DATA_FOLDER, `last_processed_row_${this.sheetName}.json`);
     this.botMap = botMap;
 
     this.auth = new google.auth.GoogleAuth({
@@ -413,34 +414,35 @@ async addMessagetoFirebase(msg, idSubstring, extractedNumber){
   }
 }
 
-  async loadLastProcessedRow() {
-    try {
-      const data = await readFileAsync(this.LAST_PROCESSED_ROW_FILE, 'utf8');
-      const parsedData = JSON.parse(data);
-      console.log(`Loaded last processed row: ${parsedData.lastProcessedRow}`);
-      return parsedData;
-    } catch (error) {
-      if (error.code === 'ENOENT') {
-        console.log('No saved state found, starting from the beginning.');
-        return { lastProcessedRow: 0 };
-      }
-      console.error('Error loading last processed row:', error);
-      throw error;
+async loadLastProcessedRow() {
+  try {
+    await fs.promises.mkdir(this.DATA_FOLDER, { recursive: true });
+    const data = await readFileAsync(this.LAST_PROCESSED_ROW_FILE, 'utf8');
+    const parsedData = JSON.parse(data);
+    console.log(`Loaded last processed row: ${parsedData.lastProcessedRow}`);
+    return parsedData;
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.log('No saved state found, starting from the beginning.');
+      return { lastProcessedRow: 0 };
     }
+    console.error('Error loading last processed row:', error);
+    throw error;
   }
+}
 
-  
-
-  async saveLastProcessedRow(lastProcessedRow) {
-    try {
-      const data = JSON.stringify({ lastProcessedRow });
-      await writeFileAsync(this.LAST_PROCESSED_ROW_FILE, data, 'utf8');
-      console.log(`Saved last processed row: ${lastProcessedRow}`);
-    } catch (error) {
-      console.error('Error saving last processed row:', error);
-      throw error;
-    }
+async saveLastProcessedRow(lastProcessedRow) {
+  try {
+    await fs.promises.mkdir(this.DATA_FOLDER, { recursive: true });
+    const data = JSON.stringify({ lastProcessedRow });
+    await writeFileAsync(this.LAST_PROCESSED_ROW_FILE, data, 'utf8');
+    console.log(`Saved last processed row: ${lastProcessedRow}`);
+  } catch (error) {
+    console.error('Error saving last processed row:', error);
+    throw error;
   }
+}
+
 
   scheduleCheck(cronExpression) {
     cron.schedule(cronExpression, async () => {
