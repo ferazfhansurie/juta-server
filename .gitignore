@@ -17,6 +17,8 @@ config/secret-config.json
 last_processed_row.json
 last_processed_row_001.json
 last_processed_row_060.json
+spreadsheet/spreadsheetdata
+
 
 
 # Ignore all files in the temp directory
