@@ -288,9 +288,9 @@ async function handleNewMessagesMSU(client, msg, botName, phoneIndex) {
             },
         };
 // Only add createdAt if it's a new contact
-if (!contactData) {
-  data.createdAt = admin.firestore.Timestamp.now();
-}
+        if (!contactData) {
+        data.createdAt = admin.firestore.Timestamp.now();
+        }
         let profilePicUrl = "";
         if (contact.getProfilePicUrl()) {
           try {
@@ -423,7 +423,9 @@ if (!contactData) {
 
         // Add the data to Firestore
         await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-       
+        if(messageData.type == 'sticker'){
+            return;
+        }
         if (msg.fromMe){
             if(stopTag.includes('idle')){
             }
