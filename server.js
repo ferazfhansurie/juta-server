@@ -1051,9 +1051,7 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
 
     try {
         let phoneNumber = contact.number;
-        let contactID = contact.id;
-        console.log(phoneNumber);
-        console.log(contactID);
+        let contactID = contact.id._serialized;
         const msg = chat.lastMessage || {};
         if(msg == {}){
           return;
@@ -1063,12 +1061,12 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
         let idsuffix = '@c.us'
         if(chat.isGroup){
           idsuffix = '@g.us'
-          phoneNumber = (msg.from).split('@')[0]
+          phoneNumber = (contactID).split('@')[0]
         }
 
-        console.log('Saving contact: ' + msg.from);
+        console.log('Saving contact: ' + phoneNumber + 'with contactID: ' + contactID);
         let tags;
-        const extractedNumber = '+'+(msg.from).split('@')[0];
+        const extractedNumber = '+'+(contactID).split('@')[0];
         const existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
         if(existingContact){
           console.log('Found existing contact for: ' + extractedNumber);
@@ -1102,7 +1100,7 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
             tags:tags,
             chat: {
                 contact_id: '+'+phoneNumber,
-                id: msg.from || contact.id.user + idsuffix,
+                id: contactID || contact.id.user + idsuffix,
                 name: contact.name || contact.pushname || chat.name || phoneNumber,
                 not_spam: true,
                 tags: tags, // You might want to populate this with actual tags if available
