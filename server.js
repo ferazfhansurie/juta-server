@@ -1064,8 +1064,11 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
           phoneNumber = (contactID).split('@')[0]
         }
 
-        console.log('Saving contact: ' + phoneNumber + 'with contactID: ' + contactID);
+        console.log('Saving contact: ' + phoneNumber + ' with contactID: ' + contactID);
         let tags;
+        if(contactID == '0@c.us'){
+          return;
+        }
         const extractedNumber = '+'+(contactID).split('@')[0];
         const existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
         if(existingContact){
