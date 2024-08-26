@@ -307,7 +307,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
             contactName = contact.pushname || contact.name || extractedNumber;
             await saveThreadIDFirebase(contactID, threadID, idSubstring)
             
-
+            await client.sendMessage(msg.from, "Hi. Terima kasih kerana menghubungi Zahin Travel.\n\nBoleh saya tahu nak bercuti ke mana ya?\n\nUntuk senarai pakej percutian, sila layari Telegram Channel https://t.me/zahintravel atau Biolink https://zahintravel.bio.link \n\nTerima kasih.\n\n#zahintravel - Nikmati setiap detik..\n#diyakini\n#responsif\n#budibahasa");
             if ((sender.to).includes('@g.us')) {
                 firebaseTags = ['stop bot'];
                 
@@ -567,7 +567,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
             return;
             }
         }
-
+        return;
         currentStep = userState.get(sender.to) || steps.START;
         switch (currentStep) {
             case steps.START:
