@@ -215,7 +215,7 @@ class applyRadarSpreadsheetLPUnitenPK {
     try {
       await this.sheets.spreadsheets.values.update({
         spreadsheetId: this.spreadsheetId,
-        range: `${this.sheetName}!O${rowIndex}`, // Column Q is for "WA Sent"
+        range: `${this.sheetName}!Q${rowIndex}`, // Column Q is for "WA Sent"
         valueInputOption: 'USER_ENTERED',
         resource: {
           values: [['Duplicate']]
