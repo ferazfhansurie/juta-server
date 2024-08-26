@@ -2515,7 +2515,7 @@ async function initializeBot(botName, phoneCount = 1) {
             }
         });
 
-        client.on('disconnected', (reason) => {
+        client.on('disconnected', async (reason) => {
             console.log(`${botName} Phone ${i + 1} - DISCONNECTED:`, reason);
             if (phoneCount > 1) {
                 clients[i] = { ...clients[i], status: 'disconnected', qrCode: null };
@@ -2524,6 +2524,19 @@ async function initializeBot(botName, phoneCount = 1) {
                 botMap.set(botName, [{ client, status: 'disconnected', qrCode: null }]);
                 broadcastAuthStatus(botName, 'disconnected');
             }
+        
+            // Attempt to reinitialize after a short delay
+            console.log(`Attempting to reinitialize ${botName} Phone ${i + 1} in 5 seconds...`);
+            setTimeout(async () => {
+                try {
+                    // Use initializeBot instead of client.initialize()
+                    await initializeBot(botName, phoneCount);
+                    console.log(`${botName} Phone ${i + 1} - Reinitialization initiated`);
+                } catch (error) {
+                    console.error(`Error reinitializing ${botName} Phone ${i + 1}:`, error);
+                    // You might want to implement a retry mechanism or alert an admin here
+                }
+            }, 5000); // 5 second delay before reinitialization
         });
 
         client.on('remote_session_saved', () => {
