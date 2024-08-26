@@ -381,7 +381,19 @@ async function handleNewMessagesCNB(client, msg, botName, phoneIndex) {
               }
             }
             data.profilePicUrl = profilePicUrl;
+            let messageBody = msg.body;
+            let audioData = null;
 
+            if (msg.hasMedia && msg.type === 'audio') {
+                console.log('Voice message detected');
+                const media = await msg.downloadMedia();
+                const transcription = await transcribeAudio(media.data);
+                console.log('Transcription:', transcription);
+                    
+                messageBody = transcription;
+                audioData = media.data;
+                console.log(msg);
+            }
             const messageData = {
                 chat_id: msg.from,
                 from: msg.from ?? "",
