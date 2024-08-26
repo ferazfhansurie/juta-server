@@ -1050,7 +1050,10 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
     const baseDelay = 1000; // 1 second base delay
 
     try {
-        let phoneNumber = contact.id.user;
+        let phoneNumber = contact.number;
+        let contactID = contact.id;
+        console.log(phoneNumber);
+        console.log(contactID);
         const msg = chat.lastMessage || {};
         if(msg == {}){
           return;
