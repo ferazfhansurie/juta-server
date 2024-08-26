@@ -7,7 +7,7 @@ const admin = require('../firebase.js');
 const fs = require('fs');
 const AsyncLock = require('async-lock');
 const lock = new AsyncLock();
-
+const { MessageMedia } = require('whatsapp-web.js');
 const db = admin.firestore();
 
 let ghlConfig = {};
