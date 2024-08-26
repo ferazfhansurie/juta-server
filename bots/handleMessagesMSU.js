@@ -593,7 +593,14 @@ async function sendResponseParts(answer, to, brochureFilePaths, client) {
         }
     }
 }
-
+function stripMarkdownLink(text) {
+    const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const match = regex.exec(text);
+    if (match && match[2]) {
+        return match[2];
+    }
+    return text;
+}
 async function handleSpecialResponses(part, to, brochureFilePaths, client) {
     if (part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')) {
         const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
