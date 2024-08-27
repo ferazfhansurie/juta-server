@@ -1063,7 +1063,7 @@ function setupMessageCreateHandler(client, botName, phoneIndex) {
         const extractedNumber = '+' + (msg.to.split('@')[0]);
         
         // Get the idSubstring (you'll need to define how to obtain this)
-        const idSubstring = getIdSubstring(botName); // Implement this function
+        const idSubstring = botName; // Implement this function
         
         // Add the message to Firebase
         await addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneIndex);
