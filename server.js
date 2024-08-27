@@ -460,16 +460,20 @@ async function createUserInFirebase(userData) {
 
   app.post('/api/import-csv/:companyId', async (req, res) => {
     const { companyId } = req.params;
-    const { csvUrl } = req.body;
+    const { csvUrl, tags } = req.body;
   
     if (!csvUrl) {
       return res.status(400).json({ error: 'CSV URL is required' });
     }
   
+    if (!Array.isArray(tags)) {
+      return res.status(400).json({ error: 'Tags must be an array' });
+    }
+  
     try {
       const tempFile = `temp_${Date.now()}.csv`;
       await downloadCSV(csvUrl, tempFile);
-      await processCSV(tempFile, companyId);
+      await processCSV(tempFile, companyId, tags);
       fs.unlinkSync(tempFile); // Clean up temporary file
       res.json({ message: 'CSV processed successfully' });
     } catch (error) {
@@ -477,19 +481,21 @@ async function createUserInFirebase(userData) {
       res.status(500).json({ error: 'Failed to process CSV' });
     }
   });
+
   async function downloadCSV(url, filename) {
     const response = await fetch(url);
     if (!response.ok) throw new Error(`Unexpected response ${response.statusText}`);
     await pipeline(response.body, fs.createWriteStream(filename));
   }
 
-  async function processCSV(filename, companyId) {
+  // Update the processCSV function to accept tags
+  async function processCSV(filename, companyId, tags) {
     return new Promise((resolve, reject) => {
       fs.createReadStream(filename)
         .pipe(csv())
         .on('data', async (row) => {
           try {
-            await processContact(row, companyId);
+            await processContact(row, companyId, tags);
           } catch (error) {
             console.error('Error processing row:', error);
             // Continue processing other rows
@@ -503,61 +509,63 @@ async function createUserInFirebase(userData) {
     });
   }
 
-  async function processContact(row, companyId) {
+  // Update the processContact function to use the provided tags
+  async function processContact(row, companyId, tags) {
     let name = row.Name.trim();
     let phone = await formatPhoneNumber(row.Phone);
     const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth()-6)
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth()-6);
     const sixMonthsAgoTimeStamp = sixMonthsAgo.getTime();
     if (!name) {
       name = phone;
     }
-    console.log(row.Phone)
+    console.log(row.Phone);
     phoneWithPlus = '+' + phone;
     if (phone) {
       const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneWithPlus);
       const doc = await contactRef.get();
-  
+
       if (doc.exists) {
-        // Contact already exists, add 'csv' tag
+        // Contact already exists, add new tags
         await contactRef.update({
-          tags: admin.firestore.FieldValue.arrayUnion('csv')
+          tags: admin.firestore.FieldValue.arrayUnion(...tags)
         });
-        console.log(`Updated existing contact with 'csv' tag: ${name} - ${phone}`);
-      } else {
-        // Contact doesn't exist, create new contact with 'csv' tag
+        console.log(`Updated existing contact with new tags: ${name} - ${phone}`);
+        } else {
+          // Contact doesn't exist, create new contact with provided tags
           const contactData = {
             additionalEmails: [],
             address1: null,
             assignedTo: null,
             businessId: null,
             phone: "+" + phone,
-            tags: ['csv'],
+            tags: tags,
             chat: {
-                contact_id: phone,
-                id: phone + '@c.us',
-                name: name,
-                not_spam: true,
-                tags: ['csv'], // You might want to populate this with actual tags if available
-                timestamp: 1708858609,
-                type: 'contact',
-                unreadCount: 0,
-                last_message:null,
+              contact_id: phone,
+              id: phone + '@c.us',
+              name: name,
+              not_spam: true,
+              tags: tags,
+              timestamp: 1708858609,
+              type: 'contact',
+              unreadCount: 0,
+              last_message: null,
             },
             chat_id: phone + '@c.us',
-            city: null,
-            companyName: null,
-            contactName: name,
-            threadid: '', // You might want to generate or retrieve this
-            last_message: null,
-        };
-        await contactRef.set(contactData);
-        console.log(`Added new contact: ${name} - ${phone}`);
-      }
-    } else {
-      console.warn(`Skipping invalid phone number for ${name}`);
+        city: null,
+        phoneIndex: 0,
+        companyName: null,
+        contactName: name,
+        threadid: '',
+        last_message: null,
+      };
+      await contactRef.set(contactData);
+      console.log(`Added new contact: ${name} - ${phone}`);
     }
+  } else {
+    console.warn(`Skipping invalid phone number for ${name}`);
   }
+}
 
   function formatPhoneNumber(phone) {
     // Remove all non-numeric characters
