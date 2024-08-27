@@ -441,16 +441,12 @@ async function handleNewMessagesMSU(client, msg, botName, phoneIndex) {
             const thread = await createThread();
             threadID = thread.id;
             await saveThreadIDFirebase(contactID, threadID, idSubstring)
-            client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
+            const sentMessage = await client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
+            await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
             return;
         }
 
-        //test bot command
-        if (msg.body.includes('/hello')) {
-            
-            client.sendMessage(msg.from, 'tested.');
-            return;
-        }
+        
         if(ghlConfig.stopbot){
             if(ghlConfig.stopbot == true){
                 console.log('bot stop all');
@@ -475,15 +471,17 @@ async function handleNewMessagesMSU(client, msg, botName, phoneIndex) {
                         client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
                         return;
                     }
-                    await handleTextMessage(msg, sender, extractedNumber, contactName, threadID, client);
+                    await handleTextMessage(msg, sender, extractedNumber, contactName, threadID, client, idSubstring);
                     
                 } else if (msg.type === 'document' ) {
                     await handleDocumentMessage(msg, sender, threadID, client);
                 } else if (msg.type === 'image') {
                     await handleImageMessage(msg, sender, threadID, client);
                 } else {
-                    await client.sendMessage(msg.from, "Sorry, but we currently can't handle these types of files, we will forward your inquiry to our team!");
-                    await client.sendMessage(msg.from, "In the meantime, if you have any questions, feel free to ask!");
+                    const sentMessage = await client.sendMessage(msg.from, "Sorry, but we currently can't handle these types of files, we will forward your inquiry to our team!");
+                    await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
+                    const sentMessage2 = await client.sendMessage(msg.from, "In the meantime, if you have any questions, feel free to ask!");
+                    await addMessagetoFirebase(sentMessage2, idSubstring, extractedNumber);
                 }
                 console.log('Response sent.');
                 await addtagbookedFirebase(contactID, 'replied');
@@ -515,7 +513,7 @@ async function handleNewMessagesMSU(client, msg, botName, phoneIndex) {
     }
 }
 
-async function handleTextMessage(msg, sender, extractedNumber, contactName, threadID, client) {
+async function handleTextMessage(msg, sender, extractedNumber, contactName, threadID, client, idSubstring) {
     const lockKey = `thread_${threadID}`;
 
     return lock.acquire(lockKey, async () => {
@@ -536,11 +534,11 @@ async function handleTextMessage(msg, sender, extractedNumber, contactName, thre
             'Health Lifesc': 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSUHealthandLifeSciences.pdf?alt=media&token=5f57551a-dfd1-4456-bf61-9e0bc4312fe1',
         };
         const answer = await handleOpenAIAssistant(query, threadID);
-        await sendResponseParts(answer, msg.from, brochureFilePaths, client);
+        await sendResponseParts(answer, msg.from, brochureFilePaths, client, idSubstring, extractedNumber);
     }, { timeout: 60000 });
 }
 
-async function handleDocumentMessage(msg, sender, threadID, client) {
+async function handleDocumentMessage(msg, sender, threadID, client, idSubstring, extractedNumber) {
     const lockKey = `thread_${threadID}`;
     return lock.acquire(lockKey, async () => {
         let query = "The file you just received is a file containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please similar suggest one that i am.";
@@ -554,18 +552,20 @@ async function handleDocumentMessage(msg, sender, threadID, client) {
                 query += `\n\nExamination Result: ${webhookResponse}`;
 
                 const answer = await handleOpenAIAssistant(query, threadID);
-                await sendResponseParts(answer, msg.from, {}, client);
+                await sendResponseParts(answer, msg.from, {}, client, idSubstring, extractedNumber);
             } else {
-                await client.sendMessage(msg.from, "Sorry, I couldn't analyze that document. Could you try sending it again as an image or asking a different question?");
+                const sentMessage = await client.sendMessage(msg.from, "Sorry, I couldn't analyze that document. Could you try sending it again as an image or asking a different question?");
+                await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
             }
         } catch (error) {
             console.error("Error in document processing:", error);
-            await client.sendMessage(msg.from, "Sorry, I couldn't analyze that document. Could you try sending it again or asking a different question?");
+            const sentMessage = await client.sendMessage(msg.from, "Sorry, I couldn't analyze that document. Could you try sending it again or asking a different question?");
+            await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
         }
     }, { timeout: 60000 });
 }
 
-async function handleImageMessage(msg, sender, threadID, client) {
+async function handleImageMessage(msg, sender, threadID, client, idSubstring, extractedNumber) {
     const media = await msg.downloadMedia();
     let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please suggest one that i am.";
     if (msg.caption) {
@@ -577,24 +577,163 @@ async function handleImageMessage(msg, sender, threadID, client) {
         query += `\n\nExamination Result: ${webhookResponse}`;
 
         const answer = await handleOpenAIAssistant(query, threadID);
-        await sendResponseParts(answer, msg.from, {}, client);
+        await sendResponseParts(answer, msg.from, {}, client, idSubstring, extractedNumber);
     } catch (error) {
         console.error("Error in image processing:", error);
-        await client.sendMessage(msg.from, "Sorry, I couldn't analyze that image. Could you try sending it again or asking a different question?");
+        const sentMessage = await client.sendMessage(msg.from, "Sorry, I couldn't analyze that image. Could you try sending it again or asking a different question?");
+        await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
+
     }
 }
 
-async function sendResponseParts(answer, to, brochureFilePaths, client) {
+async function sendResponseParts(answer, to, brochureFilePaths, client, idSubstring, extractedNumber) {
     const parts = answer.split(/\s*\|\|\s*/);
     for (const part of parts) {
         if (part.trim()) {
             const cleanedPart = await removeTextInsideDelimiters(part);
             const strippedPart = stripMarkdownLink(cleanedPart);
-            await client.sendMessage(to, strippedPart);
-            await handleSpecialResponses(strippedPart, to, brochureFilePaths, client);
+            const sentMessage = await client.sendMessage(to, strippedPart);
+            await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
+            await handleSpecialResponses(strippedPart, to, brochureFilePaths, client, idSubstring, extractedNumber);
         }
     }
 }
+
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
+    console.log('Adding message to Firebase');
+    console.log('idSubstring:', idSubstring);
+    console.log('extractedNumber:', extractedNumber);
+  
+    if (!extractedNumber || !extractedNumber.startsWith('+60')) {
+        console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
+        return;
+    }
+  
+    if (!idSubstring) {
+        console.error('Invalid idSubstring for Firebase document path');
+        return;
+    }
+    let messageBody = msg.body;
+    let audioData = null;
+    let type = '';
+    if(msg.type === 'chat'){
+        type ='text'
+      }else{
+        type = msg.type;
+      }
+    if (msg.hasMedia && msg.type === 'audio') {
+        console.log('Voice message detected');
+        const media = await msg.downloadMedia();
+        const transcription = await transcribeAudio(media.data);
+        console.log('Transcription:', transcription);
+                
+        messageBody = transcription;
+        audioData = media.data;
+        console.log(msg);
+    }
+    const messageData = {
+        chat_id: msg.from,
+        from: msg.from ?? "",
+        from_me: msg.fromMe ?? false,
+        id: msg.id._serialized ?? "",
+        status: "delivered",
+        text: {
+            body: messageBody ?? ""
+        },
+        timestamp: msg.timestamp ?? 0,
+        type: type,
+    };
+  
+    if((msg.from).includes('@g.us')){
+        const authorNumber = '+'+(msg.author).split('@')[0];
+  
+        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        if(authorData){
+            messageData.author = authorData.contactName;
+        }else{
+            messageData.author = msg.author;
+        }
+    }
+  
+    if (msg.type === 'audio') {
+        messageData.audio = {
+            mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+            data: audioData // This is the base64 encoded audio data
+        };
+    }
+  
+    if (msg.hasMedia &&  msg.type !== 'audio') {
+        try {
+            const media = await msg.downloadMedia();
+            if (media) {
+              if (msg.type === 'image') {
+                messageData.image = {
+                    mimetype: media.mimetype,
+                    data: media.data,  // This is the base64-encoded data
+                    filename: msg._data.filename || "",
+                    caption: msg._data.caption || "",
+                };
+                // Add width and height if available
+                if (msg._data.width) messageData.image.width = msg._data.width;
+                if (msg._data.height) messageData.image.height = msg._data.height;
+              } else if (msg.type === 'document') {
+                  messageData.document = {
+                      mimetype: media.mimetype,
+                      data: media.data,  // This is the base64-encoded data
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                      pageCount: msg._data.pageCount,
+                      fileSize: msg._data.size,
+                  };
+              }else if (msg.type === 'video') {
+                    messageData.video = {
+                        mimetype: media.mimetype,
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
+                    };
+                    // Store video data separately or use a cloud storage solution
+                    const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                    messageData.video.link = videoUrl;
+              } else {
+                  messageData[msg.type] = {
+                      mimetype: media.mimetype,
+                      data: media.data,
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                  };
+              }
+  
+              // Add thumbnail information if available
+              if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                  messageData[msg.type].thumbnail = {
+                      height: msg._data.thumbnailHeight,
+                      width: msg._data.thumbnailWidth,
+                  };
+              }
+  
+              // Add media key if available
+              if (msg.mediaKey) {
+                  messageData[msg.type].mediaKey = msg.mediaKey;
+              }
+  
+              
+            }  else {
+                console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                messageData.text = { body: "Media not available" };
+            }
+        } catch (error) {
+            console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+            messageData.text = { body: "Error handling media" };
+        }
+    }
+    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+    const messagesRef = contactRef.collection('messages');
+  
+    const messageDoc = messagesRef.doc(msg.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+    console.log(messageData);  
+  }
+
 function stripMarkdownLink(text) {
     const regex = /\[([^\]]+)\]\(([^)]+)\)/g;
     const match = regex.exec(text);
@@ -603,16 +742,18 @@ function stripMarkdownLink(text) {
     }
     return text;
 }
-async function handleSpecialResponses(part, to, brochureFilePaths, client) {
+async function handleSpecialResponses(part, to, brochureFilePaths, client, idSubstring, extractedNumber) {
     if (part.includes('Sit back, relax and enjoy our campus tour!') || part.includes('Jom lihat fasiliti-fasiliti terkini')) {
         const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20campus%20tour%20smaller%20size.mp4?alt=media&token=efb9496e-f2a8-4210-8892-5f3f21b9a061';
         const media = await MessageMedia.fromUrl(vidPath);
-        await client.sendMessage(to, media, {sendMediaAsDocument: true});
+        const documentMessage = await client.sendMessage(to, media);
+        await addMessagetoFirebase(documentMessage, idSubstring, extractedNumber);
     }
     if (part.includes('Check out our food video!') || part.includes('Jom makan makan!')) {
         const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/MSU%20FOOD%208%20ne.mp4?alt=media&token=a9d10097-6619-4031-8319-9e0a4af4e080';
         const media = await MessageMedia.fromUrl(vidPath2);
-        await client.sendMessage(to, media, {sendMediaAsDocument: true});
+        const documentMessage = await client.sendMessage(to, media);
+        await addMessagetoFirebase(documentMessage, idSubstring, extractedNumber);
     }
     if (part.includes('enjoy reading about the exciting')) {
         await addtagbookedFirebase(contactID, 'idle');
@@ -622,7 +763,8 @@ async function handleSpecialResponses(part, to, brochureFilePaths, client) {
             const idleTags = contactPresent.tags
             if (idleTags && idleTags.includes('idle')) {
                 console.log(`User ${contactID} has been idle for 1 hour`);
-                await client.sendMessage(to, "Would you like to check out our cool campus tour? It's got top-notch facilities and amazing student life.");
+                const sentMessage = await client.sendMessage(to, "Would you like to check out our cool campus tour? It's got top-notch facilities and amazing student life.");
+                await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
             }
         }, 60 * 60 * 1000);
     }
@@ -630,7 +772,8 @@ async function handleSpecialResponses(part, to, brochureFilePaths, client) {
         if (part.includes(key) && part.includes("Brochure")) {
             console.log(`${key} sending file, ${filePath}`);
             const media = await MessageMedia.fromUrl(filePath);
-            await client.sendMessage(to, media, {sendMediaAsDocument: true, filename: `${key}.pdf`});
+            const documentMessage = await client.sendMessage(to, media, {sendMediaAsDocument: true, filename: `${key}.pdf`});
+            await addMessagetoFirebase(documentMessage, idSubstring, extractedNumber);
             break;
         }
     }
