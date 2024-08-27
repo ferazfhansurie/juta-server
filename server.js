@@ -1051,6 +1051,166 @@ function setupMessageHandler(client, botName, phoneIndex) {
   });
 }
 
+function setupMessageCreateHandler(client, botName, phoneIndex) {
+  client.on('message_create', async (msg) => {
+    console.log(`DEBUG: Message created for bot ${botName}`);
+    try {
+      // Check if the message is from the current user (sent from another device)
+      if (msg.fromMe) {
+        console.log(`DEBUG: Message created by user for bot ${botName}`);
+        
+        // Extract the recipient's number
+        const extractedNumber = '+' + (msg.to.split('@')[0]);
+        
+        // Get the idSubstring (you'll need to define how to obtain this)
+        const idSubstring = getIdSubstring(botName); // Implement this function
+        
+        // Add the message to Firebase
+        await addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneIndex);
+        
+      }
+    } catch (error) {
+      console.error(`ERROR in message_create handling for bot ${botName}:`, error);
+    }
+  });
+}
+
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneIndex){
+  console.log('Adding message to Firebase');
+  console.log('idSubstring:', idSubstring);
+  console.log('extractedNumber:', extractedNumber);
+
+  if (!extractedNumber) {
+      console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
+      return;
+  }
+
+  if (!idSubstring) {
+      console.error('Invalid idSubstring for Firebase document path');
+      return;
+  }
+  let messageBody = msg.body;
+  let audioData = null;
+  let type = '';
+  if(msg.type === 'chat'){
+      type ='text'
+    }else{
+      type = msg.type;
+    }
+  if (msg.hasMedia && msg.type === 'audio') {
+      console.log('Voice message detected');
+      const media = await msg.downloadMedia();
+      const transcription = await transcribeAudio(media.data);
+      console.log('Transcription:', transcription);
+              
+      messageBody = transcription;
+      audioData = media.data;
+      console.log(msg);
+  }
+  const messageData = {
+      chat_id: msg.from,
+      from: msg.from ?? "",
+      from_me: msg.fromMe ?? false,
+      id: msg.id._serialized ?? "",
+      status: "delivered",
+      text: {
+          body: messageBody ?? ""
+      },
+      timestamp: msg.timestamp ?? 0,
+      phoneIndex: phoneIndex,
+      type: type,
+  };
+
+  if((msg.from).includes('@g.us')){
+      const authorNumber = '+'+(msg.author).split('@')[0];
+
+      const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+      if(authorData){
+          messageData.author = authorData.contactName;
+      }else{
+          messageData.author = msg.author;
+      }
+  }
+
+  if (msg.type === 'audio') {
+      messageData.audio = {
+          mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+          data: audioData // This is the base64 encoded audio data
+      };
+  }
+
+  if (msg.hasMedia &&  msg.type !== 'audio') {
+      try {
+          const media = await msg.downloadMedia();
+          if (media) {
+            if (msg.type === 'image') {
+              messageData.image = {
+                  mimetype: media.mimetype,
+                  data: media.data,  // This is the base64-encoded data
+                  filename: msg._data.filename || "",
+                  caption: msg._data.caption || "",
+              };
+              // Add width and height if available
+              if (msg._data.width) messageData.image.width = msg._data.width;
+              if (msg._data.height) messageData.image.height = msg._data.height;
+            } else if (msg.type === 'document') {
+                messageData.document = {
+                    mimetype: media.mimetype,
+                    data: media.data,  // This is the base64-encoded data
+                    filename: msg._data.filename || "",
+                    caption: msg._data.caption || "",
+                    pageCount: msg._data.pageCount,
+                    fileSize: msg._data.size,
+                };
+            }else if (msg.type === 'video') {
+                  messageData.video = {
+                      mimetype: media.mimetype,
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                  };
+                  // Store video data separately or use a cloud storage solution
+                  const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                  messageData.video.link = videoUrl;
+            } else {
+                messageData[msg.type] = {
+                    mimetype: media.mimetype,
+                    data: media.data,
+                    filename: msg._data.filename || "",
+                    caption: msg._data.caption || "",
+                };
+            }
+
+            // Add thumbnail information if available
+            if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                messageData[msg.type].thumbnail = {
+                    height: msg._data.thumbnailHeight,
+                    width: msg._data.thumbnailWidth,
+                };
+            }
+
+            // Add media key if available
+            if (msg.mediaKey) {
+                messageData[msg.type].mediaKey = msg.mediaKey;
+            }
+
+            
+          }  else {
+              console.log(`Failed to download media for message: ${msg.id._serialized}`);
+              messageData.text = { body: "Media not available" };
+          }
+      } catch (error) {
+          console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+          messageData.text = { body: "Error handling media" };
+      }
+  }
+  const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+  const messagesRef = contactRef.collection('messages');
+
+  const messageDoc = messagesRef.doc(msg.id._serialized);
+  await messageDoc.set(messageData, { merge: true });
+  console.log('Message saved');  
+}
+
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
 
 async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retryCount = 0) {
@@ -2562,7 +2722,7 @@ async function initializeBot(botName, phoneCount = 1) {
       console.log(`${botName} Phone ${i + 1} - READY`);
       clients[i] = { ...clients[i], status: 'ready', qrCode: null };
       setupMessageHandler(client, botName, i);
-
+      setupMessageCreateHandler(client, botName, i);
       
   });
 
