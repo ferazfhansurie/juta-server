@@ -1990,11 +1990,12 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
   console.log('send message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const { message, quotedMessageId, phoneIndex: requestedPhoneIndex } = req.body;
+  const { message, quotedMessageId, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
   console.log(req.body);
   console.log(message)
 
   const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
+  const userName = requestedUserName !== undefined ? requestedUserName : '';
 
   try {
     let client;
@@ -2034,6 +2035,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
       },
       timestamp: sentMessage.timestamp ?? 0,
       type: type2,
+      userName: userName,
       ack: sentMessage.ack ?? 0,
       phoneIndex: phoneIndex,
     };
@@ -2059,18 +2061,42 @@ app.put('/api/v2/messages/:companyId/:chatId/:messageId', async (req, res) => {
   const { newMessage } = req.body;
 
   try {
-    let phoneNumber = '+'+(chatId).split('@')[0];
-    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
-    const messageRef = contactRef.collection('messages').doc(messageId);
+    // Get the client for this company from botMap
+    const botData = botMap.get(companyId);
+    if (!botData || !botData[0] || !botData[0].client) {
+      return res.status(404).send('WhatsApp client not found for this company');
+    }
+    const client = botData[0].client;
 
-    // Update the message in Firebase
-    await messageRef.update({
-      'text.body': newMessage,
-      edited: true,
-      editedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    // Get the chat
+    const chat = await client.getChatById(chatId);
 
-    res.json({ success: true, messageId: messageId });
+    // Fetch the message
+    const messages = await chat.fetchMessages({ limit: 1, id: messageId });
+    if (messages.length === 0) {
+      return res.status(404).send('Message not found');
+    }
+    const message = messages[0];
+
+    // Edit the message
+    const editedMessage = await message.edit(newMessage);
+
+    if (editedMessage) {
+      // Update the message in Firebase
+      let phoneNumber = '+'+(chatId).split('@')[0];
+      const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
+      const messageRef = contactRef.collection('messages').doc(messageId);
+
+      await messageRef.update({
+        'text.body': newMessage,
+        edited: true,
+        editedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+      res.json({ success: true, messageId: messageId });
+    } else {
+      res.status(400).json({ success: false, error: 'Failed to edit message' });
+    }
   } catch (error) {
     console.error('Error editing message:', error);
     res.status(500).send('Internal Server Error');
@@ -2081,13 +2107,33 @@ app.put('/api/v2/messages/:companyId/:chatId/:messageId', async (req, res) => {
 app.delete('/api/v2/messages/:companyId/:chatId/:messageId', async (req, res) => {
   console.log('Delete message');
   const { companyId, chatId, messageId } = req.params;
+  const { deleteForEveryone } = req.body; // Add this to allow specifying if the message should be deleted for everyone
 
   try {
+    // Get the client for this company from botMap
+    const botData = botMap.get(companyId);
+    if (!botData || !botData[0] || !botData[0].client) {
+      return res.status(404).send('WhatsApp client not found for this company');
+    }
+    const client = botData[0].client;
+
+    // Get the chat
+    const chat = await client.getChatById(chatId);
+
+    // Fetch the message
+    const messages = await chat.fetchMessages({ limit: 1, id: messageId });
+    if (messages.length === 0) {
+      return res.status(404).send('Message not found');
+    }
+    const message = messages[0];
+
+    // Delete the message
+    await message.delete(deleteForEveryone);
+
+    // Delete the message from Firebase
     let phoneNumber = '+'+(chatId).split('@')[0];
     const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
     const messageRef = contactRef.collection('messages').doc(messageId);
-
-    // Delete the message from Firebase
     await messageRef.delete();
 
     res.json({ success: true, messageId: messageId });
@@ -2137,11 +2183,12 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
   console.log('send image message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const { imageUrl, caption , phoneIndex: requestedPhoneIndex} = req.body;
+  const { imageUrl, caption , phoneIndex: requestedPhoneIndex, userName: requestedUserName} = req.body;
   console.log(req.body);
 
   const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
-
+  const userName = requestedUserName !== undefined ? requestedUserName : '';
+  
   try {
     let client;
     // 1. Get the client for this company from botMap
@@ -2175,6 +2222,7 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
         caption: caption ?? "",
       },
       timestamp: sentMessage.timestamp ?? 0,
+      userName: userName,
       type: 'image',
       ack: sentMessage.ack ?? 0,
     };
@@ -2216,9 +2264,10 @@ app.post('/api/v2/messages/document/:companyId/:chatId', async (req, res) => {
   console.log('send document message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const { documentUrl, filename, caption, phoneIndex: requestedPhoneIndex } = req.body;
+  const { documentUrl, filename, caption, phoneIndex: requestedPhoneIndex, userName: requestedUserName} = req.body;
   console.log(req.body);
   const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
+  const userName = requestedUserName !== undefined ? requestedUserName : '';
 
   try {
     let client;
@@ -2256,6 +2305,7 @@ app.post('/api/v2/messages/document/:companyId/:chatId', async (req, res) => {
       },
       timestamp: sentMessage.timestamp ?? 0,
       type: 'document',
+      userName: userName,
       ack: sentMessage.ack ?? 0,
     };
     
