@@ -1210,7 +1210,24 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneInde
   await messageDoc.set(messageData, { merge: true });
   console.log('Message saved');  
 }
+async function storeVideoData(videoData, filename) {
+  const bucket = admin.storage().bucket();
+  const uniqueFilename = `${uuidv4()}_${filename}`;
+  const file = bucket.file(`videos/${uniqueFilename}`);
 
+  await file.save(Buffer.from(videoData, 'base64'), {
+      metadata: {
+          contentType: 'video/mp4', // Adjust this based on the actual video type
+      },
+  });
+
+  const [url] = await file.getSignedUrl({
+      action: 'read',
+      expires: '03-01-2500', // Adjust expiration as needed
+  });
+
+  return url;
+}
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
 
 async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retryCount = 0) {
