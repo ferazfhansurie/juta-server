@@ -78,6 +78,62 @@ async function addTask(idSubstring, taskString, assignee, dueDate) {
       message: `Task added: ${newTask.text}, assigned to ${newTask.assignee}, due on ${newTask.dueDate}` 
   });
 }
+async function registerUser(phoneNumber) {
+    try {
+        // Fetch contact data from the contacts collection in companies
+        const companiesSnapshot = await admin.firestore().collection('companies').get();
+        let contactData;
+        let companyId;
+
+        for (const doc of companiesSnapshot.docs) {
+            const contactsSnapshot = await doc.ref.collection('contacts').where('phone', '==', phoneNumber).get();
+            if (!contactsSnapshot.empty) {
+                contactData = contactsSnapshot.docs[0].data();
+                companyId = doc.id;
+                break;
+            }
+        }
+
+        if (!contactData) {
+            throw new Error('Contact not found in any company');
+        }
+
+        // Create a new user in Firebase Authentication
+        const userRecord = await admin.auth().createUser({
+            email: contactData.email,
+            phoneNumber: phoneNumber,
+            password: '123456', // You should generate a random password or use a different authentication method
+            displayName: contactData.name,
+        });
+
+        // Save user data to Firestore
+        await admin.firestore().collection('user').doc(contactData.email).set({
+            name: contactData.name,
+            email: contactData.email,
+            phone: phoneNumber,
+            company: contactData.company,
+            role: "1",
+            companyId: companyId,
+        });
+
+        // Save user data under the company's employee collection
+        await admin.firestore().collection(`companies/${companyId}/employee`).doc(userRecord.uid).set({
+            name: contactData.name,
+            email: contactData.email,
+            role: "1",
+            phone: phoneNumber
+        });
+
+        // Create channel (if needed)
+        const response = await axios.post(`https://mighty-dane-newly.ngrok-free.app/api/channel/create/${companyId}`);
+        console.log(response.data);
+
+        return { success: true, userId: userRecord.uid, companyId: companyId };
+    } catch (error) {
+        console.error('Error registering user:', error);
+        return { success: false, error: error.message };
+    }
+}
 async function listAssignedTasks(idSubstring, assignee) {
   const companyRef = db.collection('companies').doc(idSubstring);
   const doc = await companyRef.get();
@@ -1533,6 +1589,22 @@ async function handleToolCalls(toolCalls, idSubstring, client) {
     for (const toolCall of toolCalls) {
         console.log(`Processing tool call: ${toolCall.function.name}`);
         switch (toolCall.function.name) {
+            case 'registerUser':
+                try {
+                    console.log('Registering user...');
+                    const result = await registerUser(phoneNumber);
+                    toolOutputs.push({
+                        tool_call_id: toolCall.id,
+                        output: JSON.stringify(result),
+                    });
+                } catch (error) {
+                    console.error('Error in handleToolCalls for registerUser:', error);
+                    toolOutputs.push({
+                        tool_call_id: toolCall.id,
+                        output: JSON.stringify({ error: error.message }),
+                    });
+                }
+                break;
           case 'testDailyReminders':
             try {
                 console.log('Testing daily reminders...');
@@ -1886,6 +1958,18 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     
     const tools = [
+        {
+            type: "function",
+            function: {
+                name: "registerUser",
+                description: "Register a new user using their phone number, fetching data from the contacts collection",
+                parameters: {
+                    type: "object",
+                    properties: {},
+                    required: []
+                },
+            },
+        },
       {
         type: "function",
         function: {

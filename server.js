@@ -2066,52 +2066,59 @@ app.get('/api/assistant-test/', async (req, res) => {
     }
   });
 
-async function createContact(name, number) {
-  // Validate phone number length (assuming a maximum length of 15 characters for international phone numbers)
-  if (number.length > 15) {
-      console.log('Error: The phone number is too long');
-      return;
-  }
-
-  const options = {
-      method: 'POST',
-      url: 'https://services.leadconnectorhq.com/contacts/',
-      headers: {
-          Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
-          Version: '2021-07-28',
-          'Content-Type': 'application/json',
-          Accept: 'application/json'
-      },
-      data: {
-          firstName: name,
-          name: name,
-          locationId: ghlConfig.ghl_location,
-          phone: number,
+  app.post('/api/create-contact', async (req, res) => {
+    const { contactName, lastName, email, phone, address1, companyName, companyId } = req.body;
+  
+    try {
+      if (!phone) {
+        return res.status(400).json({ error: "Phone number is required." });
       }
-  };
-
-  const maxRetries = 5;
-  let attempt = 0;
-  const delay = 10000; // Delay of 5 seconds before each request
-  await new Promise(res => setTimeout(res, delay)); // Delay before making the request
-  while (attempt < maxRetries) {
-      try {
-         
-          await axios.request(options);
-          console.log('Contact created successfully');
-          return;
-      } catch (error) {
-          if (error.response && error.response.status === 429) {
-              const retryAfter = error.response.headers['retry-after'] || 10; // Fallback to 10 seconds if no header is provided
-              attempt++;
-              await new Promise(res => setTimeout(res, retryAfter * 10000));
-          } else {
-              throw error;
-          }
+  
+      // Format the phone number
+      const formattedPhone = formatPhoneNumber(phone);
+  
+      const contactsCollectionRef = db.collection(`companies/${companyId}/contacts`);
+  
+      // Use the formatted phone number as the document ID
+      const contactDocRef = contactsCollectionRef.doc(formattedPhone);
+  
+      // Check if a contact with this phone number already exists
+      const existingContact = await contactDocRef.get();
+      if (existingContact.exists) {
+        return res.status(409).json({ error: "A contact with this phone number already exists." });
       }
+  
+      const chat_id = formattedPhone.split('+')[1] + "@c.us";
+  
+      // Prepare the contact data with the formatted phone number
+      const contactData = {
+        id: formattedPhone,
+        chat_id: chat_id,
+        contactName: contactName,
+        lastName: lastName,
+        email: email,
+        phone: formattedPhone,
+        companyName: companyName,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        unreadCount: 0
+      };
+  
+      // Add new contact to Firebase
+      await contactDocRef.set(contactData);
+  
+      res.status(201).json({ message: "Contact added successfully!", contact: contactData });
+    } catch (error) {
+      console.error('Error adding contact:', error);
+      res.status(500).json({ error: "An error occurred while adding the contact: " + error.message });
+    }
+  });
+  
+  // Helper function to format phone number (you'll need to implement this)
+  function formatPhoneNumber(phone) {
+    // Implement phone number formatting logic here
+    // This is a placeholder implementation
+    return phone.startsWith('+') ? phone : '+' + phone;
   }
-  console.error('Failed to create contact after maximum retries');
-}
 app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
     const chatId = req.params.chatId;
     const whapiToken = req.params.token; // Access token from query parameters
