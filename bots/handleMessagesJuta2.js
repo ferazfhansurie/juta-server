@@ -1111,7 +1111,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
       }else{
         type = msg.type;
       }
-    if (msg.hasMedia && msg.type === 'audio') {
+    if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
         console.log('Voice message detected');
         const media = await msg.downloadMedia();
         const transcription = await transcribeAudio(media.data);
@@ -1145,14 +1145,14 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
         }
     }
 
-    if (msg.type === 'audio') {
+    if (msg.type === 'audio' || msg.type === 'ptt') {
         messageData.audio = {
             mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
             data: audioData // This is the base64 encoded audio data
         };
     }
 
-    if (msg.hasMedia &&  msg.type !== 'audio') {
+    if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
         try {
             const media = await msg.downloadMedia();
             if (media) {
