@@ -688,7 +688,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
         let messageBody = msg.body;
         let audioData = null;
 
-        if (msg.hasMedia && msg.type === 'audio') {
+        if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
             console.log('Voice message detected');
             const media = await msg.downloadMedia();
             const transcription = await transcribeAudio(media.data);
@@ -804,14 +804,14 @@ if (!contactData) {
                 messageData.author = authorNumber;
             }
         }
-        if (msg.type === 'audio') {
+        if (msg.type === 'audio' || msg.type === 'ptt') {
             messageData.audio = {
                 mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
                 data: audioData // This is the base64 encoded audio data
             };
         }
 
-        if (msg.hasMedia &&  msg.type !== 'audio') {
+        if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
           try {
               const media = await msg.downloadMedia();
               if (media) {
