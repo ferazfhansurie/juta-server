@@ -685,6 +685,25 @@ async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
     }
 }
 
+async function storeVideoData(videoData, filename) {
+    const bucket = admin.storage().bucket();
+    const uniqueFilename = `${uuidv4()}_${filename}`;
+    const file = bucket.file(`videos/${uniqueFilename}`);
+
+    await file.save(Buffer.from(videoData, 'base64'), {
+        metadata: {
+            contentType: 'video/mp4', // Adjust this based on the actual video type
+        },
+    });
+
+    const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2500', // Adjust expiration as needed
+    });
+
+    return url;
+}
+
 async function getFormattedInfoFromAssistant(threadId, agentId, agentName) {
     const assistantId = ghlConfig.assistantId;
     

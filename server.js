@@ -332,6 +332,7 @@ const { handleNewMessagesZahinTravel } = require('./bots/handleMessagesZahinTrav
 const { handleNewMessagesJuta2 } = require('./bots/handleMessagesJuta2.js');
 const { handleApplyRadarBlast } = require('./blast/applyRadarBlast.js');
 const { handleNewMessagesTest } = require('./bots/handleMessagesTest.js');
+const { handleNewMessagesFirstPrint } = require('./bots/handleMessagesFirstPrint.js');
 
 
 
@@ -388,6 +389,7 @@ const customHandlers = {
   '042': handleNewMessagesZahinTravel,
   '044': handleNewMessagesApel,
   '057': handleNewMessagesTest,
+  '059': handleNewMessagesFirstPrint,
   '060': handleNewMessagesApplyRadar2,
   '062': handleNewMessagesApplyRadar,
   '065': handleNewMessagesApelV2,
