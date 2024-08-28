@@ -652,8 +652,7 @@ async function handleNewMessagesFirstPrint(client, msg, botName, phoneIndex) {
 
                             // Send message to group chat
                             //const groupChatId = ghlConfig.groupChatId; // Assuming you have this in your config
-                            await client.sendMessage('120363303647719937@g.us', groupMessage);
-
+                            await client.sendMessage('120363307039232399@g.us', groupMessage);
                         }
                     }
                 }
