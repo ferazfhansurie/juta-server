@@ -1418,7 +1418,7 @@ async function checkingStatus(threadId, runId) {
 }
 
 // Modify the waitForCompletion function to handle tool calls
-async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0) {
+async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0,phoneNumber) {
     const maxDepth = 5; // Maximum recursion depth
     const maxAttempts = 30;
     const pollingInterval = 2000; // 2 seconds
@@ -1442,7 +1442,7 @@ async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0
         } else if (runObject.status === 'requires_action') {
           console.log('Run requires action, handling tool calls...');
           const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
-          const toolOutputs = await handleToolCalls(toolCalls, idSubstring, client);
+          const toolOutputs = await handleToolCalls(toolCalls, idSubstring, client,phoneNumber);
           console.log('Submitting tool outputs...');
           await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
           console.log('Tool outputs submitted, restarting wait for completion...');
@@ -1465,7 +1465,7 @@ async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0
 
 
 // Modify the runAssistant function to handle tool calls
-async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
+async function runAssistant(assistantID, threadId, tools,idSubstring,client,phoneNumber) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
       threadId,
@@ -1477,7 +1477,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
   
     const runId = response.id;
   
-    const answer = await waitForCompletion(threadId, runId,idSubstring,client);
+    const answer = await waitForCompletion(threadId, runId,idSubstring,client,phoneNumber);
     return answer;
   }
   async function fetchMultipleContactsData(phoneNumbers, idSubstring) {
@@ -1583,7 +1583,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client) {
     }
   }
   // Modify the handleToolCalls function to include the new tool
-async function handleToolCalls(toolCalls, idSubstring, client) {
+async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
     console.log('Handling tool calls...');
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
@@ -2302,7 +2302,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
         },
     ];
   
-    const answer = await runAssistant(assistantId, threadID, tools, idSubstring, client);
+    const answer = await runAssistant(assistantId, threadID, tools, idSubstring, client,phoneNumber);
     return answer;
 }
 
