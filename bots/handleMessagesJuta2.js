@@ -1477,7 +1477,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client,phon
   
     const runId = response.id;
   
-    const answer = await waitForCompletion(threadId, runId,idSubstring,client,phoneNumber);
+    const answer = await waitForCompletion(threadId, runId,idSubstring,client, 0,phoneNumber);
     return answer;
   }
   async function fetchMultipleContactsData(phoneNumbers, idSubstring) {
