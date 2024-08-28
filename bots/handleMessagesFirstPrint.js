@@ -620,7 +620,6 @@ async function handleNewMessagesFirstPrint(client, msg, botName, phoneIndex) {
                         if(check.includes('terima kasih atas kerjasama anda')){
                             await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
                             await addtagbookedFirebase(contactID, 'sent detail', idSubstring);
-                            const sentMessage = await client.sendMessage(msg.from, `Hi ${contact.pushname}. Nama saya ${tags[1]}, perunding percutian Zahin Travel. Ini nombor ID saya ${tags[2]}.\n\nSaya akan uruskan permintaan sebut harga dengan operation team Zahin Travel. Kebiasaannya akan ambil masa di antara 1 hingga 3 hari waktu bekerja. Selepas siap, saya akan maklumkan segera.\n\nJika ada apa-apa soalan atau permintaan tambahan, boleh ajukan untuk saya bantu.\nTerima kasih ☺`);
                             
                             const phoneName = await getPhoneName(ghlConfig, phoneIndex)
                             // Save the message to Firebase
