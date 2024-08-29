@@ -207,10 +207,11 @@ async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-async function addNotificationToUser(companyId, message) {
+async function addNotificationToUser(companyId, message, contactName) {
     console.log('noti');
     try {
         // Find the user with the specified companyId
+        message.from = contactName
         const usersRef = db.collection('user');
         const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
 
@@ -595,7 +596,6 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
 
         if (msg.fromMe){
             console.log(msg);
-            await addMessagetoFirebase(msg, idSubstring, extractedNumber);
             return;
         }
             
@@ -882,7 +882,7 @@ if (!contactData) {
         const messageDoc = messagesRef.doc(msg.id._serialized);
         await messageDoc.set(messageData, { merge: true });
         console.log(msg);
-        await addNotificationToUser(idSubstring, messageData);
+        await addNotificationToUser(idSubstring, messageData, contactName);
 
         // Add the data to Firestore
         await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
@@ -1089,7 +1089,7 @@ async function sendMessage(client, phoneNumber, message, idSubstring) {
       return JSON.stringify({ error: 'Failed to list contacts with tag' });
     }
   }
-async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName){
     console.log('Adding message to Firebase');
     console.log('idSubstring:', idSubstring);
     console.log('extractedNumber:', extractedNumber);
@@ -1223,7 +1223,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
     const messageDoc = messagesRef.doc(msg.id._serialized);
     await messageDoc.set(messageData, { merge: true });
     console.log(messageData);
-    await addNotificationToUser(idSubstring, messageData);
+    await addNotificationToUser(idSubstring, messageData, contactName);
 }
 async function removeTagBookedGHL(contactID, tag) {
     const options = {
