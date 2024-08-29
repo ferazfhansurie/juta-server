@@ -8,6 +8,8 @@ const fs = require('fs');
 const AsyncLock = require('async-lock');
 const lock = new AsyncLock();
 const { MessageMedia } = require('whatsapp-web.js');
+const pdf2pic = require('pdf2pic');
+const { fromBuffer } = require('pdf2pic');
 const db = admin.firestore();
 
 let ghlConfig = {};
@@ -474,9 +476,9 @@ async function handleNewMessagesMSU(client, msg, botName, phoneIndex) {
                     await handleTextMessage(msg, sender, extractedNumber, contactName, threadID, client, idSubstring);
                     
                 } else if (msg.type === 'document' ) {
-                    await handleDocumentMessage(msg, sender, threadID, client);
+                    await handleDocumentMessage(msg, sender, threadID, client, extractedNumber);
                 } else if (msg.type === 'image') {
-                    await handleImageMessage(msg, sender, threadID, client);
+                    await handleImageMessage(msg, sender, threadID, client,extractedNumber);
                 } else {
                     const sentMessage = await client.sendMessage(msg.from, "Sorry, but we currently can't handle these types of files, we will forward your inquiry to our team!");
                     await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
@@ -541,17 +543,24 @@ async function handleTextMessage(msg, sender, extractedNumber, contactName, thre
 async function handleDocumentMessage(msg, sender, threadID, client, idSubstring, extractedNumber) {
     const lockKey = `thread_${threadID}`;
     return lock.acquire(lockKey, async () => {
-        let query = "The file you just received is a file containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please similar suggest one that i am.";
+        let query = "The file you just received is a document containing examination results. Please analyze the image and provide relevant information about the results.";
         if (msg.caption) {
             query += `\n\n${msg.caption}`;
         }
         try {
             const media = await msg.downloadMedia();
             if (media) {
-                const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', media.data, sender.to, sender.name);
-                query += `\n\nExamination Result: ${webhookResponse}`;
+                // Convert first page of PDF to image
+                const imageBase64 = await convertPDFToImage(media.data);
+                
+                // Analyze the image using GPT-4 Vision
+                const visionResponse = await analyzeImageWithGPT4Vision(imageBase64, query);
 
-                const answer = await handleOpenAIAssistant(query, threadID);
+                // Add the vision analysis to the thread
+                await addMessage(threadID, `Document Analysis: ${visionResponse}`);
+
+                // Get the final response from the assistant
+                const answer = await handleOpenAIAssistant(`Based on the document analysis: ${visionResponse}, ${query}`, threadID);
                 await sendResponseParts(answer, msg.from, {}, client, idSubstring, extractedNumber);
             } else {
                 const sentMessage = await client.sendMessage(msg.from, "Sorry, I couldn't analyze that document. Could you try sending it again as an image or asking a different question?");
@@ -565,24 +574,79 @@ async function handleDocumentMessage(msg, sender, threadID, client, idSubstring,
     }, { timeout: 60000 });
 }
 
+async function convertPDFToImage(pdfBuffer) {
+    const options = {
+        density: 100,
+        saveFilename: "firstpage",
+        format: "png",
+        width: 600,
+        height: 600
+    };
+    
+    const convert = fromBuffer(pdfBuffer, options);
+    const pageToConvertAsImage = 1;
+    
+    try {
+        const result = await convert(pageToConvertAsImage);
+        return result.base64;
+    } catch (error) {
+        console.error("Error converting PDF to image:", error);
+        throw error;
+    }
+}
+
+
 async function handleImageMessage(msg, sender, threadID, client, idSubstring, extractedNumber) {
     const media = await msg.downloadMedia();
-    let query = "The image you just received is an image containing my examination results. Please check my eligibility for MSU based on the results and if i am not eligibile please suggest one that i am.";
+    let query = "The image you just received contains examination results. Please analyze the image and provide relevant information about this picture. Re-repeat the user's results and determine whether or not they are capable of enrolling in MSU";
     if (msg.caption) {
         query += `\n\n${msg.caption}`;
     }
 
     try {
-        const webhookResponse = await callWebhook('https://hook.us1.make.com/8i6ikx22ov6gkl5hvjtssz22uw9vu1dq', media.data, sender.to, sender.name);
-        query += `\n\nExamination Result: ${webhookResponse}`;
+        // Convert the image to base64
+        const base64Image = media.data;
 
-        const answer = await handleOpenAIAssistant(query, threadID);
+        // Call GPT-4 Vision API
+        const visionResponse = await analyzeImageWithGPT4Vision(base64Image, query);
+
+        // Add the vision analysis to the thread
+        await addMessage(threadID, `Image Analysis: ${visionResponse}`);
+
+        // Get the final response from the assistant
+        const answer = await handleOpenAIAssistant(`Based on the image analysis: ${visionResponse}, ${query}`, threadID);
         await sendResponseParts(answer, msg.from, {}, client, idSubstring, extractedNumber);
     } catch (error) {
         console.error("Error in image processing:", error);
         const sentMessage = await client.sendMessage(msg.from, "Sorry, I couldn't analyze that image. Could you try sending it again or asking a different question?");
         await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
+    }
+}
 
+async function analyzeImageWithGPT4Vision(base64Image, query) {
+    try {
+        const response = await openai.chat.completions.create({
+            model: "gpt-4-vision-preview",
+            messages: [
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: query },
+                        {
+                            type: "image_url",
+                            image_url: {
+                                url: `data:image/jpeg;base64,${base64Image}`,
+                            },
+                        },
+                    ],
+                },
+            ],
+        });
+
+        return response.choices[0].message.content;
+    } catch (error) {
+        console.error("Error analyzing image with GPT-4 Vision:", error);
+        throw error;
     }
 }
 
