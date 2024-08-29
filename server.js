@@ -2773,18 +2773,18 @@ async function initializeBot(botName, phoneCount = 1) {
                 broadcastAuthStatus(botName, 'disconnected');
             }
         
-            // Attempt to reinitialize after a short delay
-            console.log(`Attempting to reinitialize ${botName} Phone ${i + 1} in 5 seconds...`);
-            setTimeout(async () => {
-                try {
-                    // Use initializeBot instead of client.initialize()
-                    await initializeBot(botName, phoneCount);
-                    console.log(`${botName} Phone ${i + 1} - Reinitialization initiated`);
-                } catch (error) {
-                    console.error(`Error reinitializing ${botName} Phone ${i + 1}:`, error);
-                    // You might want to implement a retry mechanism or alert an admin here
-                }
-            }, 5000); // 5 second delay before reinitialization
+            // // Attempt to reinitialize after a short delay
+            // console.log(`Attempting to reinitialize ${botName} Phone ${i + 1} in 5 seconds...`);
+            // setTimeout(async () => {
+            //     try {
+            //         // Use initializeBot instead of client.initialize()
+            //         await initializeBot(botName, phoneCount);
+            //         console.log(`${botName} Phone ${i + 1} - Reinitialization initiated`);
+            //     } catch (error) {
+            //         console.error(`Error reinitializing ${botName} Phone ${i + 1}:`, error);
+            //         // You might want to implement a retry mechanism or alert an admin here
+            //     }
+            // }, 5000); // 5 second delay before reinitialization
         });
 
         client.on('remote_session_saved', () => {
