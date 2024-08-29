@@ -8,7 +8,7 @@ const fs = require('fs');
 const AsyncLock = require('async-lock');
 const lock = new AsyncLock();
 const { MessageMedia } = require('whatsapp-web.js');
-const pdf2pic = require('pdf2pic');
+const pdfImgConvert = require('pdf-img-convert');
 const { fromBuffer } = require('pdf2pic');
 const db = admin.firestore();
 
@@ -575,20 +575,20 @@ async function handleDocumentMessage(msg, sender, threadID, client, idSubstring,
 }
 
 async function convertPDFToImage(pdfBuffer) {
-    const options = {
-        density: 100,
-        saveFilename: "firstpage",
-        format: "png",
-        width: 600,
-        height: 600
-    };
-    
-    const convert = fromBuffer(pdfBuffer, options);
-    const pageToConvertAsImage = 1;
-    
     try {
-        const result = await convert(pageToConvertAsImage);
-        return result.base64;
+        const pdfArray = new Uint8Array(pdfBuffer);
+        const outputImages = await pdfImgConvert.convert(pdfArray, {
+            width: 600, // width in pixels
+            height: 600, // height in pixels
+            page_numbers: [1], // only convert the first page
+            base64: true
+        });
+        
+        if (outputImages && outputImages.length > 0) {
+            return outputImages[0]; // Return the base64 string of the first page
+        } else {
+            throw new Error("No images were generated from the PDF");
+        }
     } catch (error) {
         console.error("Error converting PDF to image:", error);
         throw error;
