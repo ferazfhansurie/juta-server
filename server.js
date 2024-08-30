@@ -2681,9 +2681,7 @@ async function initializeBot(botName, phoneCount = 1) {
       for (let i = 0; i < phoneCount; i++) {
         
           let clientName = phoneCount == 1 ? botName : `${botName}_phone${i + 1}`;
-          if(i === 0){
-            clientName = botName
-          }
+          
           const client = new Client({
               authStrategy: new LocalAuth({
                   clientId: clientName,
