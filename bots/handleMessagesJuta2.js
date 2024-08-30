@@ -1939,12 +1939,111 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                     });
                 }
                 break;
+            case 'analyzeAndSetLeadTemperature':
+                try {
+                    console.log('Analyzing and setting lead temperature...');
+                    const args = JSON.parse(toolCall.function.arguments);
+                    await analyzeAndSetLeadTemperature(args.phoneNumber);
+                    // Don't push any output for this tool
+                } catch (error) {
+                    console.error('Error in handleToolCalls for analyzeAndSetLeadTemperature:', error);
+                    // Don't push any error output either
+                }
+                break;
             default:
                 console.warn(`Unknown function called: ${toolCall.function.name}`);
         }
     }
     console.log('Finished handling tool calls');
     return toolOutputs;
+}
+
+async function analyzeAndSetLeadTemperature(phoneNumber) {
+    try {
+        const idSubstring = '001'
+        const chatHistory = await fetchRecentChatHistory(idSubstring, phoneNumber);
+        const analysis = await analyzeChatsWithAI(chatHistory);
+        const temperature = determineLeadTemperature(analysis);
+        await setLeadTemperature(idSubstring, phoneNumber, temperature);
+        
+        // Return a simple confirmation without details
+        return JSON.stringify({
+            success: true,
+            message: "Lead temperature updated"
+        });
+    } catch (error) {
+        console.error('Error in analyzeAndSetLeadTemperature:', error);
+        return JSON.stringify({ error: 'Internal process completed' });
+    }
+}
+
+async function fetchRecentChatHistory(idSubstring, phoneNumber) {
+    const messagesRef = db.collection('companies').doc(idSubstring)
+                          .collection('contacts').doc(phoneNumber)
+                          .collection('messages');
+    const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(20).get();
+    return snapshot.docs.map(doc => doc.data());
+}
+
+async function analyzeChatsWithAI(chatHistory) {
+    const prompt = `Analyze the following chat history and determine the lead's interest level. 
+                    Consider factors such as engagement, questions asked, and expressions of interest. 
+                    Chat history: ${JSON.stringify(chatHistory)}`;
+
+    const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+    });
+
+    return response.choices[0].message.content;
+}
+
+function determineLeadTemperature(analysis) {
+    const lowercaseAnalysis = analysis.toLowerCase();
+    if (lowercaseAnalysis.includes('high interest') || lowercaseAnalysis.includes('very engaged')) {
+        return 'hot';
+    } else if (lowercaseAnalysis.includes('moderate interest') || lowercaseAnalysis.includes('somewhat engaged')) {
+        return 'medium';
+    } else {
+        return 'cold';
+    }
+}
+
+async function addtagbookedFirebase(contactID, tag, idSubstring) {
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
+    try {
+        // Get the current document
+        const doc = await contactRef.get();
+        let currentTags = [];
+
+        if (doc.exists) {
+            currentTags = doc.data().tags || [];
+        }
+
+        // Add the new tag if it doesn't already exist
+        if (!currentTags.includes(tag)) {
+            currentTags.push(tag);
+
+            // Update the document with the new tags
+            await contactRef.set({
+                tags: currentTags
+            }, { merge: true });
+
+            console.log(`Tag "${tag}" added to contact ${contactID} in Firebase`);
+        } else {
+            console.log(`Tag "${tag}" already exists for contact ${contactID} in Firebase`);
+        }
+    } catch (error) {
+        console.error('Error adding tag to Firebase:', error);
+    }
+}
+
+async function setLeadTemperature(idSubstring, phoneNumber, temperature){
+    console.log('adding tag ' + temperature + ' to ' + phoneNumber)
+    await addtagbookedFirebase(phoneNumber,temperature,idSubstring)
+    
 }
 
 // Modify the handleOpenAIAssistant function to include the new tool
@@ -1956,7 +2055,15 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     }
    
     await addMessage(threadID, message);
-    
+    // Periodically analyze and set lead temperature (e.g., every 5 messages)
+    const messageCount = await getMessageCount(threadID);
+    if (messageCount % 5 === 0) {
+        // Perform the analysis silently in the background
+        analyzeAndSetLeadTemperature(idSubstring, phoneNumber).catch(error => 
+            console.error('Error in background lead temperature analysis:', error)
+        );
+    }
+
     const tools = [
         {
             type: "function",
@@ -2299,7 +2406,23 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                     required: ["taskIndex", "newStatus"],
                 },
             },
+        },{
+        type: "function",
+        function: {
+            name: "analyzeAndSetLeadTemperature",
+            description: "Analyze recent chat history and determine the lead temperature. This is an internal process and should not be mentioned to the customer.",
+            parameters: {
+                type: "object",
+                properties: {
+                    phoneNumber: { 
+                        type: "string", 
+                        description: "Phone number of the contact with leading + malaysia example: +60126029909" 
+                    }
+                },
+                required: ["phoneNumber"],
+            },
         },
+    },
     ];
   
     const answer = await runAssistant(assistantId, threadID, tools, idSubstring, client,phoneNumber);
