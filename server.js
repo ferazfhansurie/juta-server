@@ -369,10 +369,10 @@ app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 
 //spreadsheet
 const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
-const applyRadarSpreadsheetLPUniten = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN).js');
-const applyRadarSpreadsheetLPUnitenPK = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN PK).js');
-const applyRadarSpreadsheetLPMMUPK = require('./spreadsheet/applyradarspreadsheet(LP - MMU PK).js');
-const applyRadarSpreadsheetLPAPUPK = require('./spreadsheet/applyradarspreadsheet(LP - APU PK).js');
+// const applyRadarSpreadsheetLPUniten = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN).js');
+// const applyRadarSpreadsheetLPUnitenPK = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN PK).js');
+// const applyRadarSpreadsheetLPMMUPK = require('./spreadsheet/applyradarspreadsheet(LP - MMU PK).js');
+// const applyRadarSpreadsheetLPAPUPK = require('./spreadsheet/applyradarspreadsheet(LP - APU PK).js');
 const msuSpreadsheetPartTime = require('./spreadsheet/msuspreadsheet(PartTime).js');
 const msuSpreadsheetApel = require('./spreadsheet/msuspreadsheet(Apel).js');
 const msuSpreadsheetCOL = require('./spreadsheet/msuspreadsheet(COL).js');
@@ -1688,16 +1688,16 @@ async function main(reinitialize = false) {
   msuAutomationPartTime.initialize();
   msuAutomationLeads.initialize();
 
-  console.log('Checking for new rows apply radar...');
-  const applyRadarAutomationLPUniten = new applyRadarSpreadsheetLPUniten(botMap);
-  const applyRadarAutomationLPUnitenPK = new applyRadarSpreadsheetLPUnitenPK(botMap);
-  const applyRadarAutomationLPMMUPK = new applyRadarSpreadsheetLPMMUPK(botMap);
-  const applyRadarAutomationLPAPUPK = new applyRadarSpreadsheetLPAPUPK(botMap);
+  // console.log('Checking for new rows apply radar...');
+  // const applyRadarAutomationLPUniten = new applyRadarSpreadsheetLPUniten(botMap);
+  // const applyRadarAutomationLPUnitenPK = new applyRadarSpreadsheetLPUnitenPK(botMap);
+  // const applyRadarAutomationLPMMUPK = new applyRadarSpreadsheetLPMMUPK(botMap);
+  // const applyRadarAutomationLPAPUPK = new applyRadarSpreadsheetLPAPUPK(botMap);
 
-  applyRadarAutomationLPUniten.initialize();
-  applyRadarAutomationLPUnitenPK.initialize();
-  applyRadarAutomationLPMMUPK.initialize();
-  applyRadarAutomationLPAPUPK.initialize(); 
+  // applyRadarAutomationLPUniten.initialize();
+  // applyRadarAutomationLPUnitenPK.initialize();
+  // applyRadarAutomationLPMMUPK.initialize();
+  // applyRadarAutomationLPAPUPK.initialize(); 
 
   console.log('Initialization complete');
   // Send ready signal to PM2
