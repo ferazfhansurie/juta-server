@@ -930,7 +930,7 @@ if (!contactData) {
             case steps.START:
                 var context = "";
 
-                query = `${messageBody} phonenumber: ${extractedNumber}`;
+                query = `${messageBody}`;
              if(!(sender.to.includes('@g.us')) || (msg.body.toLowerCase().startsWith('@juta') && phoneIndex == 0)){
                 answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client);
                 parts = answer.split(/\s*\|\|\s*/);
@@ -1939,17 +1939,6 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                     });
                 }
                 break;
-            case 'analyzeAndSetLeadTemperature':
-                try {
-                    console.log('Analyzing and setting lead temperature...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    await analyzeAndSetLeadTemperature(args.phoneNumber);
-                    // Don't push any output for this tool
-                } catch (error) {
-                    console.error('Error in handleToolCalls for analyzeAndSetLeadTemperature:', error);
-                    // Don't push any error output either
-                }
-                break;
             default:
                 console.warn(`Unknown function called: ${toolCall.function.name}`);
         }
@@ -2059,12 +2048,11 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     await addMessage(threadID, message);
     // Periodically analyze and set lead temperature (e.g., every 5 messages)
     const messageCount = await getMessageCount(threadID);
-    if (messageCount % 5 === 0) {
-        // Perform the analysis silently in the background
+    
         analyzeAndSetLeadTemperature(idSubstring, phoneNumber).catch(error => 
             console.error('Error in background lead temperature analysis:', error)
         );
-    }
+
 
     const tools = [
         {
