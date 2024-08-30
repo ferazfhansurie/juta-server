@@ -1960,6 +1960,7 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
 
 async function analyzeAndSetLeadTemperature(phoneNumber) {
     try {
+        console.log('phone number'+ phoneNumber)
         const idSubstring = '001'
         const chatHistory = await fetchRecentChatHistory(idSubstring, phoneNumber);
         const analysis = await analyzeChatsWithAI(chatHistory);
@@ -2000,6 +2001,7 @@ async function analyzeChatsWithAI(chatHistory) {
 
 function determineLeadTemperature(analysis) {
     const lowercaseAnalysis = analysis.toLowerCase();
+    console.log(lowercaseAnalysis)
     if (lowercaseAnalysis.includes('high interest') || lowercaseAnalysis.includes('very engaged')) {
         return 'hot';
     } else if (lowercaseAnalysis.includes('moderate interest') || lowercaseAnalysis.includes('somewhat engaged')) {
