@@ -2396,23 +2396,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                     required: ["taskIndex", "newStatus"],
                 },
             },
-        },{
-        type: "function",
-        function: {
-            name: "analyzeAndSetLeadTemperature",
-            description: "Analyze recent chat history and determine the lead temperature. This is an internal process and should not be mentioned to the customer.",
-            parameters: {
-                type: "object",
-                properties: {
-                    phoneNumber: { 
-                        type: "string", 
-                        description: "Phone number of the contact with leading + malaysia example: +60126029909" 
-                    }
-                },
-                required: ["phoneNumber"],
-            },
         },
-    },
     ];
   
     const answer = await runAssistant(assistantId, threadID, tools, idSubstring, client,phoneNumber);
