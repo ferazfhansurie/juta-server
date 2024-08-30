@@ -2445,6 +2445,16 @@ async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
     return jsonResponse;
 }
 
+async function getMessageCount(threadID) {
+    try {
+        const messagesRef = db.collection('threads').doc(threadID).collection('messages');
+        const snapshot = await messagesRef.count().get();
+        return snapshot.data().count;
+    } catch (error) {
+        console.error('Error getting message count:', error);
+        return 0; // Return 0 if there's an error, to avoid breaking the main function
+    }
+}
 
 async function saveThreadIDGHL(contactID, threadID) {
     const options = {
