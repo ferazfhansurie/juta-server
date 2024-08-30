@@ -2681,127 +2681,95 @@ app.post('/api/channel/create/:companyID', async (req, res) => {
 });
 
 async function initializeBot(botName, phoneCount = 1) {
-    try {
+  try {
       console.log(`Starting initialization for bot: ${botName} with ${phoneCount} phone(s)`);
       const clients = [];
-      let clientName = ""
       
       for (let i = 0; i < phoneCount; i++) {
-        if(phoneCount == 1){
-          clientName = botName
-        } else {
-          clientName = `${botName}_phone${i + 1}`
-        }
-        const client = new Client({
-            authStrategy: new LocalAuth({
-                clientId: clientName,
-            }),
-            puppeteer: { headless: true,executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',args: [
-              '--no-sandbox',
-              '--disable-setuid-sandbox',
-              '--disable-dev-shm-usage',
-              '--disable-web-security',
-              '--disable-gpu',
-              '--hide-scrollbars',
-              '--disable-cache',
-              '--disable-application-cache',
-              '--disable-gpu-driver-bug-workarounds',
-              '--disable-accelerated-2d-canvas',
-           ], }
-        });
-
-        clients.push({ client, status: 'initializing', qrCode: null });
-      
-        client.on('qr', async (qr) => {
-          console.log(`${botName} Phone ${i + 1} - QR RECEIVED`);
-          try {
-              const qrCodeData = await qrcode.toDataURL(qr);
-
-              if(phoneCount != 1){
-                clients[i] = { ...clients[i], status: 'qr', qrCode: qrCodeData };
-                
-                broadcastAuthStatus(botName, 'qr', qrCodeData, i);
-              } else {
-                clients[i] = { ...clients[i], status: 'qr', qrCode: qrCodeData };
-                broadcastAuthStatus(botName, 'qr', qrCodeData); // Pass qrCodeData to broadcastAuthStatus
+          const clientName = phoneCount == 1 ? botName : `${botName}_phone${i + 1}`;
+          const client = new Client({
+              authStrategy: new LocalAuth({
+                  clientId: clientName,
+              }),
+              puppeteer: { 
+                  headless: true,
+                  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+                  args: [
+                      '--no-sandbox',
+                      '--disable-setuid-sandbox',
+                      '--disable-dev-shm-usage',
+                      '--disable-web-security',
+                      '--disable-gpu',
+                      '--hide-scrollbars',
+                      '--disable-cache',
+                      '--disable-application-cache',
+                      '--disable-gpu-driver-bug-workarounds',
+                      '--disable-accelerated-2d-canvas',
+                  ],
               }
-          } catch (err) {
-              console.error('Error generating QR code:', err);
-          }
-      });
+          });
 
+          clients.push({ client, status: 'initializing', qrCode: null });
+          
+          client.on('qr', async (qr) => {
+              console.log(`${botName} Phone ${i + 1} - QR RECEIVED`);
+              try {
+                  const qrCodeData = await qrcode.toDataURL(qr);
+                  clients[i] = { ...clients[i], status: 'qr', qrCode: qrCodeData };
+                  botMap.set(botName, clients);
+                  broadcastAuthStatus(botName, 'qr', qrCodeData, phoneCount > 1 ? i : undefined);
+              } catch (err) {
+                  console.error('Error generating QR code:', err);
+              }
+          });
 
-      client.on('authenticated', () => {
-        if(phoneCount != 1){
-          console.log(`${botName} Phone ${i + 1} - AUTHENTICATED`);
-          clients[i] = { ...clients[i], status: 'authenticated', qrCode: null };
-          broadcastAuthStatus(botName, 'authenticated', null, i);
-        } else {
-          clients[i] = { ...clients[i], status: 'authenticated', qrCode: null };
+          client.on('authenticated', () => {
+              console.log(`${botName} Phone ${i + 1} - AUTHENTICATED`);
+              clients[i] = { ...clients[i], status: 'authenticated', qrCode: null };
+              botMap.set(botName, clients);
+              broadcastAuthStatus(botName, 'authenticated', null, phoneCount > 1 ? i : undefined);
+          });
 
-          broadcastAuthStatus(botName, 'authenticated');
-        }
-    });
-
-
-    client.on('ready', async () => {
-      console.log(`${botName} Phone ${i + 1} - READY`);
-      clients[i] = { ...clients[i], status: 'ready', qrCode: null };
-      setupMessageHandler(client, botName, i);
-      setupMessageCreateHandler(client, botName, i);
-      
-  });
+          client.on('ready', async () => {
+              console.log(`${botName} Phone ${i + 1} - READY`);
+              clients[i] = { ...clients[i], status: 'ready', qrCode: null };
+              botMap.set(botName, clients);
+              setupMessageHandler(client, botName, i);
+              setupMessageCreateHandler(client, botName, i);
+              broadcastAuthStatus(botName, 'ready', null, phoneCount > 1 ? i : undefined);
+          });
 
           client.on('auth_failure', msg => {
-            console.error(`${botName} Phone ${i + 1} - AUTHENTICATION FAILURE`, msg);
-            if (phoneCount > 1) {
-                clients[i] = { ...clients[i], status: 'auth_failure', qrCode: null };
-                broadcastAuthStatus(botName, 'auth_failure', null, i);
-            } else {
-                botMap.set(botName, [{ client, status: 'auth_failure', qrCode: null }]);
-                broadcastAuthStatus(botName, 'auth_failure');
-            }
-        });
+              console.error(`${botName} Phone ${i + 1} - AUTHENTICATION FAILURE`, msg);
+              clients[i] = { ...clients[i], status: 'auth_failure', qrCode: null };
+              botMap.set(botName, clients);
+              broadcastAuthStatus(botName, 'auth_failure', null, phoneCount > 1 ? i : undefined);
+          });
 
-        client.on('disconnected', async (reason) => {
-            console.log(`${botName} Phone ${i + 1} - DISCONNECTED:`, reason);
-            if (phoneCount > 1) {
-                clients[i] = { ...clients[i], status: 'disconnected', qrCode: null };
-                broadcastAuthStatus(botName, 'disconnected', null, i);
-            } else {
-                botMap.set(botName, [{ client, status: 'disconnected', qrCode: null }]);
-                broadcastAuthStatus(botName, 'disconnected');
-            }
-        
-            // // Attempt to reinitialize after a short delay
-            // console.log(`Attempting to reinitialize ${botName} Phone ${i + 1} in 5 seconds...`);
-            // setTimeout(async () => {
-            //     try {
-            //         // Use initializeBot instead of client.initialize()
-            //         await initializeBot(botName, phoneCount);
-            //         console.log(`${botName} Phone ${i + 1} - Reinitialization initiated`);
-            //     } catch (error) {
-            //         console.error(`Error reinitializing ${botName} Phone ${i + 1}:`, error);
-            //         // You might want to implement a retry mechanism or alert an admin here
-            //     }
-            // }, 5000); // 5 second delay before reinitialization
-        });
+          client.on('disconnected', async (reason) => {
+              console.log(`${botName} Phone ${i + 1} - DISCONNECTED:`, reason);
+              clients[i] = { ...clients[i], status: 'disconnected', qrCode: null };
+              botMap.set(botName, clients);
+              broadcastAuthStatus(botName, 'disconnected', null, phoneCount > 1 ? i : undefined);
+          });
 
-        client.on('remote_session_saved', () => {
-            console.log(`${botName} Phone ${i + 1} - REMOTE SESSION SAVED`);
-        });
+          client.on('remote_session_saved', () => {
+              console.log(`${botName} Phone ${i + 1} - REMOTE SESSION SAVED`);
+              clients[i] = { ...clients[i], status: 'remote_session_saved' };
+              botMap.set(botName, clients);
+          });
 
-        await client.initialize();
-        console.log(`Bot ${botName} Phone ${i + 1} initialization complete`);
-        console.log(`DEBUG: Bot ${botName} Phone ${i + 1} initialized successfully`);
-        }
+          await client.initialize();
+          console.log(`Bot ${botName} Phone ${i + 1} initialization complete`);
+          console.log(`DEBUG: Bot ${botName} Phone ${i + 1} initialized successfully`);
+      }
 
-        botMap.set(botName, clients);
-        console.log(`Bot ${botName} initialization complete for all ${phoneCount} phone(s)`);
-      } catch (error) {
-        console.error(`Error initializing bot ${botName}:`, error);
-        botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
-    }
+      botMap.set(botName, clients);
+      console.log(`Bot ${botName} initialization complete for all ${phoneCount} phone(s)`);
+  } catch (error) {
+      console.error(`Error initializing bot ${botName}:`, error);
+      botMap.set(botName, [{ client: null, status: 'error', qrCode: null, error: error.message }]);
+  }
 }
 
 
