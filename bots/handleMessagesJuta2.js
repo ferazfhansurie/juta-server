@@ -930,7 +930,7 @@ if (!contactData) {
             case steps.START:
                 var context = "";
 
-                query = `${messageBody}`;
+                query = `${messageBody} phonenumber: ${extractedNumber}`;
              if(!(sender.to.includes('@g.us')) || (msg.body.toLowerCase().startsWith('@juta') && phoneIndex == 0)){
                 answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client);
                 parts = answer.split(/\s*\|\|\s*/);
