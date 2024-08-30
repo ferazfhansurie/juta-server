@@ -550,6 +550,7 @@ async function handleDocumentMessage(msg, sender, threadID, client, idSubstring,
         try {
             const media = await msg.downloadMedia();
             if (media) {
+                console.log("Has media")
                 // Convert first page of PDF to image
                 const imageBase64 = await convertPDFToImage(media.data);
                 
