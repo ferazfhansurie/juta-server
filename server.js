@@ -1615,14 +1615,7 @@ async function processChats(client, botName, phoneIndex) {
   }
 }
 
-async function initializeBots(botNames) {
-  for (let i = 0; i < botNames.length; i++) {
-      const botName = botNames[i];
-    console.log(`Initializing bot ${i + 1}/${botNames.length}: ${botName}`);
-      await initializeBot(botName);
-      console.log(`Bot ${botName} initialized`);
-  }
-}
+
 
 async function main(reinitialize = false) {
   console.log('Initialization starting...');
@@ -2686,7 +2679,11 @@ async function initializeBot(botName, phoneCount = 1) {
       const clients = [];
       
       for (let i = 0; i < phoneCount; i++) {
-          const clientName = phoneCount == 1 ? botName : `${botName}_phone${i + 1}`;
+        
+          let clientName = phoneCount == 1 ? botName : `${botName}_phone${i + 1}`;
+          if(i === 0){
+            clientName = botName
+          }
           const client = new Client({
               authStrategy: new LocalAuth({
                   clientId: clientName,
