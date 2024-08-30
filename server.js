@@ -522,7 +522,8 @@ async function createUserInFirebase(userData) {
       name = phone;
     }
     console.log(row.Phone);
-    phoneWithPlus = '+' + phone;
+    const phoneWithPlus = '+' + phone;
+    console.log(phoneWithPlus)
     if (phone) {
       const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneWithPlus);
       const doc = await contactRef.get();

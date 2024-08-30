@@ -261,69 +261,49 @@ const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
 // Add this function to create a Google Calendar event using service account
 async function createGoogleCalendarEvent(summary, description, startDateTime, endDateTime) {
-    try {
-      console.log('Initializing Google Auth...');
-      const auth = new google.auth.GoogleAuth({
-        keyFile: './service_account.json',
-        scopes: ['https://www.googleapis.com/auth/calendar'],
-      });
-  
-      console.log('Creating calendar client...');
-      const calendar = google.calendar({ version: 'v3', auth });
-  
-      const event = {
-        summary,
-        description,
-        start: {
-          dateTime: startDateTime,
-          timeZone: 'Asia/Kuala_Lumpur',
-        },
-        end: {
-          dateTime: endDateTime,
-          timeZone: 'Asia/Kuala_Lumpur',
-        },
-      };
-  
-      console.log('Sending request to create event...');
-      const response = await calendar.events.insert({
-        calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
-        resource: event,
-      });
-  
-      console.log('Event created successfully:', response.data.htmlLink);
-      
+  try {
+    console.log('Creating appointment...');
+    const auth = getAuth(app);
+    const user = auth.currentUser;
 
-      // Generate a Google Meet link
-      await scheduleReminderMessage(summary, startDateTime, '120363178065670386@g.us');
-
-      // Update the event description to include the Meet link
-      const updatedDescription = `${description}\n\nJoin the meeting: `;
-      await calendar.events.patch({
-        calendarId: '2f87e8d1a4152b5b437b6a11a2aa8e008bb03e9aa5c43aa6d1f8f40c0a1ea038@group.calendar.google.com',
-        eventId: response.data.id,
-        resource: {
-          description: updatedDescription,
-        },
-      });
-      
-
-      return {
-        eventLink: response.data.htmlLink,
-      };
-    } catch (error) {
-      console.error('Error in createGoogleCalendarEvent:');
-      if (error.response) {
-        console.error('Response error data:', error.response.data);
-        console.error('Response error status:', error.response.status);
-      } else if (error.request) {
-        console.error('Request error:', error.request);
-      } else {
-        console.error('Error message:', error.message);
-      }
-      console.error('Error stack:', error.stack);
-      throw new Error(`Failed to create Google Calendar event: ${error.message}`);
+    if (!user || !user.email) {
+      console.error('No authenticated user or email found');
+      return { error: 'No authenticated user found' };
     }
+
+    const userRef = doc(firestore, 'user', user.email);
+    const appointmentsCollectionRef = collection(userRef, 'appointments');
+    const newAppointmentRef = doc(appointmentsCollectionRef);
+
+    const newAppointment = {
+      id: newAppointmentRef.id,
+      title: summary,
+      startTime: startDateTime,
+      endTime: endDateTime,
+      address: description, // Using description as address for now
+      appointmentStatus: 'new',
+      staff: [], // You might want to add a way to specify staff
+      color: '#51484f', // Default color
+      packageId: null, // You might want to add a way to specify package
+      dateAdded: new Date().toISOString(),
+      contacts: [], // You might want to add a way to specify contacts
+    };
+
+    await setDoc(newAppointmentRef, newAppointment);
+
+    console.log('Appointment created successfully:', newAppointment);
+
+    return {
+      success: true,
+      message: 'Appointment created successfully',
+      appointmentId: newAppointment.id,
+      eventLink: `https://yourwebsite.com/calendar?event=${newAppointment.id}` // Replace with your actual calendar URL
+    };
+  } catch (error) {
+    console.error('Error in createGoogleCalendarEvent:', error);
+    return { error: `Failed to create appointment: ${error.message}` };
   }
+}
   async function deleteTask(idSubstring, taskIndex) {
     const companyRef = db.collection('companies').doc(idSubstring);
     const doc = await companyRef.get();
