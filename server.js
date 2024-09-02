@@ -330,7 +330,7 @@ const { handleNewMessagesJuta2 } = require('./bots/handleMessagesJuta2.js');
 const { handleNewMessagesTest } = require('./bots/handleMessagesTest.js');
 const { handleNewMessagesFirstPrint } = require('./bots/handleMessagesFirstPrint.js');
 const { handleNewMessagesExtremeFitness} = require('./bots/handleMessagesExtremeFitness.js');
-
+const { handleExtremeFitnessBlast } = require('./blast/extremeFitnessBlast.js');
 
 
 
@@ -361,7 +361,16 @@ app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
+app.post('/extremefitness/blast', async (req, res) => {
+  const botData = botMap.get('074');
 
+  if (!botData) {
+      return res.status(404).json({ error: 'WhatsApp client not found for this company' });
+  }
+
+  const client = botData[0].client;
+  await handleExtremeFitnessBlast(req, res, client);
+});
 //spreadsheet
 const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
 // const applyRadarSpreadsheetLPUniten = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN).js');
