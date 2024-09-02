@@ -2008,7 +2008,7 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
 
 async function analyzeAndSetLeadTemperature(phoneNumber) {
     try {
-        console.log('phone number'+ phoneNumber)
+        console.log('Analyzing chat history for lead temperature...', phoneNumber);
         const idSubstring = '001'
         const chatHistory = await fetchRecentChatHistory(idSubstring, phoneNumber);
         const analysis = await analyzeChatsWithAI(chatHistory);
