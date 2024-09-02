@@ -476,7 +476,7 @@ async function handleNewMessagesMSU(client, msg, botName, phoneIndex) {
                     await handleTextMessage(msg, sender, extractedNumber, contactName, threadID, client, idSubstring);
                     
                 } else if (msg.type === 'document' ) {
-                    await handleDocumentMessage(msg, sender, threadID, client, extractedNumber);
+                    await handleDocumentMessage(msg, sender, threadID, client, '001',extractedNumber);
                 } else if (msg.type === 'image') {
                     await handleImageMessage(msg, sender, threadID, client,extractedNumber);
                 } else {
@@ -549,8 +549,14 @@ async function handleDocumentMessage(msg, sender, threadID, client, idSubstring,
         }
         try {
             const media = await msg.downloadMedia();
-            if (media) {
-                console.log("Has media")
+            if (media && media.data) {
+                console.log("Has media");
+                // Check if the base64 data is empty
+                if (media.data.trim() === '') {
+                    const sentMessage = await client.sendMessage(msg.from, "The PDF file you sent appears to be empty. Could you please try sending it again?");
+                    await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
+                    return;
+                }
                 // Convert first page of PDF to image
                 const imageBase64 = await convertPDFToImage(media.data);
                 
@@ -569,14 +575,22 @@ async function handleDocumentMessage(msg, sender, threadID, client, idSubstring,
             }
         } catch (error) {
             console.error("Error in document processing:", error);
-            const sentMessage = await client.sendMessage(msg.from, "Sorry, I couldn't analyze that document. Could you try sending it again or asking a different question?");
+            let errorMessage = "Sorry, I couldn't analyze that document. Could you try sending it again or asking a different question?";
+            if (error.message === "The PDF file is empty" || error.name === "InvalidPDFException") {
+                errorMessage = "The PDF file you sent appears to be invalid or empty. Could you please try sending it again?";
+            }
+            const sentMessage = await client.sendMessage(msg.from, errorMessage);
             await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber);
         }
     }, { timeout: 60000 });
 }
 
-async function convertPDFToImage(pdfBuffer) {
+async function convertPDFToImage(pdfBase64) {
     try {
+        if (pdfBase64.trim() === '') {
+            throw new Error("The PDF file is empty");
+        }
+        const pdfBuffer = Buffer.from(pdfBase64, 'base64');
         const pdfArray = new Uint8Array(pdfBuffer);
         const outputImages = await pdfImgConvert.convert(pdfArray, {
             width: 600, // width in pixels
