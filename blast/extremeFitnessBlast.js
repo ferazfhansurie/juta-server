@@ -68,9 +68,14 @@ async function handleExtremeFitnessBlast(req, res, client) {
     console.log(first_name);
     try {
         const message = createMessage(first_name);
-        await client.sendMessage(chatId, message);
+        const message1 =await client.sendMessage(chatId, message);
+        const message2 =await client.sendMessage(chatId, "Before we get started, let me ask you a few quick questions to help us understand your goals better.");
+        const message3 =await client.sendMessage(chatId, "Do you currently have a specific weight loss goal in mind?");
+
         // Add message to assistant
-        await addMessagetoFirebase(message, '074', phoneWithPlus);
+        await addMessagetoFirebase(message1, '074', phoneWithPlus);
+        await addMessagetoFirebase(message2, '074', phoneWithPlus);
+        await addMessagetoFirebase(message3, '074', phoneWithPlus);
         await addMessageAssistant(currentThreadId, `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`);
         
         res.json({ phone, first_name, success: true, result, threadId: currentThreadId });
@@ -245,10 +250,10 @@ async function addMessageAssistant(threadId, message) {
     return response;
 }
 function createMessage(name) {
-    return `You showed interest towards UNITEN earlier
-Are you still thinking about studying at UNITEN?
-Reply:
-Yes / No`;
+    return `Hi ${name}! 
+Thanks for signing up with Extreme Fitness, SG's #1 Transformation & Fat-loss Studio. 🏋
+
+We’ve helped hundreds of people transform their bodies, and we can’t wait to help you too! `;
 }
 
 module.exports = { handleExtremeFitnessBlast };
