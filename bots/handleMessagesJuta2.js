@@ -266,8 +266,8 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
     try {
       console.log('Checking for scheduling conflicts...');
       
-      const userRef = doc(db, 'user', 'faeezree@gmail.com');
-      const appointmentsCollectionRef = collection(userRef, 'appointments');
+      const userRef = db.collection('user').doc('faeezree@gmail.com');
+      const appointmentsCollectionRef = userRef.collection('appointments');
   
       const conflictingAppointments = await getDocs(
         query(
@@ -310,9 +310,9 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
   
       console.log('Creating appointment...');
 
-      const userRef = doc(db, 'user', "faeezree@gmail.com");
-      const appointmentsCollectionRef = collection(userRef, 'appointments');
-      const newAppointmentRef = doc(appointmentsCollectionRef);
+      const userRef = db.collection('user').doc('faeezree@gmail.com');
+      const appointmentsCollectionRef = userRef.collection('appointments');
+      const newAppointmentRef = appointmentsCollectionRef.doc(); 
   
       const newAppointment = {
         id: newAppointmentRef.id,
@@ -2047,7 +2047,7 @@ async function fetchRecentChatHistory(threadId) {
 
 async function analyzeChatsWithAI(chatHistory) {
     const prompt = `Analyze the following chat history and determine the lead's interest level. 
-                    Consider factors such as engagement, questions asked, and expressions of interest. 
+                    Consider factors such as engagement, questions asked, and expressions of interest. Finally, categorize their interest level into three categories: high interest, moderate interest, or low interest.
                     Chat history: ${JSON.stringify(chatHistory)}`;
 
     const response = await openai.chat.completions.create({
