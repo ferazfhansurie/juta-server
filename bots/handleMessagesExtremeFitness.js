@@ -10,7 +10,7 @@ const OpenAI = require('openai');
 const axios = require('axios').default;
 const { Client } = require('whatsapp-web.js');
 
-
+const { MessageMedia } = require('whatsapp-web.js');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
 const db = admin.firestore();
@@ -555,6 +555,7 @@ async function handleNewMessagesExtremeFitness(client, msg, botName, phoneIndex)
                             await messageDoc.set(sentMessageData, { merge: true });
 
                             if(check.includes('helped over 1000 people')){
+                                console.log("check")
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/extremefitness.jpg?alt=media&token=4a8e6e55-dc29-40f3-b3ac-f955aa5d65ed'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
