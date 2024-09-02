@@ -264,15 +264,8 @@ const RATE_LIMIT_DELAY = 5000; // 5 seconds
 async function checkScheduleConflicts(startDateTime, endDateTime) {
     try {
       console.log('Checking for scheduling conflicts...');
-      const auth = getAuth(app);
-      const user = auth.currentUser;
-  
-      if (!user || !user.email) {
-        console.error('No authenticated user or email found');
-        return { conflict: true, error: 'No authenticated user found' };
-      }
-  
-      const userRef = doc(firestore, 'user', user.email);
+      
+      const userRef = doc(firestore, 'user', 'faeezree@gmail.com');
       const appointmentsCollectionRef = collection(userRef, 'appointments');
   
       const conflictingAppointments = await getDocs(
