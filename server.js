@@ -329,7 +329,7 @@ const { handleNewMessagesZahinTravel } = require('./bots/handleMessagesZahinTrav
 const { handleNewMessagesJuta2 } = require('./bots/handleMessagesJuta2.js');
 const { handleNewMessagesTest } = require('./bots/handleMessagesTest.js');
 const { handleNewMessagesFirstPrint } = require('./bots/handleMessagesFirstPrint.js');
-
+const { handleNewMessagesExtremeFitness} = require('./bots/handleMessagesExtremeFitness.js');
 
 
 
@@ -386,6 +386,7 @@ const customHandlers = {
   '057': handleNewMessagesTest,
   '059': handleNewMessagesFirstPrint,
   '066': handleNewMessagesMSU,
+  '074': handleNewMessagesExtremeFitness,
 };
 
 
