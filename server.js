@@ -322,15 +322,11 @@ const { handleNewMessagesTasty} = require('./bots/handleMessagesTasty.js');
 const { handleNewMessagesTastyPuga} = require('./bots/handleMessagesPugaTasty.js');
 const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
-const { handleNewMessagesApplyRadar } = require('./bots/handleMessagesApplyRadar.js');
-const { handleNewMessagesApplyRadar2 } = require('./bots/handleMessagesApplyRadar2.js');
 const { handleNewMessagesApel } = require('./bots/handleMessagesApel.js');
-const { handleNewMessagesApelV2 } = require('./bots/handleMessagesApelV2.js');
 const { handleNewMessagesTemplate } = require('./bots/handleMessagesTemplate.js');
 const { handleNewMessagesTemplateWweb } = require('./bots/handleMessagesTemplateWweb.js');
 const { handleNewMessagesZahinTravel } = require('./bots/handleMessagesZahinTravel.js');
 const { handleNewMessagesJuta2 } = require('./bots/handleMessagesJuta2.js');
-const { handleApplyRadarBlast } = require('./blast/applyRadarBlast.js');
 const { handleNewMessagesTest } = require('./bots/handleMessagesTest.js');
 const { handleNewMessagesFirstPrint } = require('./bots/handleMessagesFirstPrint.js');
 
@@ -364,7 +360,6 @@ app.post('/sunz/hook/messages', handleNewMessagesSunz);
 app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/apel/hook/messages', handleNewMessagesApel);
-app.post('/applyradar/hook/blast', handleApplyRadarBlast);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
 
 //spreadsheet
@@ -390,9 +385,6 @@ const customHandlers = {
   '044': handleNewMessagesApel,
   '057': handleNewMessagesTest,
   '059': handleNewMessagesFirstPrint,
-  '060': handleNewMessagesApplyRadar2,
-  '062': handleNewMessagesApplyRadar,
-  '065': handleNewMessagesApelV2,
   '066': handleNewMessagesMSU,
 };
 
