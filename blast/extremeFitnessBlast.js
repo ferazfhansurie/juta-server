@@ -46,7 +46,7 @@ async function handleExtremeFitnessBlast(req, res, client) {
 
     const { phone, first_name, threadid} = req.body;
 
-    if (!phone || !first_name || !contact_id) {
+    if (!phone || !first_name) {
         return res.status(400).json({ error: 'Phone number, name, and contact_id are required' });
     }
 
