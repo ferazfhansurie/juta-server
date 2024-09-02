@@ -54,6 +54,8 @@ async function handleExtremeFitnessBlast(req, res, client) {
     let phoneWithPlus = phone;
     if(!phone.startsWith('+')){
         phoneWithPlus = "+"+phone;
+    }else{
+        phone = phone.replace('+', '');
     }
     if (!currentThreadId) {
         console.log('creating thread');
@@ -73,9 +75,9 @@ async function handleExtremeFitnessBlast(req, res, client) {
         const message3 =await client.sendMessage(chatId, "Do you currently have a specific weight loss goal in mind?");
 
         // Add message to assistant
-        await addMessagetoFirebase(message1, '074', phoneWithPlus);
-        await addMessagetoFirebase(message2, '074', phoneWithPlus);
-        await addMessagetoFirebase(message3, '074', phoneWithPlus);
+        await addMessagetoFirebase(message1, '074', phoneWithPlus, first_name);
+        await addMessagetoFirebase(message2, '074', phoneWithPlus, first_name);
+        await addMessagetoFirebase(message3, '074', phoneWithPlus, first_name);
         await addMessageAssistant(currentThreadId, `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`);
         
         res.json({ phone, first_name, success: true, result, threadId: currentThreadId });
@@ -85,7 +87,7 @@ async function handleExtremeFitnessBlast(req, res, client) {
     }
 }
 
-async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_name){
     console.log('Adding message to Firebase');
     console.log('idSubstring:', idSubstring);
     console.log('extractedNumber:', extractedNumber);
@@ -235,7 +237,39 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
     const messageDoc = messagesRef.doc(msg.id._serialized);
     await messageDoc.set(messageData, { merge: true });
     console.log(messageData);
-    await addNotificationToUser(idSubstring, messageData);
+    await addNotificationToUser(idSubstring, messageData, first_name);
+}
+
+async function addNotificationToUser(companyId, message, contactName) {
+    console.log('noti');
+    try {
+        // Find the user with the specified companyId
+        message.from = contactName
+        const usersRef = db.collection('user');
+        const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
+
+        if (querySnapshot.empty) {
+            console.log('No matching documents.');
+            return;
+        }
+
+        // Filter out undefined values from the message object
+        const cleanMessage = Object.fromEntries(
+            Object.entries(message).filter(([_, value]) => value !== undefined)
+        );
+
+        // Add the new message to the notifications subcollection of the user's document
+        querySnapshot.forEach(async (doc) => {
+            const userRef = doc.ref;
+            const notificationsRef = userRef.collection('notifications');
+            const updatedMessage = { ...cleanMessage, read: false };
+        
+            await notificationsRef.add(updatedMessage);
+            console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
+        });
+    } catch (error) {
+        console.error('Error adding notification: ', error);
+    }
 }
 
 async function addMessageAssistant(threadId, message) {
