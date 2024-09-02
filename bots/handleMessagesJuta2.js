@@ -21,6 +21,7 @@ const { v4: uuidv4 } = require('uuid');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
 const db = admin.firestore();
+const { doc, collection, query, where, getDocs } = db;
 
 let ghlConfig = {};
 const MEDIA_DIR = path.join(__dirname, 'public', 'media');
@@ -265,7 +266,7 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
     try {
       console.log('Checking for scheduling conflicts...');
       
-      const userRef = doc(firestore, 'user', 'faeezree@gmail.com');
+      const userRef = doc(db, 'user', 'faeezree@gmail.com');
       const appointmentsCollectionRef = collection(userRef, 'appointments');
   
       const conflictingAppointments = await getDocs(
@@ -309,7 +310,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
   
       console.log('Creating appointment...');
 
-      const userRef = doc(firestore, 'user', "faeezree@gmail.com");
+      const userRef = doc(db, 'user', "faeezree@gmail.com");
       const appointmentsCollectionRef = collection(userRef, 'appointments');
       const newAppointmentRef = doc(appointmentsCollectionRef);
   
@@ -2006,11 +2007,11 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
     return toolOutputs;
 }
 
-async function analyzeAndSetLeadTemperature(phoneNumber) {
+async function analyzeAndSetLeadTemperature(phoneNumber, threadId) {
     try {
         console.log('Analyzing chat history for lead temperature...', phoneNumber);
         const idSubstring = '001'
-        const chatHistory = await fetchRecentChatHistory(idSubstring, phoneNumber);
+        const chatHistory = await fetchRecentChatHistory(threadId);
         const analysis = await analyzeChatsWithAI(chatHistory);
         const temperature = determineLeadTemperature(analysis);
         await setLeadTemperature(idSubstring, phoneNumber, temperature);
@@ -2026,12 +2027,22 @@ async function analyzeAndSetLeadTemperature(phoneNumber) {
     }
 }
 
-async function fetchRecentChatHistory(idSubstring, phoneNumber) {
-    const messagesRef = db.collection('companies').doc(idSubstring)
-                          .collection('contacts').doc(phoneNumber)
-                          .collection('messages');
-    const snapshot = await messagesRef.orderBy('timestamp', 'desc').limit(20).get();
-    return snapshot.docs.map(doc => doc.data());
+async function fetchRecentChatHistory(threadId) {
+    try {
+        const messages = await openai.beta.threads.messages.list(threadId, {
+            limit: 20,
+            order: 'desc'
+        });
+
+        return messages.data.map(message => ({
+            role: message.role,
+            content: message.content[0].text.value,
+            timestamp: message.created_at
+        }));
+    } catch (error) {
+        console.error('Error fetching chat history from OpenAI:', error);
+        return [];
+    }
 }
 
 async function analyzeChatsWithAI(chatHistory) {
@@ -2108,9 +2119,9 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     // Periodically analyze and set lead temperature (e.g., every 5 messages)
     const messageCount = await getMessageCount(threadID);
     
-        analyzeAndSetLeadTemperature(idSubstring, phoneNumber).catch(error => 
-            console.error('Error in background lead temperature analysis:', error)
-        );
+    analyzeAndSetLeadTemperature(phoneNumber, threadID).catch(error => 
+        console.error('Error in background lead temperature analysis:', error)
+    );
 
 
     const tools = [
