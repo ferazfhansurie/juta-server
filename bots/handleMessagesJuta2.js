@@ -259,51 +259,111 @@ async function getChatMetadata(chatId,) {
 const messageQueue = new Map();
 const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
-// Add this function to create a Google Calendar event using service account
-async function createGoogleCalendarEvent(summary, description, startDateTime, endDateTime) {
-  try {
-    console.log('Creating appointment...');
-    const auth = getAuth(app);
-    const user = auth.currentUser;
 
-    if (!user || !user.email) {
-      console.error('No authenticated user or email found');
-      return { error: 'No authenticated user found' };
+// Add this new function to check for scheduling conflicts
+async function checkScheduleConflicts(startDateTime, endDateTime) {
+    try {
+      console.log('Checking for scheduling conflicts...');
+      const auth = getAuth(app);
+      const user = auth.currentUser;
+  
+      if (!user || !user.email) {
+        console.error('No authenticated user or email found');
+        return { conflict: true, error: 'No authenticated user found' };
+      }
+  
+      const userRef = doc(firestore, 'user', user.email);
+      const appointmentsCollectionRef = collection(userRef, 'appointments');
+  
+      const conflictingAppointments = await getDocs(
+        query(
+          appointmentsCollectionRef,
+          where('startTime', '<', endDateTime),
+          where('endTime', '>', startDateTime)
+        )
+      );
+  
+      if (!conflictingAppointments.empty) {
+        console.log('Scheduling conflict found');
+        return { 
+          conflict: true, 
+          conflictingAppointments: conflictingAppointments.docs.map(doc => doc.data())
+        };
+      }
+  
+      console.log('No scheduling conflicts found');
+      return { conflict: false };
+    } catch (error) {
+      console.error('Error checking for scheduling conflicts:', error);
+      return { conflict: true, error: error.message };
     }
-
-    const userRef = doc(firestore, 'user', user.email);
-    const appointmentsCollectionRef = collection(userRef, 'appointments');
-    const newAppointmentRef = doc(appointmentsCollectionRef);
-
-    const newAppointment = {
-      id: newAppointmentRef.id,
-      title: summary,
-      startTime: startDateTime,
-      endTime: endDateTime,
-      address: description, // Using description as address for now
-      appointmentStatus: 'new',
-      staff: [], // You might want to add a way to specify staff
-      color: '#51484f', // Default color
-      packageId: null, // You might want to add a way to specify package
-      dateAdded: new Date().toISOString(),
-      contacts: [], // You might want to add a way to specify contacts
-    };
-
-    await setDoc(newAppointmentRef, newAppointment);
-
-    console.log('Appointment created successfully:', newAppointment);
-
-    return {
-      success: true,
-      message: 'Appointment created successfully',
-      appointmentId: newAppointment.id,
-      eventLink: `https://yourwebsite.com/calendar?event=${newAppointment.id}` // Replace with your actual calendar URL
-    };
-  } catch (error) {
-    console.error('Error in createGoogleCalendarEvent:', error);
-    return { error: `Failed to create appointment: ${error.message}` };
   }
-}
+
+async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
+    try {
+      console.log('Checking for conflicts before creating appointment...');
+      const conflictCheck = await checkScheduleConflicts(startDateTime, endDateTime);
+  
+      if (conflictCheck.conflict) {
+        if (conflictCheck.error) {
+          return { error: `Failed to check for conflicts: ${conflictCheck.error}` };
+        }
+        return { 
+          error: 'Scheduling conflict detected', 
+          conflictingAppointments: conflictCheck.conflictingAppointments 
+        };
+      }
+  
+      console.log('Creating appointment...');
+
+      const userRef = doc(firestore, 'user', "faeezree@gmail.com");
+      const appointmentsCollectionRef = collection(userRef, 'appointments');
+      const newAppointmentRef = doc(appointmentsCollectionRef);
+  
+      const newAppointment = {
+        id: newAppointmentRef.id,
+        title: summary,
+        startTime: startDateTime,
+        endTime: endDateTime,
+        address: description || "",
+        appointmentStatus: 'new',
+        staff: ["Firaz"],
+        color: "#1F3A8A", // Default color
+        packageId: "ja872PCc3kd7uQ4tQxB3",
+        dateAdded: new Date().toISOString(),
+        contacts: contactPhone && contactName ? [{
+          id: contactPhone,
+          name: contactName,
+          session: null
+        }] : [],
+      };
+  
+      await setDoc(newAppointmentRef, newAppointment);
+  
+      console.log('Appointment created successfully:', newAppointment);
+
+        // Format the date and time for better readability
+        const startDate = new Date(startDateTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const startTime = new Date(startDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const endTime = new Date(endDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+        return {
+        success: true,
+        message: 'Appointment created successfully',
+        appointmentDetails: {
+            title: summary,
+            date: startDate,
+            time: `${startTime} - ${endTime}`,
+            description: description || "No description provided",
+            contact: contactName ? `${contactName} (${contactPhone})` : "No contact information provided",
+            staff: newAppointment.staff.join(", ")
+        }
+        };
+    } catch (error) {
+      console.error('Error in createCalendarEvent:', error);
+      return { error: `Failed to create appointment: ${error.message}` };
+    }
+  }
   async function deleteTask(idSubstring, taskIndex) {
     const companyRef = db.collection('companies').doc(idSubstring);
     const doc = await companyRef.get();
@@ -1771,29 +1831,55 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                     });
                 }
                 break;
-            case 'createGoogleCalendarEvent':
-                try {
-                    console.log('Parsing arguments for createGoogleCalendarEvent...');
-                    const args = JSON.parse(toolCall.function.arguments);
-                    console.log('Arguments:', args);
-                    
-                    console.log('Calling createGoogleCalendarEvent...');
-                    const result = await createGoogleCalendarEvent(args.summary, args.description, args.startDateTime, args.endDateTime);
-                    
-                    console.log('Event created successfully, preparing tool output...');
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify(result),
-                    });
-                } catch (error) {
-                    console.error('Error in handleToolCalls for createGoogleCalendarEvent:');
-                    console.error(error);
-                    toolOutputs.push({
-                        tool_call_id: toolCall.id,
-                        output: JSON.stringify({ error: error.message }),
-                    });
-                }      
-                break;
+                case 'createCalendarEvent':
+                    try {
+                        console.log('Parsing arguments for createCalendarEvent...');
+                        const args = JSON.parse(toolCall.function.arguments);
+                        console.log('Arguments:', args);
+                        
+                        console.log('Calling createCalendarEvent...');
+                        const result = await createCalendarEvent(
+                            args.summary, 
+                            args.description, 
+                            args.startDateTime, 
+                            args.endDateTime,
+                            args.contactPhone,
+                            args.contactName
+                        );
+                        
+                        if (result.error) {
+                            if (result.error === 'Scheduling conflict detected') {
+                                console.log('Scheduling conflict detected, preparing conflict information...');
+                                toolOutputs.push({
+                                    tool_call_id: toolCall.id,
+                                    output: JSON.stringify({
+                                        error: result.error,
+                                        conflictingAppointments: result.conflictingAppointments
+                                    }),
+                                });
+                            } else {
+                                console.error('Error creating event:', result.error);
+                                toolOutputs.push({
+                                    tool_call_id: toolCall.id,
+                                    output: JSON.stringify({ error: result.error }),
+                                });
+                            }
+                        } else {
+                            console.log('Event created successfully, preparing tool output...');
+                            toolOutputs.push({
+                                tool_call_id: toolCall.id,
+                                output: JSON.stringify(result),
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error in handleToolCalls for createCalendarEvent:');
+                        console.error(error);
+                        toolOutputs.push({
+                            tool_call_id: toolCall.id,
+                            output: JSON.stringify({ error: error.message }),
+                        });
+                    }      
+                    break;
             case 'getTodayDate':
                 console.log('Getting today\'s date...');
                 const todayDate = getTodayDate();
@@ -2281,15 +2367,17 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
         {
             type: "function",
             function: {
-                name: "createGoogleCalendarEvent",
-                description: "Schedule a meeting in Google Calendar",
+                name: "createCalendarEvent",
+                description: "Schedule a meeting in Calendar",
                 parameters: {
                     type: "object",
                     properties: {
                         summary: { type: "string", description: "Title of the event" },
-                        description: { type: "string", description: "Description of the event" },
+                        description: { type: "string", description: "Description or address of the event" },
                         startDateTime: { type: "string", description: "Start date and time in ISO 8601 format" },
                         endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
+                        contactPhone: { type: "string", description: "Phone number of the contact" },
+                        contactName: { type: "string", description: "Name of the contact" },
                     },
                     required: ["summary", "startDateTime", "endDateTime"],
                 },
