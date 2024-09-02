@@ -269,13 +269,11 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
       const userRef = db.collection('user').doc('faeezree@gmail.com');
       const appointmentsCollectionRef = userRef.collection('appointments');
   
-      const conflictingAppointments = await getDocs(
-        query(
-          appointmentsCollectionRef,
-          where('startTime', '<', endDateTime),
-          where('endTime', '>', startDateTime)
-        )
-      );
+      const conflictingAppointments = await appointmentsCollectionRef
+            .where('startTime', '<', endDateTime)
+            .where('endTime', '>', startDateTime)
+            .get();
+    
   
       if (!conflictingAppointments.empty) {
         console.log('Scheduling conflict found');
@@ -332,7 +330,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
         }] : [],
       };
   
-      await setDoc(newAppointmentRef, newAppointment);
+      await newAppointmentRef.set(newAppointment);
   
       console.log('Appointment created successfully:', newAppointment);
 
@@ -2101,10 +2099,34 @@ async function addtagbookedFirebase(contactID, tag, idSubstring) {
     }
 }
 
-async function setLeadTemperature(idSubstring, phoneNumber, temperature){
-    console.log('adding tag ' + temperature + ' to ' + phoneNumber)
-    await addtagbookedFirebase(phoneNumber,temperature,idSubstring)
-    
+async function setLeadTemperature(idSubstring, phoneNumber, temperature) {
+    console.log('adding tag ' + temperature + ' to ' + phoneNumber);
+
+    // Define the possible lead temperature tags
+    const leadTemperatureTags = ['cold', 'medium', 'hot'];
+
+    // Fetch the current tags for the contact
+    const docPath = `companies/${idSubstring}/contacts/${phoneNumber}`;
+    const contactRef = db.doc(docPath);
+    const doc = await contactRef.get();
+    let currentTags = [];
+
+    if (doc.exists) {
+        currentTags = doc.data().tags || [];
+    }
+
+    // Remove any existing lead temperature tags
+    const updatedTags = currentTags.filter(tag => !leadTemperatureTags.includes(tag));
+
+    // Add the new lead temperature tag
+    updatedTags.push(temperature);
+
+    // Update the document with the new tags
+    await contactRef.set({
+        tags: updatedTags
+    }, { merge: true });
+
+    console.log(`Tag "${temperature}" added to contact ${phoneNumber} in Firebase`);
 }
 
 // Modify the handleOpenAIAssistant function to include the new tool
