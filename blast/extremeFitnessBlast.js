@@ -44,7 +44,7 @@ async function handleExtremeFitnessBlast(req, res, client) {
     await fetchConfigFromDatabase();
 
 
-    const { phone, first_name, threadid} = req.body;
+    const { phone, first_name, threadid, text} = req.body;
 
     if (!phone || !first_name) {
         return res.status(400).json({ error: 'Phone number, name, and contact_id are required' });
@@ -69,15 +69,12 @@ async function handleExtremeFitnessBlast(req, res, client) {
     console.log(chatId);
     console.log(first_name);
     try {
-        const message = createMessage(first_name);
-        const message1 =await client.sendMessage(chatId, message);
-        const message2 =await client.sendMessage(chatId, "Before we get started, let me ask you a few quick questions to help us understand your goals better.");
-        const message3 =await client.sendMessage(chatId, "Do you currently have a specific weight loss goal in mind?");
+        const message = text;
+        const message1 = await client.sendMessage(chatId, message);
+        
 
         // Add message to assistant
         await addMessagetoFirebase(message1, '074', phoneWithPlus, first_name);
-        await addMessagetoFirebase(message2, '074', phoneWithPlus, first_name);
-        await addMessagetoFirebase(message3, '074', phoneWithPlus, first_name);
         await addMessageAssistant(currentThreadId, `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`);
         
         res.json({ phone, first_name, success: true, result, threadId: currentThreadId });

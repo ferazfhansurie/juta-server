@@ -197,10 +197,11 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     return tags;
 }
 
-async function addNotificationToUser(companyId, message) {
+async function addNotificationToUser(companyId, message, contactName) {
     console.log('noti');
     try {
         // Find the user with the specified companyId
+        message.from = contactName
         const usersRef = db.collection('user');
         const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
 
@@ -533,7 +534,7 @@ async function handleNewMessagesZahinTravel(client, msg, botName, phoneIndex) {
         const messageDoc = messagesRef.doc(msg.id._serialized);
         await messageDoc.set(messageData, { merge: true });
         console.log(msg);
-        await addNotificationToUser(idSubstring, messageData);
+        await addNotificationToUser(idSubstring, messageData, contactName);
         
         // Add the data to Firestore
         await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
