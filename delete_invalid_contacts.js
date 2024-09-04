@@ -5,9 +5,9 @@ const db = admin.firestore();
 async function deleteInvalidContacts() {
   const contactsRef = db.collection('companies/001/contacts');
   
-  // Query for documents with IDs starting with '++'
-  const snapshot = await contactsRef.where(admin.firestore.FieldPath.documentId(), '>=', '++')
-                                    .where(admin.firestore.FieldPath.documentId(), '<', '+,')
+  // Query for documents where 'phone' field starts with '++'
+  const snapshot = await contactsRef.where('phone', '>=', '++')
+                                    .where('phone', '<', '+,')
                                     .get();
 
   if (snapshot.empty) {
@@ -19,8 +19,9 @@ async function deleteInvalidContacts() {
   let deleteCount = 0;
 
   snapshot.docs.forEach((doc) => {
-    if (doc.id.startsWith('++')) {
-      console.log(`Deleting contact: ${doc.id}`);
+    const phone = doc.data().phone;
+    if (phone && phone.startsWith('++')) {
+      console.log(`Deleting contact: ${doc.id} with phone: ${phone}`);
       batch.delete(doc.ref);
       deleteCount++;
     }
