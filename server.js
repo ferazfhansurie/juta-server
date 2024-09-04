@@ -515,17 +515,25 @@ async function createUserInFirebase(userData) {
 
   // Update the processContact function to use the provided tags
   async function processContact(row, companyId, tags) {
-    let name = row.Name.trim();
+    let name = row.Name;
+
     let phone = await formatPhoneNumber(row.Phone);
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth()-6);
     const sixMonthsAgoTimeStamp = sixMonthsAgo.getTime();
     if (!name) {
       name = phone;
+    }else{
+      console.log("Saving contact with name ", name, " and phone ", phone)
     }
-    console.log(row.Phone);
-    const phoneWithPlus = '+' + phone;
-    console.log(phoneWithPlus)
+    console.log("Saving contact with no name and phone ", phone)
+    let phoneWithPlus;
+    if(phone.startsWith('+')){
+      phoneWithPlus = phone;
+    }else{
+      phoneWithPlus = '+' + phone;
+    }
+   
     if (phone) {
       const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneWithPlus);
       const doc = await contactRef.get();
