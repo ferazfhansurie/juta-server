@@ -532,7 +532,8 @@ async function createUserInFirebase(userData) {
     }else{
       phoneWithPlus = '+' + phone;
     }
-   
+    
+    const phoneWithoutPlus = phone.replace('+', '');
     if (phone) {
       const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneWithPlus);
       const doc = await contactRef.get();
@@ -550,11 +551,11 @@ async function createUserInFirebase(userData) {
             address1: null,
             assignedTo: null,
             businessId: null,
-            phone: "+" + phone,
+            phone: phoneWithPlus,
             tags: tags,
             chat: {
-              contact_id: phone,
-              id: phone + '@c.us',
+              contact_id: phoneWithoutPlus,
+              id: phoneWithoutPlus + '@c.us',
               name: name,
               not_spam: true,
               tags: tags,
@@ -563,7 +564,7 @@ async function createUserInFirebase(userData) {
               unreadCount: 0,
               last_message: null,
             },
-            chat_id: phone + '@c.us',
+            chat_id: phoneWithoutPlus + '@c.us',
         city: null,
         phoneIndex: 0,
         companyName: null,
