@@ -209,10 +209,10 @@ async function customWait(milliseconds) {
 }
 
 async function addNotificationToUser(companyId, message, contactName) {
-    console.log('noti');
+    console.log('Adding notification and sending FCM');
     try {
         // Find the user with the specified companyId
-        message.from = contactName
+        message.from = contactName;
         const usersRef = db.collection('user');
         const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
 
@@ -226,17 +226,38 @@ async function addNotificationToUser(companyId, message, contactName) {
             Object.entries(message).filter(([_, value]) => value !== undefined)
         );
 
-        // Add the new message to the notifications subcollection of the user's document
-        querySnapshot.forEach(async (doc) => {
+        // Prepare the FCM message
+        const fcmMessage = {
+            notification: {
+                title: `New message from ${contactName}`,
+                body: cleanMessage.text?.body || 'New message received'
+            },
+            data: {
+                ...cleanMessage,
+                click_action: 'FLUTTER_NOTIFICATION_CLICK',
+                sound: 'default'
+            },
+            topic: '001' // Specify the topic here
+        };
+
+        // Add the new message to Firestore for each user
+        const promises = querySnapshot.docs.map(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
             const updatedMessage = { ...cleanMessage, read: false };
         
             await notificationsRef.add(updatedMessage);
-            console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
+            console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
         });
+
+        await Promise.all(promises);
+
+        // Send FCM message to the topic
+        await admin.messaging().send(fcmMessage);
+        console.log(`FCM notification sent to topic '001'`);
+
     } catch (error) {
-        console.error('Error adding notification: ', error);
+        console.error('Error adding notification or sending FCM: ', error);
     }
 }
 
