@@ -221,9 +221,11 @@ async function addNotificationToUser(companyId, message, contactName) {
             return;
         }
 
-        // Filter out undefined values from the message object
+        // Filter out undefined values from the message object and convert all values to strings
         const cleanMessage = Object.fromEntries(
-            Object.entries(message).filter(([_, value]) => value !== undefined)
+            Object.entries(message)
+                .filter(([_, value]) => value !== undefined)
+                .map(([key, value]) => [key, String(value)])
         );
 
         // Prepare the FCM message
@@ -251,6 +253,11 @@ async function addNotificationToUser(companyId, message, contactName) {
         });
 
         await Promise.all(promises);
+
+        // Ensure all data values are strings for FCM
+        fcmMessage.data = Object.fromEntries(
+            Object.entries(fcmMessage.data).map(([key, value]) => [key, String(value)])
+        );
 
         // Send FCM message to the topic
         await admin.messaging().send(fcmMessage);
