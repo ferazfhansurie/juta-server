@@ -224,7 +224,12 @@ async function addNotificationToUser(companyId, message, contactName) {
         const cleanMessage = Object.fromEntries(
             Object.entries(message)
                 .filter(([key, value]) => value !== undefined && !['from', 'notification', 'data'].includes(key))
-                .map(([key, value]) => [key, typeof value === 'object' ? JSON.stringify(value) : String(value)])
+                .map(([key, value]) => {
+                    if (key === 'text' && typeof value === 'string') {
+                        return [key, { body: value }];
+                    }
+                    return [key, typeof value === 'object' ? JSON.stringify(value) : String(value)];
+                })
         );
 
         // Add sender information to cleanMessage
@@ -238,6 +243,7 @@ async function addNotificationToUser(companyId, message, contactName) {
             },
             data: {
                 ...cleanMessage,
+                text: JSON.stringify(cleanMessage.text), // Stringify the text object for FCM
                 click_action: 'FLUTTER_NOTIFICATION_CLICK',
                 sound: 'default'
             },
@@ -252,7 +258,14 @@ async function addNotificationToUser(companyId, message, contactName) {
         
             await notificationsRef.add(updatedMessage);
             console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
-            console.log('Notification content:', JSON.stringify(updatedMessage, null, 2));
+            console.log('Notification content:');
+            for (const [key, value] of Object.entries(updatedMessage)) {
+                if (key === 'text') {
+                    console.log(`${key}\n${JSON.stringify(value, null, 2)}`);
+                } else {
+                    console.log(`${key}\n"${value}"`);
+                }
+            }
         });
 
         await Promise.all(promises);
