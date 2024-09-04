@@ -224,7 +224,7 @@ async function addNotificationToUser(companyId, message, contactName) {
         const cleanMessage = Object.fromEntries(
             Object.entries(message)
                 .filter(([key, value]) => value !== undefined && !['from', 'notification', 'data'].includes(key))
-                .map(([key, value]) => [key, String(value)])
+                .map(([key, value]) => [key, typeof value === 'object' ? JSON.stringify(value) : String(value)])
         );
 
         // Add sender information to cleanMessage
@@ -252,6 +252,7 @@ async function addNotificationToUser(companyId, message, contactName) {
         
             await notificationsRef.add(updatedMessage);
             console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
+            console.log('Notification content:', JSON.stringify(updatedMessage, null, 2));
         });
 
         await Promise.all(promises);
