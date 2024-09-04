@@ -74,7 +74,6 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
   return `/media/${uniqueFilename}`;
 }
 
-
 async function checkAndProcessNewRows(spreadsheetId, range, botName) {
   try {
     console.log(`Starting to check for new rows for bot ${botName}`);
