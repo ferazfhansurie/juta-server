@@ -44,7 +44,8 @@ async function handleExtremeFitnessBlast(req, res, client) {
     await fetchConfigFromDatabase();
 
 
-    const { phone, first_name, threadid, text} = req.body;
+    const { first_name, threadid, text } = req.body;
+    let { phone } = req.body;  // Change this to let
 
     if (!phone || !first_name) {
         return res.status(400).json({ error: 'Phone number, name, and contact_id are required' });
@@ -80,7 +81,7 @@ async function handleExtremeFitnessBlast(req, res, client) {
         res.json({ phone, first_name, success: true, result, threadId: currentThreadId });
     } catch (error) {
         console.error(`Error sending message to ${phone}:`, error);
-        res.status(500).json({ phone, first_name, success: false, error: error.message });
+        res.json({ phone, first_name, success: false, error: error.message });
     }
 }
 
