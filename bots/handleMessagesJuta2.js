@@ -234,7 +234,10 @@ async function addNotificationToUser(companyId, message, contactName) {
 
         // Add sender information to cleanMessage
         cleanMessage.senderName = contactName;
-
+     // Filter out undefined values from the message object
+     const cleanMessage2 = Object.fromEntries(
+        Object.entries(message).filter(([_, value]) => value !== undefined)
+    );
         // Prepare the FCM message
         const fcmMessage = {
             notification: {
@@ -254,18 +257,11 @@ async function addNotificationToUser(companyId, message, contactName) {
         const promises = querySnapshot.docs.map(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...cleanMessage, read: false, from: contactName };
+            const updatedMessage = { ...cleanMessage2, read: false, from: contactName };
         
             await notificationsRef.add(updatedMessage);
             console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
             console.log('Notification content:');
-            for (const [key, value] of Object.entries(updatedMessage)) {
-                if (key === 'text') {
-                    console.log(`${key}\n${JSON.stringify(value, null, 2)}`);
-                } else {
-                    console.log(`${key}\n"${value}"`);
-                }
-            }
         });
 
         await Promise.all(promises);
