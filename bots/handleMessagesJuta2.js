@@ -2394,7 +2394,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "createCalendarEvent",
-                description: "Schedule a meeting in Calendar",
+                description: "Schedule a meeting in Calendar. The contact name should be included in the title of the event.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -2405,7 +2405,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                         contactPhone: { type: "string", description: "Phone number of the contact" },
                         contactName: { type: "string", description: "Name of the contact" },
                     },
-                    required: ["summary", "startDateTime", "endDateTime"],
+                    required: ["summary", "startDateTime", "endDateTime","contactName"],
                 },
             },
         },
