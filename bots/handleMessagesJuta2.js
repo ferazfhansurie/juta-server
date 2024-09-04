@@ -212,7 +212,6 @@ async function addNotificationToUser(companyId, message, contactName) {
     console.log('Adding notification and sending FCM');
     try {
         // Find the user with the specified companyId
-        message.from = contactName;
         const usersRef = db.collection('user');
         const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
 
@@ -221,12 +220,15 @@ async function addNotificationToUser(companyId, message, contactName) {
             return;
         }
 
-        // Filter out undefined values from the message object and convert all values to strings
+        // Filter out undefined values and reserved keys from the message object
         const cleanMessage = Object.fromEntries(
             Object.entries(message)
-                .filter(([_, value]) => value !== undefined)
+                .filter(([key, value]) => value !== undefined && !['from', 'notification', 'data'].includes(key))
                 .map(([key, value]) => [key, String(value)])
         );
+
+        // Add sender information to cleanMessage
+        cleanMessage.senderName = contactName;
 
         // Prepare the FCM message
         const fcmMessage = {
@@ -246,18 +248,13 @@ async function addNotificationToUser(companyId, message, contactName) {
         const promises = querySnapshot.docs.map(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...cleanMessage, read: false };
+            const updatedMessage = { ...cleanMessage, read: false, from: contactName };
         
             await notificationsRef.add(updatedMessage);
             console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
         });
 
         await Promise.all(promises);
-
-        // Ensure all data values are strings for FCM
-        fcmMessage.data = Object.fromEntries(
-            Object.entries(fcmMessage.data).map(([key, value]) => [key, String(value)])
-        );
 
         // Send FCM message to the topic
         await admin.messaging().send(fcmMessage);
