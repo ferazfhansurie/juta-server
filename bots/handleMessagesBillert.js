@@ -54,6 +54,8 @@ async function fetchEmployeesFromFirebase(idSubstring) {
     // Load the previous assignment state
     await loadAssignmentState(idSubstring);
 }
+let employees = [];
+let currentEmployeeIndex = 0;
 
 async function loadAssignmentState(idSubstring) {
     const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
