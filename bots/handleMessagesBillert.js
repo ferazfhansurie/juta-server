@@ -684,7 +684,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                
                const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Farah. 😃\n\n` +
                `Team farah akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
-               `Sebentar lagi team farah nama dia _*${assigned.toUpperCase()}*_ akan whatsapp cik, atau cik boleh terus whatsapp ${assigned} dengan segera di nombor *${number}* 👩🏻‍💼`;
+               `Sebentar lagi team farah nama dia _*${assigned.toUpperCase()}*_ akan whatsapp cik, atau cik boleh terus whatsapp ${assigned} dengan segera di nombor *${number.split('@')[0]}* 👩🏻‍💼`;
                
                const msg =await client.sendMessage(sender.to, message);
                await addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName);
@@ -750,7 +750,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                `Tarikh : *${currentDate}*\n\n`+
                `Good Luck !`;
                const msg2 =await client.sendMessage(number, message2);
-               await addMessagetoFirebase(msg2, idSubstring, extractedNumber, contactName);
+               await addMessagetoFirebase(msg2, idSubstring, number, assigned);
                
                  // Create the data object
                 console.log('sent new contact to create new contact');
