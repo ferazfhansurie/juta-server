@@ -9,6 +9,7 @@
 const OpenAI = require('openai');
 const axios = require('axios').default;
 const { Client } = require('whatsapp-web.js');
+const { MessageMedia } = require('whatsapp-web.js');
 
 
 const { URLSearchParams } = require('url');
@@ -23,6 +24,119 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAIKEY,
 });
 
+async function fetchEmployeesFromFirebase(idSubstring) {
+    const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
+    const snapshot = await employeesRef.get();
+    
+    employees = [];
+    
+    console.log(`Total documents in employee collection: ${snapshot.size}`);
+
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        console.log(`Processing employee document:`, data);
+
+        if (data.name) {
+            employees.push({
+                name: data.name,
+                email: data.email,
+                phoneNumber: data.phoneNumber,
+                assignedContacts: data.assignedContacts || 0
+            });
+            console.log(`Added employee ${data.name}`);
+        } else {
+            console.log(`Skipped employee due to missing name:`, data);
+        }
+    });
+
+    console.log('Fetched employees:', employees);
+
+    // Load the previous assignment state
+    await loadAssignmentState(idSubstring);
+}
+
+async function loadAssignmentState(idSubstring) {
+    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    const doc = await stateRef.get();
+    if (doc.exists) {
+        const data = doc.data();
+        currentEmployeeIndex = data.currentEmployeeIndex;
+        console.log('Assignment state loaded from Firebase:', data);
+    } else {
+        console.log('No previous assignment state found');
+        currentEmployeeIndex = 0;
+    }
+}
+
+async function storeAssignmentState(idSubstring) {
+    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    const stateToStore = {
+        currentEmployeeIndex: currentEmployeeIndex,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await stateRef.set(stateToStore);
+    console.log('Assignment state stored in Firebase:', stateToStore);
+}
+
+async function assignNewContactToEmployee(contactID, idSubstring, client) {
+    const employeeList = [
+        { name: 'Hilmi', fullName: 'Hilmi Sales', phone: '+60146531563', status: 'ON', weight: 15 },
+        { name: 'Zara', fullName: 'Isha Sales', phone: '+60143407573', status: 'ON', weight: 15 },
+        { name: 'Stanie', fullName: 'Stanie Sales', phone: '+60167104128', status: 'ON', weight: 20 },
+        { name: 'Qayyim', fullName: 'Qayyim Billert', phone: '+60167009798', status: 'ON', weight: 15 },
+        { name: 'Bazilah', fullName: 'Bazilah Agent Sales', phone: '+601126926822', status: 'ON', weight: 15 },
+        { name: 'Ida', fullName: 'Chloe Agent Sales', phone: '+60168308240', status: 'ON', weight: 10 },
+        { name: 'Siti', fullName: 'Eugen Agent Sales', phone: '+601162333411', status: 'ON', weight: 10 },
+        { name: 'Teha', fullName: 'Teha Sales', phone: '+60174787003', status: 'ON', weight: 16 },
+        { name: 'Alin', fullName: 'Alin Sales', phone: '+60102806459', status: 'OFF', weight: 0 },
+    ];
+
+    // Filter out employees who are OFF
+    const availableEmployees = employeeList.filter(emp => emp.status === 'ON');
+
+    if (availableEmployees.length === 0) {
+        console.log('No available employees found for assignment');
+        return [];
+    }
+
+    // Calculate total weight
+    const totalWeight = availableEmployees.reduce((sum, emp) => sum + emp.weight, 0);
+
+    // Generate a random number between 0 and totalWeight
+    const randomValue = Math.random() * totalWeight;
+
+    // Select an employee based on the weighted random selection
+    let cumulativeWeight = 0;
+    let assignedEmployee = null;
+
+    for (const emp of availableEmployees) {
+        cumulativeWeight += emp.weight;
+        if (randomValue <= cumulativeWeight) {
+            assignedEmployee = emp;
+            break;
+        }
+    }
+
+    if (!assignedEmployee) {
+        console.log('Failed to assign an employee');
+        return [];
+    }
+
+    console.log(`Assigned employee: ${assignedEmployee.name}`);
+    await addtagbookedFirebase(contactID, assignedEmployee.fullName, idSubstring);
+    const employeeID = assignedEmployee.phone.replace(/\s+/g, '').split('+')[1] + '@c.us';
+    console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
+
+    // You may want to update the assignment state in Firebase here
+    await storeAssignmentState(idSubstring, assignedEmployee);
+
+    return {
+        assigned: assignedEmployee.name,
+        number: employeeID
+    };
+}
+
 const steps = {
     START: 'start',
 };
@@ -30,6 +144,37 @@ const userState = new Map();
 
 async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+async function addtagbookedFirebase(contactID, tag, idSubstring) {
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
+    try {
+        // Get the current document
+        const doc = await contactRef.get();
+        let currentTags = [];
+
+        if (doc.exists) {
+            currentTags = doc.data().tags || [];
+        }
+
+        // Add the new tag if it doesn't already exist
+        if (!currentTags.includes(tag)) {
+            currentTags.push(tag);
+
+            // Update the document with the new tags
+            await contactRef.set({
+                tags: currentTags
+            }, { merge: true });
+
+            console.log(`Tag "${tag}" added to contact ${contactID} in Firebase`);
+        } else {
+            console.log(`Tag "${tag}" already exists for contact ${contactID} in Firebase`);
+        }
+    } catch (error) {
+        console.error('Error adding tag to Firebase:', error);
+    }
 }
 
 async function addNotificationToUser(companyId, message, contactName) {
@@ -331,15 +476,12 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 console.log('sent new contact to create new contact');
 
-                let assigned = null;
-                let number = null;
 
+                const assignmentResult = await assignNewContactToEmployee(contactID, idSubstring, client);
+                let assigned = assignmentResult.assigned;
+                let number = assignmentResult.number;
                 
-                function capitalizeFirstLetter(string) {
-                    return string.charAt(0).toUpperCase() + string.slice(1);
-                }
                // Capitalize the first letter of the assigned name
-               assigned = capitalizeFirstLetter(assigned);
                
                const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Farah. 😃\n\n` +
                `Team farah akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
@@ -363,14 +505,44 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                    const media = await MessageMedia.fromUrl(imagePath);
                    const imageMessage = await client.sendMessage(msg.from, media);
                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-               }
+               }else if(assigned == 'Qayyim'){
+                   const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/qayyim.jpg?alt=media&token=2a962898-13fe-4d5f-9fea-8daf00bc50c7';
+                   const media = await MessageMedia.fromUrl(imagePath);
+                   const imageMessage = await client.sendMessage(msg.from, media);
+                   await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                }else if(assigned == 'Bazilah'){
+                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/bazilah.jpg?alt=media&token=feb8ebec-8412-4677-8775-f85069ccd667';
+                    const media = await MessageMedia.fromUrl(imagePath);
+                    const imageMessage = await client.sendMessage(msg.from, media);
+                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                }else if(assigned == 'Ida'){
+                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ida.jpg?alt=media&token=e415ec10-1c4b-41a2-aea3-53eb760fb645';
+                    const media = await MessageMedia.fromUrl(imagePath);
+                    const imageMessage = await client.sendMessage(msg.from, media);
+                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                }else if(assigned == 'Siti'){
+                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/siti.jpg?alt=media&token=cb11c599-7b1c-4b31-b9ef-60251fc673b6';
+                    const media = await MessageMedia.fromUrl(imagePath);
+                    const imageMessage = await client.sendMessage(msg.from, media);
+                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                }else if(assigned == 'Teha'){
+                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/teha.jpg?alt=media&token=f86e643d-a7fc-4d87-871b-d3060c511c21';
+                    const media = await MessageMedia.fromUrl(imagePath);
+                    const imageMessage = await client.sendMessage(msg.from, media);
+                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                }else if(assigned == 'Alin'){
+                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/alin.jpg?alt=media&token=40d378b6-e07b-4319-bde5-da2af3a1e4ab';
+                    const media = await MessageMedia.fromUrl(imagePath);
+                    const imageMessage = await client.sendMessage(msg.from, media);
+                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                }
+                
                function getCurrentDate() {
                 const date = new Date();
                 const options = { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: '2-digit', year: 'numeric' };
                 const [day, month, year] = date.toLocaleDateString('en-GB', options).split('/');
                 return `${day}/${month}/${year}`;
             }
-               const agentId = number.split('+')[1]+'@s.whatsapp.net';
                const currentDate = getCurrentDate();
                const custNumber = sender.to.split('@')[0];
                const message2 = `Hi *${assigned}*\n\n` +
@@ -378,8 +550,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                `No Phone : *+${custNumber}*\n\n`+
                `Tarikh : *${currentDate}*\n\n`+
                `Good Luck !`;
-               console.log(agentId);
-               const msg2 =await client.sendMessage(agentId, message2);
+               const msg2 =await client.sendMessage(number, message2);
                await addMessagetoFirebase(msg2, idSubstring, extractedNumber, contactName);
                
                  // Create the data object
