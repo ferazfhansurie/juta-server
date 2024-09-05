@@ -122,7 +122,7 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     return tags;
 }
 
-async function addNotificationToUser(companyId, message) {
+async function addNotificationToUser(companyId, message, contactName) {
     console.log('noti');
     try {
         // Find the user with the specified companyId
@@ -559,7 +559,7 @@ async function handleNewMessagesExtremeFitness(client, msg, botName, phoneIndex)
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/extremefitness.jpg?alt=media&token=4a8e6e55-dc29-40f3-b3ac-f955aa5d65ed'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber);
+                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
 
                                 await customWait(10000)
                             }
@@ -643,7 +643,7 @@ async function removeTagBookedGHL(contactID, tag) {
     }
 }
 
-async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName){
     console.log('Adding message to Firebase');
     console.log('idSubstring:', idSubstring);
     console.log('extractedNumber:', extractedNumber);
@@ -793,7 +793,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
     const messageDoc = messagesRef.doc(msg.id._serialized);
     await messageDoc.set(messageData, { merge: true });
     console.log(messageData);
-    await addNotificationToUser(idSubstring, messageData);
+    await addNotificationToUser(idSubstring, messageData, contactName);
 }
 
 

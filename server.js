@@ -314,11 +314,11 @@ const { handleNewMessagesDemo } = require('./bots/handleMessagesDemo.js');
 const { handleNewMessagesMadre } = require('./bots/handleMessagesMadre.js');
 const { handleNewMessagesBeverly } = require('./bots/handleMessagesBeverly.js');
 const { handleNewEnquriryFormBeverly } = require('./bots/handleMessagesBeverly.js');
-const { handleNewMessagesBillert } = require('./bots/handleMessagesBillert.js');
 const { handleNewMessagesSunz } = require('./bots/handleMessagesSunz.js');
 const { handleNewMessagesBHQ } = require('./bots/handleMessagesBHQ.js');
 const { handleNewMessagesTasty} = require('./bots/handleMessagesTasty.js');
 const { handleNewMessagesTastyPuga} = require('./bots/handleMessagesPugaTasty.js');
+const { handleNewMessagesBillert} = require('./bots/handleMessagesBillert.js');
 const { handleNewMessagesCNB} = require('./bots/handleMessagesCNB.js');
 const { handleNewMessagesMSU} = require('./bots/handleMessagesMSU.js');
 const { handleNewMessagesApel } = require('./bots/handleMessagesApel.js');
@@ -345,7 +345,6 @@ app.post('/juta/hook/messages', handleNewMessagesJuta);
 app.post('/arul/hook/messages', handleNewMessagesArul);
 app.post('/aq/hook/messages', handleNewMessagesAQ);
 app.post('/tic/hook/messages', handleNewMessagesTIC);
-app.post('/billert/hook/messages', handleNewMessagesBillert);
 app.post('/tasty/hook/messages', handleNewMessagesTasty);
 app.post('/tasty-puga/hook', handleNewMessagesTastyPuga);
 app.post('/gl/hook', handleNewMessagesGL);
@@ -394,6 +393,7 @@ const customHandlers = {
   '057': handleNewMessagesTest,
   '059': handleNewMessagesFirstPrint,
   '066': handleNewMessagesMSU,
+  '072': handleNewMessagesBillert,
   '074': handleNewMessagesExtremeFitness,
 };
 

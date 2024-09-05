@@ -32,8 +32,8 @@ async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-async function addNotificationToUser(companyId, message) {
-    console.log('noti');
+async function addNotificationToUser(companyId, message, contactName) {
+    console.log('Adding notification and sending FCM');
     try {
         // Find the user with the specified companyId
         const usersRef = db.collection('user');
@@ -44,23 +44,212 @@ async function addNotificationToUser(companyId, message) {
             return;
         }
 
-        // Filter out undefined values from the message object
+        // Filter out undefined values and reserved keys from the message object
         const cleanMessage = Object.fromEntries(
-            Object.entries(message).filter(([_, value]) => value !== undefined)
+            Object.entries(message)
+                .filter(([key, value]) => value !== undefined && !['from', 'notification', 'data'].includes(key))
+                .map(([key, value]) => {
+                    if (key === 'text' && typeof value === 'string') {
+                        return [key, { body: value }];
+                    }
+                    return [key, typeof value === 'object' ? JSON.stringify(value) : String(value)];
+                })
         );
 
-        // Add the new message to the notifications subcollection of the user's document
-        querySnapshot.forEach(async (doc) => {
+        // Add sender information to cleanMessage
+        cleanMessage.senderName = contactName;
+     // Filter out undefined values from the message object
+     const cleanMessage2 = Object.fromEntries(
+        Object.entries(message).filter(([_, value]) => value !== undefined)
+    );
+        // Prepare the FCM message
+        const fcmMessage = {
+            notification: {
+                title: `New message from ${contactName}`,
+                body: cleanMessage.text?.body || 'New message received'
+            },
+            data: {
+                ...cleanMessage,
+                text: JSON.stringify(cleanMessage.text), // Stringify the text object for FCM
+                click_action: 'FLUTTER_NOTIFICATION_CLICK',
+                sound: 'default'
+            },
+            topic: '001' // Specify the topic here
+        };
+
+        // Add the new message to Firestore for each user
+        const promises = querySnapshot.docs.map(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...cleanMessage, read: false };
+            const updatedMessage = { ...cleanMessage2, read: false, from: contactName };
         
             await notificationsRef.add(updatedMessage);
-            console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
+            console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
+            console.log('Notification content:');
         });
+
+        await Promise.all(promises);
+
+        // Send FCM message to the topic
+        await admin.messaging().send(fcmMessage);
+        console.log(`FCM notification sent to topic '001'`);
+
     } catch (error) {
-        console.error('Error adding notification: ', error);
+        console.error('Error adding notification or sending FCM: ', error);
     }
+}
+
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName){
+    console.log('Adding message to Firebase');
+    console.log('idSubstring:', idSubstring);
+    console.log('extractedNumber:', extractedNumber);
+
+    if (!extractedNumber) {
+        console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
+        return;
+    }
+
+    if (!idSubstring) {
+        console.error('Invalid idSubstring for Firebase document path');
+        return;
+    }
+    let messageBody = msg.body;
+    let audioData = null;
+    let type = '';
+    if(msg.type == 'chat'){
+        type ='text'
+    }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
+        return;
+    }else{
+        type = msg.type;
+    }
+    
+    if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+        console.log('Voice message detected');
+        const media = await msg.downloadMedia();
+        const transcription = await transcribeAudio(media.data);
+        console.log('Transcription:', transcription);
+                
+        messageBody = transcription;
+        audioData = media.data;
+        console.log(msg);
+    }
+    const messageData = {
+        chat_id: msg.from,
+        from: msg.from ?? "",
+        from_me: msg.fromMe ?? false,
+        id: msg.id._serialized ?? "",
+        status: "delivered",
+        text: {
+            body: messageBody ?? ""
+        },
+        timestamp: msg.timestamp ?? 0,
+        type: type,
+    };
+
+    if(msg.hasQuotedMsg){
+        const quotedMsg = await msg.getQuotedMessage();
+        // Initialize the context and quoted_content structure
+        messageData.text.context = {
+          quoted_content: {
+            body: quotedMsg.body
+          }
+        };
+        const authorNumber = '+'+(quotedMsg.from).split('@')[0];
+        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
+    }
+
+    if((msg.from).includes('@g.us')){
+        const authorNumber = '+'+(msg.author).split('@')[0];
+
+        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        if(authorData){
+            messageData.author = authorData.contactName;
+        }else{
+            messageData.author = msg.author;
+        }
+    }
+
+    if (msg.type === 'audio' || msg.type === 'ptt') {
+        messageData.audio = {
+            mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+            data: audioData // This is the base64 encoded audio data
+        };
+    }
+
+    if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
+        try {
+            const media = await msg.downloadMedia();
+            if (media) {
+              if (msg.type === 'image') {
+                messageData.image = {
+                    mimetype: media.mimetype,
+                    data: media.data,  // This is the base64-encoded data
+                    filename: msg._data.filename || "",
+                    caption: msg._data.caption || "",
+                };
+                // Add width and height if available
+                if (msg._data.width) messageData.image.width = msg._data.width;
+                if (msg._data.height) messageData.image.height = msg._data.height;
+              } else if (msg.type === 'document') {
+                  messageData.document = {
+                      mimetype: media.mimetype,
+                      data: media.data,  // This is the base64-encoded data
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                      pageCount: msg._data.pageCount,
+                      fileSize: msg._data.size,
+                  };
+              }else if (msg.type === 'video') {
+                    messageData.video = {
+                        mimetype: media.mimetype,
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
+                    };
+                    // Store video data separately or use a cloud storage solution
+                    const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                    messageData.video.link = videoUrl;
+              } else {
+                  messageData[msg.type] = {
+                      mimetype: media.mimetype,
+                      data: media.data,
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                  };
+              }
+  
+              // Add thumbnail information if available
+              if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                  messageData[msg.type].thumbnail = {
+                      height: msg._data.thumbnailHeight,
+                      width: msg._data.thumbnailWidth,
+                  };
+              }
+  
+              // Add media key if available
+              if (msg.mediaKey) {
+                  messageData[msg.type].mediaKey = msg.mediaKey;
+              }
+
+              
+            }  else {
+                console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                messageData.text = { body: "Media not available" };
+            }
+        } catch (error) {
+            console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+            messageData.text = { body: "Error handling media" };
+        }
+    }
+
+    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+    const messagesRef = contactRef.collection('messages');
+
+    const messageDoc = messagesRef.doc(msg.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+    console.log(messageData);
+    await addNotificationToUser(idSubstring, messageData, contactName);
 }
 
 
