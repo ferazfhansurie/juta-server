@@ -560,6 +560,35 @@ async function handleNewMessagesExtremeFitness(client, msg, botName, phoneIndex)
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber);
+
+                                await customWait(10000)
+                            }
+
+                            if(check.includes('what we specialize in')){
+                                console.log("5 sec delay")
+                                
+
+                                await customWait(5000)
+                            }
+                            if(check.includes('motivate you make a big difference')){
+                                console.log("10 sec delay")
+                                
+
+                                await customWait(10000)
+                            }
+
+                            if(check.includes('free goody bag worth $30')){
+                                console.log("10 sec delay")
+                                
+
+                                await customWait(10000)
+                            }
+
+                            if(check.includes('please do not hesitate to reach out to us')){
+                                console.log("10 sec delay")
+                                
+
+                                await customWait(10000)
                             }
 
                             if(check.includes('let me get someone from our team to assist you with that ')){
