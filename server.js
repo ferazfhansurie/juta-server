@@ -376,7 +376,7 @@ const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
 // const applyRadarSpreadsheetLPMMUPK = require('./spreadsheet/applyradarspreadsheet(LP - MMU PK).js');
 // const applyRadarSpreadsheetLPAPUPK = require('./spreadsheet/applyradarspreadsheet(LP - APU PK).js');
 const msuSpreadsheetPartTime = require('./spreadsheet/msuspreadsheet(PartTime).js');
-const msuSpreadsheetApel = require('./spreadsheet/msuspreadsheet(Apel).js');
+// const msuSpreadsheetApel = require('./spreadsheet/msuspreadsheet(Apel).js');
 const msuSpreadsheetCOL = require('./spreadsheet/msuspreadsheet(COL).js');
 const msuSpreadsheetLeads = require('./spreadsheet/msuspreadsheet(Leads).js');
 
@@ -1070,17 +1070,78 @@ function setupMessageCreateHandler(client, botName, phoneIndex) {
     try {
       // Check if the message is from the current user (sent from another device)
       if (msg.fromMe) {
-        console.log(`DEBUG: Message created by user for bot ${botName}`);
+        const extractedNumber = '+' + msg.to.split('@')[0];
         
-        // Extract the recipient's number
-        const extractedNumber = '+' + (msg.to.split('@')[0]);
-        
-        // Get the idSubstring (you'll need to define how to obtain this)
-        const idSubstring = botName; // Implement this function
-        
+        let existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
+        const contactRef = db.collection('companies').doc(botName).collection('contacts').doc(extractedNumber);
+
+        if (!existingContact) {
+          console.log('Creating new contact');
+          const newContact = {
+            additionalEmails: [],
+            address1: null,
+            assignedTo: null,
+            businessId: null,
+            chat: {
+              contact_id: extractedNumber,
+              id: msg.to,
+              name: msg.to.split('@')[0],
+              not_spam: true,
+              tags: ['stop bot'],
+              timestamp: Math.floor(Date.now() / 1000),
+              type: 'contact',
+              unreadCount: 0,
+            },
+            chat_id: msg.to,
+            city: null,
+            companyName: null,
+            contactName: msg.to.split('@')[0],
+            createdAt: admin.firestore.Timestamp.now(),
+            id: extractedNumber,
+            name: '',
+            not_spam: false,
+            phone: extractedNumber,
+            phoneIndex: phoneIndex,
+            pinned: false,
+            profilePicUrl: '',
+            tags: ['stop bot'],
+            threadid: '',
+            timestamp: 0,
+            type: '',
+            unreadCount: 0
+          };
+
+          await contactRef.set(newContact);
+          existingContact = newContact;
+          console.log(`Created new contact for ${extractedNumber}`);
+        }
+
         // Add the message to Firebase
-        await addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneIndex);
-        
+        await addMessagetoFirebase(msg, botName, extractedNumber, phoneIndex);
+
+        // Update last_message for the contact
+        const lastMessage = {
+          chat_id: msg.to,
+          from: msg.from,
+          from_me: true,
+          id: msg.id._serialized,
+          phoneIndex: phoneIndex,
+          source: "",
+          status: "sent",
+          text: {
+            body: msg.body
+          },
+          timestamp: Math.floor(Date.now() / 1000),
+          type: msg.type === 'chat' ? 'text' : msg.type
+        };
+
+        // Update the contact document with the new last_message
+        await contactRef.update({
+          last_message: lastMessage,
+          timestamp: lastMessage.timestamp
+        });
+
+        console.log(`Updated last_message for contact ${extractedNumber}`);
       }
     } catch (error) {
       console.error(`ERROR in message_create handling for bot ${botName}:`, error);
