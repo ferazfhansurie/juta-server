@@ -1300,6 +1300,29 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
   await messageDoc.set(messageData, { merge: true });
   console.log('message saved');
 }
+async function transcribeAudio(audioData) {
+  try {
+      const formData = new FormData();
+      formData.append('file', Buffer.from(audioData, 'base64'), {
+          filename: 'audio.ogg',
+          contentType: 'audio/ogg',
+      });
+      formData.append('model', 'whisper-1');
+      formData.append('response_format', 'json');
+
+      const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+          headers: {
+              ...formData.getHeaders(),
+              'Authorization': `Bearer ${process.env.OPENAIKEY}`,
+          },
+      });
+
+      return response.data.text;
+  } catch (error) {
+      console.error('Error transcribing audio:', error);
+      return '';
+  }
+}
 async function storeVideoData(videoData, filename) {
   const bucket = admin.storage().bucket();
   const uniqueFilename = `${uuidv4()}_${filename}`;
