@@ -1743,7 +1743,6 @@ async function main(reinitialize = false) {
 
   // Run the check immediately when the server starts
   console.log('Checking for new rows msu...');
-  const msuAutomationApel = new msuSpreadsheetApel(botMap);
   const msuAutomationCOL = new msuSpreadsheetCOL(botMap);
   const msuAutomationPartTime = new msuSpreadsheetPartTime(botMap);
   const msuAutomationLeads = new msuSpreadsheetLeads(botMap);
@@ -2760,7 +2759,7 @@ async function initializeBot(botName, phoneCount = 1) {
               }),
               puppeteer: { 
                   headless: true,
-                  executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+                  executablePath: 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe',
                   args: [
                       '--no-sandbox',
                       '--disable-setuid-sandbox',
