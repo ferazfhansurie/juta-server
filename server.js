@@ -1149,7 +1149,7 @@ function setupMessageCreateHandler(client, botName, phoneIndex) {
   });
 }
 
-async function addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneIndex){
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
   console.log('Adding message to Firebase');
   console.log('idSubstring:', idSubstring);
   console.log('extractedNumber:', extractedNumber);
@@ -1166,12 +1166,15 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneInde
   let messageBody = msg.body;
   let audioData = null;
   let type = '';
-  if(msg.type === 'chat'){
+  if(msg.type == 'chat'){
       type ='text'
-    }else{
+  }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
+      return;
+  }else{
       type = msg.type;
-    }
-  if (msg.hasMedia && msg.type === 'audio') {
+  }
+  
+  if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
       console.log('Voice message detected');
       const media = await msg.downloadMedia();
       const transcription = await transcribeAudio(media.data);
@@ -1191,9 +1194,21 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneInde
           body: messageBody ?? ""
       },
       timestamp: msg.timestamp ?? 0,
-      phoneIndex: phoneIndex,
       type: type,
   };
+
+  if(msg.hasQuotedMsg){
+      const quotedMsg = await msg.getQuotedMessage();
+      // Initialize the context and quoted_content structure
+      messageData.text.context = {
+        quoted_content: {
+          body: quotedMsg.body
+        }
+      };
+      const authorNumber = '+'+(quotedMsg.from).split('@')[0];
+      const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+      messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
+  }
 
   if((msg.from).includes('@g.us')){
       const authorNumber = '+'+(msg.author).split('@')[0];
@@ -1206,14 +1221,14 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneInde
       }
   }
 
-  if (msg.type === 'audio') {
+  if (msg.type === 'audio' || msg.type === 'ptt') {
       messageData.audio = {
           mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
           data: audioData // This is the base64 encoded audio data
       };
   }
 
-  if (msg.hasMedia &&  msg.type !== 'audio') {
+  if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
       try {
           const media = await msg.downloadMedia();
           if (media) {
@@ -1277,12 +1292,13 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, phoneInde
           messageData.text = { body: "Error handling media" };
       }
   }
+
   const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
   const messagesRef = contactRef.collection('messages');
 
   const messageDoc = messagesRef.doc(msg.id._serialized);
   await messageDoc.set(messageData, { merge: true });
-  console.log('Message saved');  
+  console.log('message saved');
 }
 async function storeVideoData(videoData, filename) {
   const bucket = admin.storage().bucket();
