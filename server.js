@@ -1747,7 +1747,6 @@ async function main(reinitialize = false) {
   const msuAutomationPartTime = new msuSpreadsheetPartTime(botMap);
   const msuAutomationLeads = new msuSpreadsheetLeads(botMap);
 
-  msuAutomationApel.initialize();
   msuAutomationCOL.initialize();
   msuAutomationPartTime.initialize();
   msuAutomationLeads.initialize();
