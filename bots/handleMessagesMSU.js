@@ -486,7 +486,7 @@ async function handleNewMessagesMSU(client, msg, botName, phoneIndex) {
                     await addMessagetoFirebase(sentMessage2, idSubstring, extractedNumber);
                 }
                 console.log('Response sent.');
-                await addtagbookedFirebase(contactID, 'replied');
+                await addtagbookedFirebase(contactID, 'replied', idSubstring);
                 userState.set(sender.to, steps.START);
                 break;
 
@@ -835,7 +835,7 @@ async function handleSpecialResponses(part, to, brochureFilePaths, client, idSub
         await addMessagetoFirebase(documentMessage, idSubstring, extractedNumber);
     }
     if (part.includes('enjoy reading about the exciting')) {
-        await addtagbookedFirebase(contactID, 'idle');
+        await addtagbookedFirebase(extractedNumber, 'idle', idSubstring);
         
         setTimeout(async () => {
             const contactPresent = await getContact(extractedNumber);
