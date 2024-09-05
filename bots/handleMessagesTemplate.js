@@ -225,7 +225,12 @@ async function handleNewMessagesTemplate(req, res) {
                 await sendWhapiRequest('messages/text', { to: sender.to, body: "Bot is now restarting with new thread." });
                 break;
             }
-
+            if(ghlConfig.stopbot){
+                if(ghlConfig.stopbot == true){
+                    console.log('bot stop all');
+                    return;
+                }
+            }
             if(firebaseTags !== undefined){
                 if(firebaseTags.includes('stop bot')){
                     console.log('bot stop');
