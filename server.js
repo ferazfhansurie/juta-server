@@ -330,6 +330,7 @@ const { handleNewMessagesTest } = require('./bots/handleMessagesTest.js');
 const { handleNewMessagesFirstPrint } = require('./bots/handleMessagesFirstPrint.js');
 const { handleNewMessagesExtremeFitness} = require('./bots/handleMessagesExtremeFitness.js');
 const { handleExtremeFitnessBlast } = require('./blast/extremeFitnessBlast.js');
+const { handleHajoonCreateContact } = require('./blast/hajoonCreateContact.js');
 
 
 
@@ -359,6 +360,8 @@ app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
+
+//webhooks/blast
 app.post('/extremefitness/blast', async (req, res) => {
   const botData = botMap.get('074');
 
@@ -369,6 +372,17 @@ app.post('/extremefitness/blast', async (req, res) => {
   const client = botData[0].client;
   await handleExtremeFitnessBlast(req, res, client);
 });
+app.post('/hajoon/blast', async (req, res) => {
+   const botData = botMap.get('045');
+
+  if (!botData) {
+      return res.status(404).json({ error: 'WhatsApp client not found for this company' });
+  }
+
+  const client = botData[0].client;
+  await handleHajoonCreateContact(req, res, client);
+});
+
 //spreadsheet
 const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
 // const applyRadarSpreadsheetLPUniten = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN).js');
@@ -384,7 +398,7 @@ const msuSpreadsheetLeads = require('./spreadsheet/msuspreadsheet(Leads).js');
 const { off } = require('process');
 
 
-
+//custom bots
 const customHandlers = {
   '001': handleNewMessagesJuta2,
   '020': handleNewMessagesCNB,
@@ -1781,14 +1795,14 @@ async function main(reinitialize = false) {
   await scheduleAllMessages();
 
   // Run the check immediately when the server starts
-  console.log('Checking for new rows msu...');
-  const msuAutomationCOL = new msuSpreadsheetCOL(botMap);
-  const msuAutomationPartTime = new msuSpreadsheetPartTime(botMap);
-  const msuAutomationLeads = new msuSpreadsheetLeads(botMap);
+  // console.log('Checking for new rows msu...');
+  // const msuAutomationCOL = new msuSpreadsheetCOL(botMap);
+  // const msuAutomationPartTime = new msuSpreadsheetPartTime(botMap);
+  // const msuAutomationLeads = new msuSpreadsheetLeads(botMap);
 
-  msuAutomationCOL.initialize();
-  msuAutomationPartTime.initialize();
-  msuAutomationLeads.initialize();
+  // msuAutomationCOL.initialize();
+  // msuAutomationPartTime.initialize();
+  // msuAutomationLeads.initialize();
 
   // console.log('Checking for new rows apply radar...');
   // const applyRadarAutomationLPUniten = new applyRadarSpreadsheetLPUniten(botMap);
