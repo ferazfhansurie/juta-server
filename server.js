@@ -2877,9 +2877,29 @@ async function initializeBot(botName, phoneCount = 1) {
               botMap.set(botName, clients);
           });
 
-          await client.initialize();
-          console.log(`Bot ${botName} Phone ${i + 1} initialization complete`);
-          console.log(`DEBUG: Bot ${botName} Phone ${i + 1} initialized successfully`);
+          try {
+            await client.initialize();
+            console.log(`Bot ${botName} Phone ${i + 1} initialization complete`);
+          } catch (initError) {
+            console.error(`Error initializing bot ${botName} Phone ${i + 1}:`, initError);
+            
+            // Delete the session folder
+            const sessionPath = path.join(__dirname, '.wwebjs_auth', clientName);
+            await fs.promises.rm(sessionPath, { recursive: true, force: true });
+            console.log(`Deleted session folder for ${clientName}`);
+            
+            await customWait(5000);
+            // Reinitialize the client
+            try {
+              await client.initialize();
+              console.log(`Bot ${botName} Phone ${i + 1} reinitialized successfully`);
+            } catch (reinitError) {
+              console.error(`Failed to reinitialize bot ${botName} Phone ${i + 1}:`, reinitError);
+              throw reinitError;
+            }
+          }
+    
+          clients.push({ client, status: 'ready', qrCode: null });
       }
 
       botMap.set(botName, clients);

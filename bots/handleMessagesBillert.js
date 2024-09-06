@@ -83,14 +83,14 @@ async function storeAssignmentState(idSubstring) {
 
 async function assignNewContactToEmployee(contactID, idSubstring, client) {
     const employeeList = [
-        { name: 'Hilmi', fullName: 'Hilmi Sales', phone: '+60146531563', status: 'ON', weight: 15 },
-        { name: 'Zara', fullName: 'Isha Sales', phone: '+60143407573', status: 'ON', weight: 15 },
-        { name: 'Stanie', fullName: 'Stanie Sales', phone: '+60167104128', status: 'ON', weight: 20 },
-        { name: 'Qayyim', fullName: 'Qayyim Billert', phone: '+60167009798', status: 'ON', weight: 15 },
-        { name: 'Bazilah', fullName: 'Bazilah Agent Sales', phone: '+601126926822', status: 'ON', weight: 15 },
+        { name: 'Hilmi', fullName: 'Hilmi Sales', phone: '+60146531563', status: 'ON', weight: 12 },
+        { name: 'Zara', fullName: 'Isha Sales', phone: '+60143407573', status: 'ON', weight: 12 },
+        { name: 'Stanie', fullName: 'Stanie Sales', phone: '+60167104128', status: 'ON', weight: 16 },
+        { name: 'Qayyim', fullName: 'Qayyim Billert', phone: '+60167009798', status: 'ON', weight: 12 },
+        { name: 'Bazilah', fullName: 'Bazilah Agent Sales', phone: '+601126926822', status: 'ON', weight: 12 },
         { name: 'Ida', fullName: 'Chloe Agent Sales', phone: '+60168308240', status: 'ON', weight: 10 },
         { name: 'Siti', fullName: 'Eugen Agent Sales', phone: '+601162333411', status: 'ON', weight: 10 },
-        { name: 'Teha', fullName: 'Teha Sales', phone: '+60174787003', status: 'ON', weight: 16 },
+        { name: 'Teha', fullName: 'Teha Sales', phone: '+60174787003', status: 'ON', weight: 12 },
         { name: 'Alin', fullName: 'Alin Sales', phone: '+60102806459', status: 'OFF', weight: 0 },
     ];
 
