@@ -77,7 +77,6 @@ async function handleHajoonCreateContact(req, res, client) {
         const tags = [location, carModel];
         // Add message to assistant
         const messageData = await addMessagetoFirebase(msg, '045', phoneWithPlus, first_name);
-        await addMessageAssistant(currentThreadId, `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`);
 
         const data = {
             additionalEmails: [],
