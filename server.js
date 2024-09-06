@@ -331,6 +331,8 @@ const { handleNewMessagesFirstPrint } = require('./bots/handleMessagesFirstPrint
 const { handleNewMessagesExtremeFitness} = require('./bots/handleMessagesExtremeFitness.js');
 const { handleExtremeFitnessBlast } = require('./blast/extremeFitnessBlast.js');
 const { handleHajoonCreateContact } = require('./blast/hajoonCreateContact.js');
+const { handleJutaCreateContact } = require('./blast/jutaCreateContact.js');
+
 
 
 
@@ -381,6 +383,16 @@ app.post('/hajoon/blast', async (req, res) => {
 
   const client = botData[0].client;
   await handleHajoonCreateContact(req, res, client);
+});
+app.post('/juta/blast', async (req, res) => {
+//   const botData = botMap.get('001');
+
+//  if (!botData) {
+//      return res.status(404).json({ error: 'WhatsApp client not found for this company' });
+//  }
+
+//  const client = botData[0].client;
+ await handleJutaCreateContact(req, res);
 });
 
 //spreadsheet
@@ -2884,7 +2896,8 @@ async function initializeBot(botName, phoneCount = 1) {
             console.error(`Error initializing bot ${botName} Phone ${i + 1}:`, initError);
             
             // Delete the session folder
-            const sessionPath = path.join(__dirname, '.wwebjs_auth', clientName);
+            
+            const sessionPath = path.join(__dirname, '.wwebjs_auth', 'session-'+clientName);
             await fs.promises.rm(sessionPath, { recursive: true, force: true });
             console.log(`Deleted session folder for ${clientName}`);
             
