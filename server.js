@@ -2899,7 +2899,6 @@ async function initializeBot(botName, phoneCount = 1) {
             }
           }
     
-          clients.push({ client, status: 'ready', qrCode: null });
       }
 
       botMap.set(botName, clients);
