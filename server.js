@@ -332,6 +332,7 @@ const { handleNewMessagesExtremeFitness} = require('./bots/handleMessagesExtreme
 const { handleExtremeFitnessBlast } = require('./blast/extremeFitnessBlast.js');
 const { handleHajoonCreateContact } = require('./blast/hajoonCreateContact.js');
 const { handleJutaCreateContact } = require('./blast/jutaCreateContact.js');
+const { handleNewMessagesVista } = require('./bots/handleMessagesVista.js');
 
 
 
@@ -362,7 +363,7 @@ app.post('/bhq/hook/messages', handleNewMessagesBHQ);
 app.post('/msu/hook/messages', handleNewMessagesMSU);
 app.post('/apel/hook/messages', handleNewMessagesApel);
 app.post('/:companyID/template/hook/messages', handleNewMessagesTemplate);
-
+  
 //webhooks/blast
 app.post('/extremefitness/blast', async (req, res) => {
   const botData = botMap.get('074');
@@ -413,6 +414,7 @@ const { off } = require('process');
 //custom bots
 const customHandlers = {
   '001': handleNewMessagesJuta2,
+  '003': handleNewMessagesVista,
   '020': handleNewMessagesCNB,
   '042': handleNewMessagesZahinTravel,
   '044': handleNewMessagesApel,
