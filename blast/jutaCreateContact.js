@@ -41,103 +41,97 @@ async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
 async function handleJutaCreateContact(req, res, client) {
     console.log('juta webhook');
     console.log(req.body);
-    // await fetchConfigFromDatabase();
+  await fetchConfigFromDatabase();
+   const { first_name, phone,company } = req.body;
+   if (!phone || !first_name) {
+       return res.status(400).json({ error: 'Phone number and name are required' });
+}
+  phone = phone.replace(/\s+|-/g, '');
+ let phoneWithPlus = phone;
+ if(!phone.startsWith('+')){
+        phoneWithPlus = "+"+phone;
+    }else{
+        phone = phone.replace('+', '');
+    }
+    const chatId = `${phone.replace(/^\+/, '')}@c.us`;
+    console.log(chatId);
+    console.log(first_name);
+    try {
+        const message = `Hi! Im Faeez from Juta
 
-    // const { first_name, phone, } = req.body;
-    
-    
+Congratulations on taking the first step towards revolutionizing your business communication with Juta Teknologi!
 
-
-    // if (!phone || !first_name) {
-    //     return res.status(400).json({ error: 'Phone number and name are required' });
-    // }
-
-    // phone = phone.replace(/\s+|-/g, '');
-    // let phoneWithPlus = phone;
-    // if(!phone.startsWith('+')){
-    //     phoneWithPlus = "+"+phone;
-    // }else{
-    //     phone = phone.replace('+', '');
-    // }
-    
-
-    // const chatId = `${phone.replace(/^\+/, '')}@c.us`;
-
-
-    // console.log(chatId);
-    // console.log(first_name);
-    // try {
-    //     const message = "hello";
-    //     const msg = await client.sendMessage(chatId, message);
+Juta Teknologi - Join Us To Automate.
+https://jutasoftware.co/`;
+        const msg = await client.sendMessage(chatId, message);
         
-    //     const tags = [location, carModel];
-    //     // Add message to assistant
-    //     const messageData = await addMessagetoFirebase(msg, '001', phoneWithPlus, first_name);
+        const tags = ['fb'];
+        // Add message to assistant
+        const messageData = await addMessagetoFirebase(msg, '001', phoneWithPlus, first_name);
+        const data = {
+            additionalEmails: [],
+            address1: null,
+            assignedTo: null,
+            businessId: null,
+            phone: phoneWithPlus,
+            tags: tags,
+            chat: {
+                contact_id: phoneWithPlus,
+                id: chatId,
+                name: first_name,
+                not_spam: true,
+                tags: tags,
+                timestamp: chat.timestamp || Date.now(),
+                type: 'contact',
+                unreadCount: 0,
+                last_message: {
+                    chat_id: msg.from,
+                    from: msg.from ?? "",
+                    from_me: msg.fromMe ?? false,
+                    id: msg.id._serialized ?? "",
+                    source: chat.deviceType ?? "",
+                    status: "delivered",
+                    text: {
+                        body: message ?? ""
+                    },
+                    timestamp: msg.timestamp ?? 0,
+                    type:'text',
+                },
+            },
+            chat_id: chatId,
+            city: null,
+            companyName: company ??null,
+            contactName: first_name,
+            unreadCount: 0,
+            threadid:  "",
+            phoneIndex: 0,
+            last_message: {
+                chat_id: msg.from,
+                from: msg.from ?? "",
+                from_me: msg.fromMe ?? false,
+                id: msg.id._serialized ?? "",
+                source: chat.deviceType ?? "",
+                status: "delivered",
+                text: {
+                    body: message ?? ""
+                },
+                timestamp: msg.timestamp ?? 0,
+                type: 'text',
+            },
+        };
 
-    //     const data = {
-    //         additionalEmails: [],
-    //         address1: null,
-    //         assignedTo: null,
-    //         businessId: null,
-    //         phone: phoneWithPlus,
-    //         tags: tags,
-    //         chat: {
-    //             contact_id: phoneWithPlus,
-    //             id: chatId,
-    //             name: first_name,
-    //             not_spam: true,
-    //             tags: tags,
-    //             timestamp: chat.timestamp || Date.now(),
-    //             type: 'contact',
-    //             unreadCount: 0,
-    //             last_message: {
-    //                 chat_id: msg.from,
-    //                 from: msg.from ?? "",
-    //                 from_me: msg.fromMe ?? false,
-    //                 id: msg.id._serialized ?? "",
-    //                 source: chat.deviceType ?? "",
-    //                 status: "delivered",
-    //                 text: {
-    //                     body: message ?? ""
-    //                 },
-    //                 timestamp: msg.timestamp ?? 0,
-    //                 type:'text',
-    //             },
-    //         },
-    //         chat_id: chatId,
-    //         city: null,
-    //         companyName: null,
-    //         contactName: first_name,
-    //         unreadCount: 0,
-    //         threadid:  "",
-    //         phoneIndex: 0,
-    //         last_message: {
-    //             chat_id: msg.from,
-    //             from: msg.from ?? "",
-    //             from_me: msg.fromMe ?? false,
-    //             id: msg.id._serialized ?? "",
-    //             source: chat.deviceType ?? "",
-    //             status: "delivered",
-    //             text: {
-    //                 body: message ?? ""
-    //             },
-    //             timestamp: msg.timestamp ?? 0,
-    //             type: 'text',
-    //         },
-    //     };
+        data.createdAt = admin.firestore.Timestamp.now();
 
-    //     data.createdAt = admin.firestore.Timestamp.now();
+        await addNotificationToUser('001', messageData, first_name);
 
-    //     await addNotificationToUser('001', messageData, first_name);
+        // Add the data to Firestore
+        await db.collection('companies').doc('001').collection('contacts').doc(phoneWithPlus).set(data, {merge: true});   
 
-    //     // Add the data to Firestore
-    //     await db.collection('companies').doc('001').collection('contacts').doc(phoneWithPlus).set(data, {merge: true});   
-
-    //     res.json({ success: true, result });
-    // } catch (error) {
-    //     console.error(`Error sending message to ${phone}:`, error);
-    //     res.json({ phone, first_name, success: false, error: error.message });
-    // }
+        res.json({ success: true, result });
+    } catch (error) {
+        console.error(`Error sending message to ${phone}:`, error);
+        res.json({ phone, first_name, success: false, error: error.message });
+    }
 }
 
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_name){

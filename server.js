@@ -386,14 +386,14 @@ app.post('/hajoon/blast', async (req, res) => {
   await handleHajoonCreateContact(req, res, client);
 });
 app.post('/juta/blast', async (req, res) => {
-//   const botData = botMap.get('001');
+ const botData = botMap.get('001');
 
-//  if (!botData) {
-//      return res.status(404).json({ error: 'WhatsApp client not found for this company' });
-//  }
+ if (!botData) {
+     return res.status(404).json({ error: 'WhatsApp client not found for this company' });
+ }
 
-//  const client = botData[0].client;
- await handleJutaCreateContact(req, res);
+ const client = botData[0].client;
+ await handleJutaCreateContact(req, res,client);
 });
 
 //spreadsheet
