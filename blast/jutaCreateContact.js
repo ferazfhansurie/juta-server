@@ -64,7 +64,7 @@ Congratulations on taking the first step towards revolutionizing your business c
 Juta Teknologi - Join Us To Automate.
 https://jutasoftware.co/`;
         const msg = await client.sendMessage(chatId, message);
-        
+        client.sendMessage('120363178065670386@g.us', 'New Lead '+first_name +' '+phoneWithPlus);
         const tags = ['fb'];
         // Add message to assistant
         const messageData = await addMessagetoFirebase(msg, '001', phoneWithPlus, first_name);
@@ -81,7 +81,7 @@ https://jutasoftware.co/`;
                 name: first_name,
                 not_spam: true,
                 tags: tags,
-                timestamp: chat.timestamp || Date.now(),
+                timestamp:  msg.timestamp ?? 0,
                 type: 'contact',
                 unreadCount: 0,
                 last_message: {
@@ -89,7 +89,7 @@ https://jutasoftware.co/`;
                     from: msg.from ?? "",
                     from_me: msg.fromMe ?? false,
                     id: msg.id._serialized ?? "",
-                    source: chat.deviceType ?? "",
+                    source: "",
                     status: "delivered",
                     text: {
                         body: message ?? ""
@@ -110,7 +110,7 @@ https://jutasoftware.co/`;
                 from: msg.from ?? "",
                 from_me: msg.fromMe ?? false,
                 id: msg.id._serialized ?? "",
-                source: chat.deviceType ?? "",
+                source: "",
                 status: "delivered",
                 text: {
                     body: message ?? ""

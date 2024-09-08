@@ -715,7 +715,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
 
             contactID = extractedNumber;
             contactName = contact.pushname || contact.name || extractedNumber;
-            client.sendMessage('120363178065670386@g.us', 'New Lead '+contactName +' '+contactID);
+           // client.sendMessage('120363178065670386@g.us', 'New Lead '+contactName +' '+contactID);
 
             const thread = await createThread();
             threadID = thread.id;
