@@ -762,11 +762,12 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
                 firebaseTags = ['stop bot']
             }
         }
-
+if(!firebaseTags.includes('replied')){
             firebaseTags.push('replied');
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).update({
                 tags: admin.firestore.FieldValue.arrayUnion('replied')
             });
+        }
 if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
             // Schedule removal of 'replied' tag after 1 hour
             scheduleRepliedTagRemoval(idSubstring, extractedNumber);
