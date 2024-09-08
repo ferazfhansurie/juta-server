@@ -127,7 +127,7 @@ https://jutasoftware.co/`;
         // Add the data to Firestore
         await db.collection('companies').doc('001').collection('contacts').doc(phoneWithPlus).set(data, {merge: true});   
 
-        res.json({ success: true, result });
+        res.json({ success: true});
     } catch (error) {
         console.error(`Error sending message to ${phone}:`, error);
         res.json({ phone, first_name, success: false, error: error.message });
