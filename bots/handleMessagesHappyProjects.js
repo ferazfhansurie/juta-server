@@ -250,7 +250,7 @@ async function addNotificationToUser(companyId, message, contactName) {
                 click_action: 'FLUTTER_NOTIFICATION_CLICK',
                 sound: 'default'
             },
-            topic: '070' // Specify the topic here
+            topic: '063' // Specify the topic here
         };
 
         // Add the new message to Firestore for each user
@@ -268,7 +268,7 @@ async function addNotificationToUser(companyId, message, contactName) {
 
         // Send FCM message to the topic
         await admin.messaging().send(fcmMessage);
-        console.log(`FCM notification sent to topic '070'`);
+        console.log(`FCM notification sent to topic '063'`);
 
     } catch (error) {
         console.error('Error adding notification or sending FCM: ', error);
@@ -473,7 +473,7 @@ async function scheduleDailyReport(client, idSubstring) {
       const scheduledMessage = {
         batchQuantity: 1,
         chatIds: [chatId],
-        companyId: "070", // Assuming this is the correct company ID
+        companyId: "063", // Assuming this is the correct company ID
         createdAt: admin.firestore.Timestamp.now(),
         documentUrl: "",
         fileName: null,
@@ -493,7 +493,7 @@ async function scheduleDailyReport(client, idSubstring) {
   
     try {
       console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
-      const response = await axios.post(`http://localhost:8443/api/schedule-message/070`, scheduledMessage);
+      const response = await axios.post(`http://localhost:8443/api/schedule-message/063`, scheduledMessage);
       console.log('Reminder scheduled successfully:', response.data);
     } catch (error) {
       console.error('Error scheduling reminder:', error.response ? error.response.data : error.message);
@@ -2071,7 +2071,7 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
 async function analyzeAndSetLeadTemperature(phoneNumber, threadId) {
     try {
         console.log('Analyzing chat history for lead temperature...', phoneNumber);
-        const idSubstring = '070'
+        const idSubstring = '063'
         const chatHistory = await fetchRecentChatHistory(threadId);
         const analysis = await analyzeChatsWithAI(chatHistory);
         const temperature = determineLeadTemperature(analysis);

@@ -421,7 +421,7 @@ const customHandlers = {
   '057': handleNewMessagesTest,
   '059': handleNewMessagesFirstPrint,
   '066': handleNewMessagesMSU,
-  '070': handleNewMessagesHappyProjects,
+  '063': handleNewMessagesHappyProjects,
   '072': handleNewMessagesBillert,
   '074': handleNewMessagesExtremeFitness,
 };
