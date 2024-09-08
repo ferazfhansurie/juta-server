@@ -79,48 +79,60 @@ async function addTask(idSubstring, taskString, assignee, dueDate) {
       message: `Task added: ${newTask.text}, assigned to ${newTask.assignee}, due on ${newTask.dueDate}` 
   });
 }
-async function registerUser(phoneNumber) {
+async function registerUser(phoneNumber, email, username, companyName, password) {
     try {
-        // Fetch contact data from the contacts collection in companies
+        // Check if the contact already exists
         const companiesSnapshot = await admin.firestore().collection('companies').get();
-        let contactData;
-        let companyId;
+        let existingContact = null;
+        let existingCompanyId = null;
 
         for (const doc of companiesSnapshot.docs) {
             const contactsSnapshot = await doc.ref.collection('contacts').where('phone', '==', phoneNumber).get();
             if (!contactsSnapshot.empty) {
-                contactData = contactsSnapshot.docs[0].data();
-                companyId = doc.id;
+                existingContact = contactsSnapshot.docs[0].data();
+                existingCompanyId = doc.id;
                 break;
             }
         }
 
-        if (!contactData) {
-            throw new Error('Contact not found in any company');
+        let companyId;
+        if (existingCompanyId) {
+            companyId = existingCompanyId;
+        } else {
+            // Generate new company ID
+            const companyCount = companiesSnapshot.size;
+            companyId = `0${companyCount + 1}`;
+
+            // Create a new company
+            await admin.firestore().collection('companies').doc(companyId).set({
+                id: companyId,
+                name: companyName,
+                whapiToken: ""
+            });
         }
 
         // Create a new user in Firebase Authentication
         const userRecord = await admin.auth().createUser({
-            email: contactData.email,
+            email: email,
             phoneNumber: phoneNumber,
-            password: '123456', // You should generate a random password or use a different authentication method
-            displayName: contactData.name,
+            password: password,
+            displayName: username,
         });
 
         // Save user data to Firestore
-        await admin.firestore().collection('user').doc(contactData.email).set({
-            name: contactData.name,
-            email: contactData.email,
+        await admin.firestore().collection('user').doc(email).set({
+            name: username,
+            email: email,
             phone: phoneNumber,
-            company: contactData.company,
+            company: companyName,
             role: "1",
             companyId: companyId,
         });
 
         // Save user data under the company's employee collection
         await admin.firestore().collection(`companies/${companyId}/employee`).doc(userRecord.uid).set({
-            name: contactData.name,
-            email: contactData.email,
+            name: username,
+            email: email,
             role: "1",
             phone: phoneNumber
         });
@@ -1704,7 +1716,14 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
             case 'registerUser':
                 try {
                     console.log('Registering user...');
-                    const result = await registerUser(phoneNumber);
+                    const args = JSON.parse(toolCall.function.arguments);
+                    
+                    // Ensure all required fields are provided
+                    if (!args.phoneNumber || !args.email || !args.username || !args.companyName || !args.password) {
+                        throw new Error('Missing required fields for user registration');
+                    }
+            
+                    const result = await registerUser(args.phoneNumber, args.email, args.username, args.companyName, args.password);
                     toolOutputs.push({
                         tool_call_id: toolCall.id,
                         output: JSON.stringify(result),
@@ -2231,11 +2250,32 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "registerUser",
-                description: "Register a new user using their phone number, fetching data from the contacts collection",
+                description: "Register a new user with their details and create a new company",
                 parameters: {
                     type: "object",
-                    properties: {},
-                    required: []
+                    properties: {
+                        phoneNumber: {
+                            type: "string",
+                            description: "The phone number of the user to register"
+                        },
+                        email: {
+                            type: "string",
+                            description: "The email address of the user"
+                        },
+                        password: {
+                            type: "string",
+                            description: "The password for the new user"
+                        },
+                        username: {
+                            type: "string",
+                            description: "The username for the new user"
+                        },
+                        companyName: {
+                            type: "string",
+                            description: "The name of the company to create"
+                        }
+                    },
+                    required: ["phoneNumber", "email", "password", "username", "companyName"]
                 },
             },
         },
