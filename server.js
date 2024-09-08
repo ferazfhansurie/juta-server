@@ -333,7 +333,7 @@ const { handleExtremeFitnessBlast } = require('./blast/extremeFitnessBlast.js');
 const { handleHajoonCreateContact } = require('./blast/hajoonCreateContact.js');
 const { handleJutaCreateContact } = require('./blast/jutaCreateContact.js');
 const { handleNewMessagesVista } = require('./bots/handleMessagesVista.js');
-
+const { handleNewMessagesHappyProjects } = require('./bots/handleMessagesHappyProjects.js');
 
 
 
@@ -421,6 +421,7 @@ const customHandlers = {
   '057': handleNewMessagesTest,
   '059': handleNewMessagesFirstPrint,
   '066': handleNewMessagesMSU,
+  '070': handleNewMessagesHappyProjects,
   '072': handleNewMessagesBillert,
   '074': handleNewMessagesExtremeFitness,
 };
