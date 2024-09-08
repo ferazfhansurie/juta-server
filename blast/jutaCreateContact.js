@@ -42,7 +42,7 @@ async function handleJutaCreateContact(req, res, client) {
     console.log('juta webhook');
     console.log(req.body);
   await fetchConfigFromDatabase();
-   const { first_name, phone,company } = req.body;
+   let { first_name, phone,company } = req.body;
    if (!phone || !first_name) {
        return res.status(400).json({ error: 'Phone number and name are required' });
 }
