@@ -2,6 +2,7 @@ const fetch = require('node-fetch');
 const admin = require('../firebase.js');
 const db = admin.firestore();
 const OpenAI = require('openai');
+const schedule = require('node-schedule');
 let ghlConfig = {};
 const openai = new OpenAI({
     apiKey: process.env.OPENAIKEY,
@@ -126,14 +127,39 @@ https://jutasoftware.co/`;
 
         // Add the data to Firestore
         await db.collection('companies').doc('001').collection('contacts').doc(phoneWithPlus).set(data, {merge: true});   
-
+        scheduleFollowUpMessages(client, chatId, first_name, '001');
         res.json({ success: true});
     } catch (error) {
         console.error(`Error sending message to ${phone}:`, error);
         res.json({ phone, first_name, success: false, error: error.message });
     }
-}
+}async function scheduleFollowUpMessages(client, chatId, contactName, idSubstring) {
+    const followUpTimes = [3 * 60 * 60 * 1000, 24 * 60 * 60 * 1000, 3 * 24 * 60 * 60 * 1000]; // 3 hours, 24 hours, 3 days in milliseconds
+    const followUpMessages = [
+        `hi ${contactName}, just checking in. can i book an appointment for you or do you need any help?`,
+        `hello ${contactName}, i noticed you haven't responded.can i book you an appointment or is there anything you need help with?`,
+        `hi ${contactName}, i'm following up one last time. please let me know if i can book you an appointment or do you need any assistance.`
+    ];
 
+    followUpTimes.forEach((delay, index) => {
+        const jobName = `followup_${chatId}_${index}`;
+        const jobTime = new Date(Date.now() + delay);
+
+        schedule.scheduleJob(jobName, jobTime, async function() {
+            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(chatId.split('@')[0]);
+            const contactDoc = await contactRef.get();
+            
+            if (contactDoc.exists && !contactDoc.data().tags.includes('replied')) {
+                await client.sendMessage(chatId, followUpMessages[index]);
+                console.log(`Sent follow-up message ${index + 1} to ${chatId}`);
+            } else {
+                console.log(`Skipped follow-up message ${index + 1} for ${chatId} as user has replied`);
+            }
+            
+            schedule.cancelJob(jobName);
+        });
+    });
+}
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_name){
     console.log('Adding message to Firebase');
     console.log('idSubstring:', idSubstring);

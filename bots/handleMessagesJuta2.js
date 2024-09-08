@@ -564,6 +564,33 @@ async function getTotalContacts(idSubstring) {
       return 0;
     }
   }
+  function scheduleRepliedTagRemoval(idSubstring, contactId) {
+    const jobName = `remove_replied_${contactId}`;
+    const jobTime = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
+
+    schedule.scheduleJob(jobName, jobTime, async function() {
+        try {
+            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(contactId);
+            const contactDoc = await contactRef.get();
+
+            if (contactDoc.exists) {
+                const tags = contactDoc.data().tags || [];
+                const updatedTags = tags.filter(tag => tag !== 'replied');
+
+                await contactRef.update({
+                    tags: updatedTags
+                });
+
+                console.log(`Removed 'replied' tag for contact ${contactId}`);
+            }
+        } catch (error) {
+            console.error(`Error removing 'replied' tag for contact ${contactId}:`, error);
+        }
+
+        schedule.cancelJob(jobName);
+    });
+}
+
   async function getContactsAddedToday(idSubstring) {
     try {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
@@ -736,7 +763,24 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
             }
         }
 
-        
+            firebaseTags.push('replied');
+            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).update({
+                tags: admin.firestore.FieldValue.arrayUnion('replied')
+            });
+if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
+            // Schedule removal of 'replied' tag after 1 hour
+            scheduleRepliedTagRemoval(idSubstring, extractedNumber);
+}
+  
+
+        // Cancel any existing follow-up jobs for this chat
+        const jobNames = [`followup_${msg.from}_0`, `followup_${msg.from}_1`, `followup_${msg.from}_2`];
+        jobNames.forEach(jobName => {
+            const job = schedule.scheduledJobs[jobName];
+            if (job) {
+                job.cancel();
+            }
+        });
             
         let type = '';
         if(msg.type == 'chat'){
