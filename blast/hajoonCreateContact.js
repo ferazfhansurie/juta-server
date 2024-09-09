@@ -71,8 +71,8 @@ async function handleHajoonCreateContact(req, res, client) {
     console.log(chatId);
     console.log(first_name);
     try {
-        const message = "hello";
-        const msg = await client.sendMessage(chatId, message);
+        const message = `New contact added. ${first_name} - ${phoneWithPlus}`;
+        const msg = await client.sendMessage("", message);
         
         const tags = [location, carModel];
         // Add message to assistant

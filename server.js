@@ -31,9 +31,9 @@ const pipeline = promisify(stream.pipeline)
 const url = require('url');
 const botMap = new Map();
 // Redis connection
-const connection = new Redis(process.env.REDIS_URL || 'redis://127.0.0.1:6379', {
+const connection = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
   maxRetriesPerRequest: null,
-  maxmemoryPolicy:'noeviction'
+  maxmemoryPolicy: 'noeviction'
 });
 
 require('events').EventEmitter.prototype._maxListeners = 70;
