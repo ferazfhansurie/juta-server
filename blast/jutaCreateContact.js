@@ -101,7 +101,7 @@ https://jutasoftware.co/`;
             },
             chat_id: chatId,
             city: null,
-            companyName: company ??null,
+            companyName: company ?? "",
             contactName: first_name,
             unreadCount: 0,
             threadid:  "",
@@ -134,31 +134,50 @@ https://jutasoftware.co/`;
         res.json({ phone, first_name, success: false, error: error.message });
     }
 }async function scheduleFollowUpMessages(client, chatId, contactName, idSubstring) {
-    const followUpTimes = [3 * 60 * 60 * 1000, 24 * 60 * 60 * 1000, 3 * 24 * 60 * 60 * 1000]; // 3 hours, 24 hours, 3 days in milliseconds
+    const followUpDelays = [3 * 60 * 60 * 1000, 24 * 60 * 60 * 1000, 3 * 24 * 60 * 60 * 1000]; // 3 hours, 24 hours, 3 days in milliseconds
     const followUpMessages = [
         `hi ${contactName}, just checking in. can i book an appointment for you or do you need any help?`,
-        `hello ${contactName}, i noticed you haven't responded.can i book you an appointment or is there anything you need help with?`,
+        `hello ${contactName}, i noticed you haven't responded. can i book you an appointment or is there anything you need help with?`,
         `hi ${contactName}, i'm following up one last time. please let me know if i can book you an appointment or do you need any assistance.`
     ];
 
-    followUpTimes.forEach((delay, index) => {
-        const jobName = `followup_${chatId}_${index}`;
-        const jobTime = new Date(Date.now() + delay);
+    const scheduledMessages = followUpDelays.map((delay, index) => {
+        const reminderTime = new Date(Date.now() + delay);
+        const scheduledTimeSeconds = Math.floor(reminderTime.valueOf() / 1000);
 
-        schedule.scheduleJob(jobName, jobTime, async function() {
-            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(chatId.split('@')[0]);
-            const contactDoc = await contactRef.get();
-            
-            if (contactDoc.exists && !contactDoc.data().tags.includes('replied')) {
-                await client.sendMessage(chatId, followUpMessages[index]);
-                console.log(`Sent follow-up message ${index + 1} to ${chatId}`);
-            } else {
-                console.log(`Skipped follow-up message ${index + 1} for ${chatId} as user has replied`);
-            }
-            
-            schedule.cancelJob(jobName);
-        });
+        return {
+            batchQuantity: 1,
+            chatIds: [chatId],
+            companyId: idSubstring,
+            createdAt: admin.firestore.Timestamp.now(),
+            documentUrl: "",
+            fileName: null,
+            mediaUrl: "",
+            message: followUpMessages[index],
+            mimeType: null,
+            repeatInterval: 0,
+            repeatUnit: "days",
+            scheduledTime: {
+                seconds: scheduledTimeSeconds,
+                nanoseconds: 0
+            },
+            status: "scheduled",
+            v2: true,
+            whapiToken: null,
+            tag: 'followup'
+        };
     });
+
+    try {
+        console.log('Sending schedule request for follow-up messages:', JSON.stringify(scheduledMessages));
+        const response = await axios.post(`http://localhost:8443/api/schedule-message/${idSubstring}`, { messages: scheduledMessages });
+        console.log('Follow-up messages scheduled successfully:', response.data);
+    } catch (error) {
+        console.error('Error scheduling follow-up messages:', error.response ? error.response.data : error.message);
+        if (error.response && error.response.data) {
+            console.error('Server response:', error.response.data);
+        }
+    }
 }
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_name){
     console.log('Adding message to Firebase');

@@ -746,6 +746,9 @@ async function createUserInFirebase(userData) {
         updatedMessage.scheduledTime.nanoseconds
       );
   
+      // Set default status to 'scheduled' if not provided
+      updatedMessage.status = updatedMessage.status || 'scheduled';
+  
       // Calculate the number of batches
       const totalContacts = updatedMessage.chatIds.length;
       const batchSize = updatedMessage.batchQuantity || totalContacts;
@@ -776,26 +779,27 @@ async function createUserInFirebase(userData) {
       // Save the main scheduled message document
       await messageRef.set({
         ...updatedMessage,
-        numberOfBatches,
-        status: 'scheduled'
+        numberOfBatches
       });
   
-      // 4. Add the new batches to the queue
-      for (const batch of batches) {
-        const delay = Math.max(batch.scheduledTime.getTime() - Date.now(), 0);
-        await messageQueue.add('send-message-batch', 
-          { 
-            companyId,
-            messageId,
-            batchId: batch.id
-          }, 
-          { 
-            removeOnComplete: false,
-            removeOnFail: false,
-            delay,
-            jobId: batch.id
-          }
-        );
+      // 4. Add the new batches to the queue only if status is 'scheduled'
+      if (updatedMessage.status === 'scheduled') {
+        for (const batch of batches) {
+          const delay = Math.max(batch.scheduledTime.getTime() - Date.now(), 0);
+          await messageQueue.add('send-message-batch', 
+            { 
+              companyId,
+              messageId,
+              batchId: batch.id
+            }, 
+            { 
+              removeOnComplete: false,
+              removeOnFail: false,
+              delay,
+              jobId: batch.id
+            }
+          );
+        }
       }
   
       res.json({ message: 'Scheduled message updated successfully', id: messageId });

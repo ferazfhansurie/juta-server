@@ -565,7 +565,8 @@ async function fetchContactData(phoneNumber, idSubstring) {
 
     return url;
 }
-// Add these new functions to fetch contact statistics
+
+
 async function getTotalContacts(idSubstring) {
     try {
       const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
@@ -576,7 +577,7 @@ async function getTotalContacts(idSubstring) {
       return 0;
     }
   }
-  function scheduleRepliedTagRemoval(idSubstring, contactId) {
+  function scheduleRepliedTagRemoval(idSubstring, contactId, chatId) {
     const jobName = `remove_replied_${contactId}`;
     const jobTime = new Date(Date.now() + 60 * 60 * 1000); // 1 hour from now
 
@@ -595,6 +596,8 @@ async function getTotalContacts(idSubstring) {
 
                 console.log(`Removed 'replied' tag for contact ${contactId}`);
             }
+
+            await rescheduleFollowUpMessages(idSubstring, chatId);
         } catch (error) {
             console.error(`Error removing 'replied' tag for contact ${contactId}:`, error);
         }
@@ -682,6 +685,93 @@ async function getTotalContacts(idSubstring) {
         console.error('Error checking or scheduling daily report:', error);
     }
 }
+
+async function changeFollowUpStatus(idSubstring, chatId) {
+    try {
+        // 1. Fetch all scheduled follow-up messages for this chat
+        const messageGroupsRef = db.collection('companies').doc(idSubstring)
+            .collection('scheduledMessageGroups');
+        
+        const querySnapshot = await messageGroupsRef
+            .where('chatIds', 'array-contains', chatId)
+            .where('tag', '==', 'followup')
+            .where('status', '==', 'scheduled')
+            .get();
+
+        if (querySnapshot.empty) {
+            console.log('No scheduled follow-up messages found for this chat.');
+            return;
+        }
+
+        // 2. Update the status of all scheduled messages to 'delayed'
+        for (const doc of querySnapshot.docs) {
+            const messageGroupId = doc.id;
+            const messageData = doc.data();
+
+            // Update the status to 'delayed'
+            await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageGroupId}`, {
+                ...messageData,
+                status: 'delayed'
+            });
+        }
+
+        console.log(`Updated follow-up messages status to delayed for chat ${chatId}`);
+
+        
+
+    } catch (error) {
+        console.error('Error handling customer reply:', error);
+    }
+}
+
+async function rescheduleFollowUpMessages(idSubstring, chatId) {
+    try {
+        const messageGroupsRef = db.collection('companies').doc(idSubstring)
+            .collection('scheduledMessageGroups');
+        
+        const querySnapshot = await messageGroupsRef
+            .where('chatIds', 'array-contains', chatId)
+            .where('tag', '==', 'followup')
+            .where('status', '==', 'delayed')
+            .get();
+
+        if (querySnapshot.empty) {
+            console.log('No delayed follow-up messages found for rescheduling.');
+            return;
+        }
+
+        const now = Date.now();
+        for (const doc of querySnapshot.docs) {
+            const messageGroupId = doc.id;
+            const messageData = doc.data();
+
+            // Calculate new scheduled times
+            const updatedMessages = messageData.messages.map((msg, index) => {
+                const newScheduledTime = new Date(now + (index + 1) * 24 * 60 * 60 * 1000); // Schedule for next days
+                return {
+                    ...msg,
+                    scheduledTime: {
+                        seconds: Math.floor(newScheduledTime.getTime() / 1000),
+                        nanoseconds: 0
+                    }
+                };
+            });
+
+            // Update the message group with new scheduled times and status
+            await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageGroupId}`, {
+                ...messageData,
+                messages: updatedMessages,
+                status: 'scheduled'
+            });
+        }
+
+        console.log(`Rescheduled follow-up messages for chat ${chatId}`);
+
+    } catch (error) {
+        console.error('Error rescheduling follow-up messages:', error);
+    }
+}
+
 async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
@@ -774,27 +864,18 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
                 firebaseTags = ['stop bot']
             }
         }
-if(!firebaseTags.includes('replied')){
-            firebaseTags.push('replied');
-            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).update({
-                tags: admin.firestore.FieldValue.arrayUnion('replied')
-            });
+        if(!firebaseTags.includes('replied')){
+            await addtagbookedFirebase(idSubstring, extractedNumber, 'replied');
         }
-if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
-            // Schedule removal of 'replied' tag after 1 hour
-            scheduleRepliedTagRemoval(idSubstring, extractedNumber);
-}
+        if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
+                    // Schedule removal of 'replied' tag after 1 hour
+            scheduleRepliedTagRemoval(idSubstring, extractedNumber, msg.from);
+        }
   
 
         // Cancel any existing follow-up jobs for this chat
-        const jobNames = [`followup_${msg.from}_0`, `followup_${msg.from}_1`, `followup_${msg.from}_2`];
-        jobNames.forEach(jobName => {
-            const job = schedule.scheduledJobs[jobName];
-            if (job) {
-                job.cancel();
-            }
-        });
-            
+        await changeFollowUpStatus(msg.from);
+
         let type = '';
         if(msg.type == 'chat'){
             type ='text'

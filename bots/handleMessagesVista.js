@@ -648,6 +648,9 @@ async function handleNewMessagesVista(client, msg, botName, phoneIndex) {
 
     const idSubstring = botName;
     try {
+        if((msg.from).includes('status')){
+            return;
+        }
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring);
 
@@ -765,7 +768,9 @@ async function handleNewMessagesVista(client, msg, botName, phoneIndex) {
             audioData = media.data;
             console.log(msg);
         }
-         
+        if(extractedNumber.includes('status')){
+            return;
+        }
         const data = {
             additionalEmails: [],
             address1: null,
