@@ -249,7 +249,12 @@ async function addNotificationToUser(companyId, message, contactName) {
      // Filter out undefined values from the message object
      const cleanMessage2 = Object.fromEntries(
         Object.entries(message).filter(([_, value]) => value !== undefined)
-    );
+    );  
+        let text;
+        if(cleanMessage2.hasMedia){
+            text = "Media"
+        }
+        text = cleanMessage2.text?.body || 'New message received';
         // Prepare the FCM message
         const fcmMessage = {
             notification: {
@@ -690,7 +695,7 @@ async function changeFollowUpStatus(idSubstring, chatId) {
     try {
         // 1. Fetch all scheduled follow-up messages for this chat
         const messageGroupsRef = db.collection('companies').doc(idSubstring)
-            .collection('scheduledMessageGroups');
+            .collection('scheduledMessages');
         
         const querySnapshot = await messageGroupsRef
             .where('chatIds', 'array-contains', chatId)
@@ -727,7 +732,7 @@ async function changeFollowUpStatus(idSubstring, chatId) {
 async function rescheduleFollowUpMessages(idSubstring, chatId) {
     try {
         const messageGroupsRef = db.collection('companies').doc(idSubstring)
-            .collection('scheduledMessageGroups');
+            .collection('scheduledMessages');
         
         const querySnapshot = await messageGroupsRef
             .where('chatIds', 'array-contains', chatId)
@@ -2225,7 +2230,7 @@ async function fetchRecentChatHistory(threadId) {
 
 async function analyzeChatsWithAI(chatHistory) {
     const prompt = `Analyze the following chat history and determine the lead's interest level. 
-                    Consider factors such as engagement, questions asked, and expressions of interest. Finally, categorize their interest level into three categories: high interest, moderate interest, or low interest.
+                    Consider factors such as engagement, questions asked, and expressions of interest. Finally, your final answer should be a string that categorizes their interest level into three categories: high interest, moderate interest, or low interest.
                     Chat history: ${JSON.stringify(chatHistory)}`;
 
     const response = await openai.chat.completions.create({
