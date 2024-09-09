@@ -2902,11 +2902,24 @@ async function initializeBot(botName, phoneCount = 1) {
           });
 
           client.on('disconnected', async (reason) => {
-              console.log(`${botName} Phone ${i + 1} - DISCONNECTED:`, reason);
-              clients[i] = { ...clients[i], status: 'disconnected', qrCode: null };
-              botMap.set(botName, clients);
-              broadcastAuthStatus(botName, 'disconnected', null, phoneCount > 1 ? i : undefined);
+            console.log(`${botName} Phone ${i + 1} - DISCONNECTED:`, reason);
+            clients[i] = { ...clients[i], status: 'disconnected', qrCode: null };
+            botMap.set(botName, clients);
+            broadcastAuthStatus(botName, 'disconnected', null, phoneCount > 1 ? i : undefined);
+        
+            // Reinitialize the client
+            try {
+                console.log(`${botName} Phone ${i + 1} - Reinitializing...`);
+                await client.destroy();
+                await client.initialize();
+            } catch (error) {
+                console.error(`${botName} Phone ${i + 1} - Error reinitializing:`, error);
+                clients[i] = { ...clients[i], status: 'error', qrCode: null, error: error.message };
+                botMap.set(botName, clients);
+                broadcastAuthStatus(botName, 'error', null, phoneCount > 1 ? i : undefined);
+            }
           });
+        
 
           client.on('remote_session_saved', () => {
               console.log(`${botName} Phone ${i + 1} - REMOTE SESSION SAVED`);
