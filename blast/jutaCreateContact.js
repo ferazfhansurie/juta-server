@@ -134,7 +134,7 @@ https://jutasoftware.co/`;
         res.json({ phone, first_name, success: false, error: error.message });
     }
 }async function scheduleFollowUpMessages(client, chatId, contactName, idSubstring) {
-    const followUpDelays = [3 * 60 * 60 * 1000, 24 * 60 * 60 * 1000, 3 * 24 * 60 * 60 * 1000]; // 3 hours, 24 hours, 3 days in milliseconds
+    const followUpDelays = [1 * 60 * 1000, 2 * 60 * 1000, 3 * 60 * 1000]; // 1 minute, 2 minutes, 3 minutes in milliseconds
     const followUpMessages = [
         `hi ${contactName}, just checking in. can i book an appointment for you or do you need any help?`,
         `hello ${contactName}, i noticed you haven't responded. can i book you an appointment or is there anything you need help with?`,
