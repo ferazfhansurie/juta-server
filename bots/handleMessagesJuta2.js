@@ -253,7 +253,7 @@ async function addNotificationToUser(companyId, message, contactName) {
         // Prepare the FCM message
         const fcmMessage = {
             notification: {
-                title: `New message from ${contactName}`,
+                title: `${contactName}`,
                 body: cleanMessage2.text?.body || 'New message received'
             },
             data: {
