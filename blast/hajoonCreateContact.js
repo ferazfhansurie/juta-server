@@ -94,7 +94,7 @@ async function handleHajoonCreateContact(req, res, client) {
                 name: first_name,
                 not_spam: true,
                 tags: tags,
-                timestamp: chat.timestamp || Date.now(),
+                timestamp: Date.now(),
                 type: 'contact',
                 unreadCount: 0,
                 last_message: {
@@ -102,7 +102,7 @@ async function handleHajoonCreateContact(req, res, client) {
                     from: msg.from ?? "",
                     from_me: msg.fromMe ?? false,
                     id: msg.id._serialized ?? "",
-                    source: chat.deviceType ?? "",
+                    source: "",
                     status: "delivered",
                     text: {
                         body: message ?? ""
@@ -123,7 +123,7 @@ async function handleHajoonCreateContact(req, res, client) {
                 from: msg.from ?? "",
                 from_me: msg.fromMe ?? false,
                 id: msg.id._serialized ?? "",
-                source: chat.deviceType ?? "",
+                source: "",
                 status: "delivered",
                 text: {
                     body: message ?? ""
