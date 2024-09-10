@@ -870,7 +870,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
             }
         }
         if(!firebaseTags.includes('replied')){
-            await addtagbookedFirebase(idSubstring, extractedNumber, 'replied');
+            await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
         }
         if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
                     // Schedule removal of 'replied' tag after 1 hour

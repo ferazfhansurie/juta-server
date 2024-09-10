@@ -9,10 +9,12 @@
 const OpenAI = require('openai');
 const axios = require('axios').default;
 const { Client } = require('whatsapp-web.js');
+const { MessageMedia } = require('whatsapp-web.js');
 
 
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
+const { firebase } = require('googleapis/build/src/apis/firebase/index.js');
 const db = admin.firestore();
 
 let ghlConfig = {};
@@ -63,6 +65,131 @@ async function addNotificationToUser(companyId, message) {
     }
 }
 
+async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSubstring) {
+    // Convert to seconds and ensure it's an integer
+    const scheduledTimeSeconds = Math.floor(startDateTime.getTime() / 1000);
+  
+    console.log('Scheduling reminder for:', moment(startDateTime).format());
+    console.log('Scheduled time in seconds:', scheduledTimeSeconds);
+    
+    const scheduledMessage = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: idSubstring,
+        createdAt: admin.firestore.Timestamp.now(),
+        documentUrl: "",
+        fileName: null,
+        mediaUrl: "",
+        message: eventSummary,
+        mimeType: null,
+        repeatInterval: 0,
+        repeatUnit: "days",
+        scheduledTime: {
+            seconds: scheduledTimeSeconds,
+            nanoseconds: 0
+        },
+        status: "scheduled",
+        v2: true,
+        whapiToken: null
+    };
+  
+    try {
+      console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
+      const response = await axios.post(`http://localhost:8443/api/schedule-message/${idSubstring}`, scheduledMessage);
+      console.log('Reminder scheduled successfully:', response.data);
+    } catch (error) {
+      console.error('Error scheduling reminder:', error.response ? error.response.data : error.message);
+      if (error.response && error.response.data) {
+        console.error('Server response:', error.response.data);
+      }
+    }
+  }
+
+  async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, idSubstring) {
+    const scheduledTimeSeconds = Math.floor(scheduledTime.getTime() / 1000);
+    
+    const scheduledMessage = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: idSubstring,
+        createdAt: admin.firestore.Timestamp.now(),
+        documentUrl: "",
+        fileName: null,
+        mediaUrl: imageUrl,
+        message: caption,
+        mimeType: "image/jpeg", // Adjust if needed
+        repeatInterval: 0,
+        repeatUnit: "days",
+        scheduledTime: {
+            seconds: scheduledTimeSeconds,
+            nanoseconds: 0
+        },
+        status: "scheduled",
+        v2: true,
+        whapiToken: null
+    };
+
+    try {
+        const response = await axios.post(`http://localhost:8443/api/schedule-message/${idSubstring}`, scheduledMessage);
+        console.log('Image message scheduled successfully:', response.data);
+    } catch (error) {
+        console.error('Error scheduling image message:', error.response ? error.response.data : error.message);
+    }
+}
+
+
+  async function scheduleFollowUpMessages(chatId, idSubstring, customerName) {
+    const dailyMessages = [
+        [
+            { type: 'image', url: 'https://example.com/your-image.jpg', caption: "Good afternoon!" },
+            "FREE Site Inspection Roofing, Slab Waterproofing with Senior Chinese Shifu & get a Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
+            "Hi 😊 Snowy here from BINA Pasifik S/B. We specialized in Roofing & Waterproofing. Thank you for connecting us through Facebook.",
+            "May I know which area are you from? How should I address you? 😊",
+            "Any issues with your roof? Leaking while raining? Any photo?",
+            "Is your house single or double-story? Is your roof roof tiles, metal roof, or concrete slab?"
+        ],
+        [
+            { type: 'image', url: 'https://example.com/your-image.jpg', caption: "Good afternoon!" },
+            "Hi, FREE Site Inspection Roofing and slab Waterproofing with Senior Chinese Shifu & get Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
+            "May I know the condition of your roof? Is your roof leaking or do you want to refurbish/repaint your roof?"
+        ],
+        [
+            "That day you pm me about the water leakage problem",
+            "Is there a leak in your home or shop??🧐"
+        ],
+        [
+            "Good day,",
+            "We'd like to schedule a 🆓 FREE inspection at your place. We're available on Tuesday, Wednesday, Saturday, or Sunday.",
+            "Which day works best for you???🤔"
+        ],
+        [
+            "Hi",
+            "You may contact +60193668776",
+            "My manager will personally address your technical questions about the roof.",
+        ],
+        [
+            "Morning",
+            "Have you contacted my manager??",
+            "You can contact him directly by calling +60193668776 ☺️",
+        ]
+    ];
+
+    for (let day = 0; day < 6; day++) {
+        for (let i = 0; i < 6; i++) {
+            const scheduledTime = moment().add(day + 1, 'days').startOf('day').add(16 + i, 'hours');
+            const message = dailyMessages[day][i];
+            
+            if (typeof message === 'object' && message.type === 'image') {
+                await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring);
+            } else {
+                await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring);
+            }
+        }
+    }
+    const scheduledTime = moment().add(7, 'days').startOf('day').add(16, 'hours');
+    const staffReminder = `Day 6 last follow up ${customerName}, ${chatId.split('@')[0]}`
+    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), chatId, idSubstring);
+}
 
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName){
     console.log('Adding message to Firebase');
@@ -234,6 +361,38 @@ async function getChatMetadata(chatId,) {
     }
 }
 
+async function removeScheduledMessages(chatId, idSubstring) {
+    try {
+        const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
+        const snapshot = await scheduledMessagesRef.where('chatIds', 'array-contains', chatId).get();
+        
+        for (const doc of snapshot.docs) {
+            const messageId = doc.id;
+            const messageData = doc.data();
+            
+            // Prepare the updated message data
+            const updatedMessage = {
+                ...messageData,
+                status: 'completed',
+                chatIds: messageData.chatIds.filter(id => id !== chatId)
+            };
+            
+            // Call the API to update the message
+            try {
+                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
+                console.log(`Updated scheduled message ${messageId} for chatId: ${chatId}`);
+            } catch (error) {
+                console.error(`Error updating scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
+            }
+        }
+        
+        console.log(`Updated ${snapshot.size} scheduled messages for chatId: ${chatId}`);
+    } catch (error) {
+        console.error('Error removing scheduled messages:', error);
+    }
+}
+
+
 const messageQueue = new Map();
 const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
@@ -303,12 +462,8 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
 
                 contactID = extractedNumber;
                 contactName = contact.pushname || contact.name || extractedNumber;
+                await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
                 
-                const thread = await createThread();
-                threadID = thread.id;
-                console.log(threadID);
-                await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                console.log('sent new contact to create new contact');
             }   
             let firebaseTags = ['']
             if (contactData) {
@@ -316,6 +471,12 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
                 // Remove 'snooze' tag if present
                 if(firebaseTags.includes('snooze')){
                     firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+                }
+                if(!firebaseTags.includes('replied') && firebaseTags.includes('5 Days Follow Up')){
+                    await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
+                }else if(!firebaseTags.includes('replied')){
+                    await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
+                    await removeScheduledMessages(msg.from, idSubstring);
                 }
             } else {
                 if ((sender.to).includes('@g.us')) {
@@ -646,19 +807,103 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
     }
 }
 
+async function addtagbookedFirebase(contactID, tag, idSubstring) {
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
+    try {
+        // Get the current document
+        const doc = await contactRef.get();
+        let currentTags = [];
+
+        if (doc.exists) {
+            currentTags = doc.data().tags || [];
+        }
+
+        // Add the new tag if it doesn't already exist
+        if (!currentTags.includes(tag)) {
+            currentTags.push(tag);
+
+            // Update the document with the new tags
+            await contactRef.set({
+                tags: currentTags
+            }, { merge: true });
+
+            console.log(`Tag "${tag}" added to contact ${contactID} in Firebase`);
+        } else {
+            console.log(`Tag "${tag}" already exists for contact ${contactID} in Firebase`);
+        }
+    } catch (error) {
+        console.error('Error adding tag to Firebase:', error);
+    }
+}
+
+async function addAppointmentToSpreadsheet(appointmentInfo) {
+    const spreadsheetId = '1sQRyU0nTuUSnVWOJ44SAyWJXC0a_PbubttpRR_l0Uco';
+    const sheetName = 'Appointments';
+    const range = `${sheetName}!A:R`; // Expanded range to include all columns
+
+    const auth = new google.auth.GoogleAuth({
+        keyFile: './service_account.json',
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const values = [
+        [
+            '', // No. (auto-increment in spreadsheet)
+            appointmentInfo.date,
+            appointmentInfo.time,
+            appointmentInfo.clientPhone,
+            appointmentInfo.clientName,
+            '', // Assuming the client is always the owner
+            appointmentInfo.siteAddress,
+            '', // Waze link (can be added later if available)
+            '', // Email (can be added later if available)
+            appointmentInfo.issue || '', // If you have this information
+            '', // WhatsApp group (can be filled later)
+            '', // 9x9 Pictures
+            '', // Hand written quotation
+            '', // Draft quotation photos
+            '', // Typed draft quotation
+            '', // sent
+            '', // detailed quotation
+            '', // sent
+            ''  // payment
+        ]
+    ];
+
+    try {
+        const response = await sheets.spreadsheets.values.append({
+            spreadsheetId,
+            range,
+            valueInputOption: 'USER_ENTERED',
+            insertDataOption: 'INSERT_ROWS',
+            resource: { values },
+        });
+
+        console.log(`${response.data.updates.updatedCells} cells appended.`);
+    } catch (error) {
+        console.error('Error adding appointment to spreadsheet:', error);
+    }
+}
+
 async function handleConfirmedAppointment(client, msg) {
     // Extract information from the message
     const appointmentInfo = extractAppointmentInfo(msg.body);
 
+    await addAppointmentToSpreadsheet(appointmentInfo);
+
     // Create a new group
-    const groupTitle = appointmentInfo.clientPhone+" "+`${appointmentInfo.clientPhone}`;
+    const groupTitle = `${appointmentInfo.clientPhone}  ${appointmentInfo.clientPhone}`;
     const participants = [(appointmentInfo.clientPhone+'@c.us'), '60186688766@c.us', '60193668776@c.us'];
 
     try {
         const result = await client.createGroup(groupTitle, participants);
         console.log('Group created:', result);
 
-        await addContactToFirebasea(result.gid._serialized, groupTitle, '002');
+        await addContactToFirebase(result.gid._serialized, groupTitle, '002');
 
         // Send appointment details to the new group
         // Send the initial message
@@ -691,12 +936,12 @@ async function handleConfirmedAppointment(client, msg) {
         const message = await client.sendMessage(result.gid._serialized, initialMessage)
         await addMessagetoFirebase(message, '002',(result.gid._serialized).split('@')[0], groupTitle);
         
-        const documentUrl = '';
+        const documentUrl = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/kelven.jpg?alt=media&token=baef675f-43e3-4f56-b2ba-19db0a6ddbf5';
         const media = await MessageMedia.fromUrl(documentUrl);
         const documentMessage = await client.sendMessage(result.gid._serialized, media);
         await addMessagetoFirebase(documentMessage, '002',(result.gid._serialized).split('@')[0], groupTitle);
 
-        const documentUrl2 = '';
+        const documentUrl2 = `https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Your%20Roofing's%20Doctor.pdf?alt=media&token=7c72f8e4-72cd-4da1-bb3d-387ffeb8ab91`;
         const media2 = await MessageMedia.fromUrl(documentUrl2);
         const documentMessage2 = await client.sendMessage(result.gid._serialized, media2);
         await addMessagetoFirebase(documentMessage2, '002',(result.gid._serialized).split('@')[0], groupTitle);
@@ -709,7 +954,7 @@ async function handleConfirmedAppointment(client, msg) {
     }
 }
 
-async function addContactToFirebasea(groupId, groupTitle, idSubstring) {
+async function addContactToFirebase(groupId, groupTitle, idSubstring) {
     const extractedNumber = groupId.split('@')[0];
     const data = {
         additionalEmails: [],
