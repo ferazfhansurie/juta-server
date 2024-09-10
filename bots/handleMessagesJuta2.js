@@ -874,12 +874,12 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
         }
         if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
                     // Schedule removal of 'replied' tag after 1 hour
-            scheduleRepliedTagRemoval(idSubstring, extractedNumber, msg.from);
+            // scheduleRepliedTagRemoval(idSubstring, extractedNumber, msg.from);
         }
   
 
         // Cancel any existing follow-up jobs for this chat
-        await changeFollowUpStatus(msg.from);
+        // await changeFollowUpStatus(msg.from);
 
         let type = '';
         if(msg.type == 'chat'){

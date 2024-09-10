@@ -658,12 +658,118 @@ async function handleConfirmedAppointment(client, msg) {
         const result = await client.createGroup(groupTitle, participants);
         console.log('Group created:', result);
 
-        // Send appointment details to the new group
-        const appointmentDetails = formatAppointmentDetails(appointmentInfo);
-        await client.sendMessage(result.gid._serialized, appointmentDetails);
+        await addContactToFirebasea(result.gid._serialized, groupTitle, '002');
 
+        // Send appointment details to the new group
+        // Send the initial message
+        const initialMessage = `Hi 👋, Im Mr Kelvern(wa.me/601111393111)
+            from BINA Pasifik Sdn Bhd (Office No: 03-2770 9111)
+            And I've conducted the site inspection at your house that day.
+            This group has been created specifically to manage your house roofing case.
+
+            Below is our BINA group's department personnel:
+
+            1. Operation/ Job Arrangement (Ms Sheue Lih - 60186688766)
+            2. Manager (Mr Lim - 60193868776)
+
+            The functions of this group are to provide:
+            * Quotations, Invoices, Receipts, Warranty Certificate & Job arrangement
+
+            * Send pictures of job updates from time to time
+
+            * Or if you have any confirmation/bank slip or feedbacks/complaints you may speak out in this group also
+
+            ⬇Our Facebook page⬇
+            https://www.facebook.com/BINApasifik
+
+            ⬇Our Website⬇
+            www.BINApasifik.com
+
+            We are committed to providing you with our very best services 😃
+
+            Thank you.`;
+        const message = await client.sendMessage(result.gid._serialized, initialMessage)
+        await addMessagetoFirebase(message, '002',(result.gid._serialized).split('@')[0], groupTitle);
+        
+        const documentUrl = '';
+        const media = await MessageMedia.fromUrl(documentUrl);
+        const documentMessage = await client.sendMessage(result.gid._serialized, media);
+        await addMessagetoFirebase(documentMessage, '002',(result.gid._serialized).split('@')[0], groupTitle);
+
+        const documentUrl2 = '';
+        const media2 = await MessageMedia.fromUrl(documentUrl2);
+        const documentMessage2 = await client.sendMessage(result.gid._serialized, media2);
+        await addMessagetoFirebase(documentMessage2, '002',(result.gid._serialized).split('@')[0], groupTitle);
+
+        const finalMessage = `Your detail quotation will be prepared and sent out to this group in 3 to 5 working days ya 👌`;
+        const message2 = await client.sendMessage(result.gid._serialized, finalMessage)
+        await addMessagetoFirebase(message2, '002',(result.gid._serialized).split('@')[0], groupTitle);
     } catch (error) {
         console.error('Error creating group:', error);
+    }
+}
+
+async function addContactToFirebasea(groupId, groupTitle, idSubstring) {
+    const extractedNumber = groupId.split('@')[0];
+    const data = {
+        additionalEmails: [],
+        address1: null,
+        assignedTo: null,
+        businessId: null,
+        phone: extractedNumber,
+        tags: [''],
+        chat: {
+            contact_id: extractedNumber,
+            id: groupId,
+            name: groupTitle,
+            not_spam: true,
+            tags: [''],
+            timestamp: Date.now(),
+            type: 'group',
+            unreadCount: 0,
+            last_message: {
+                chat_id: groupId,
+                from: groupId,
+                from_me: true,
+                id: "",
+                source: "",
+                status: "",
+                text: {
+                    body: ""
+                },
+                timestamp: Date.now(),
+                type: 'text',
+            },
+        },
+        chat_id: groupId,
+        city: null,
+        companyName: null,
+        contactName: groupTitle,
+        unreadCount: 0,
+        threadid: "",
+        phoneIndex: 0,
+        last_message: {
+            chat_id: groupId,
+            from: groupId,
+            from_me: true,
+            id: Date.now().toString(),
+            source: "",
+            status: "",
+            text: {
+                body: ""
+            },
+            timestamp: Date.now(),
+            type: 'text',
+        },
+        createdAt: admin.firestore.Timestamp.now(),
+        profilePicUrl: "",
+    };
+
+    try {
+        await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data);
+        console.log('Group added to Firebase:', groupId);
+    } catch (error) {
+        console.error('Error adding group to Firebase:', error);
     }
 }
 
@@ -693,23 +799,6 @@ function extractAppointmentInfo(messageBody) {
     return info;
 }
 
-
-function formatAppointmentDetails(info) {
-    return `
-Appointment Confirmed:
-Date: ${info.date}
-Time: ${info.time}
-Client: ${info.clientName}
-Client Contact: ${info.clientPhone}
-Site Address: ${info.siteAddress}
-
-Inspector: ${info.inspectorName}
-Inspector Contact: ${info.inspectorPhone}
-Vehicle No: ${info.vehiclePlate}
-
-Please be ready at the specified time and location.
-    `.trim();
-}
 
 async function removeTagBookedGHL(contactID, tag) {
     const options = {
