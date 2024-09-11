@@ -961,68 +961,65 @@ async function sendScheduledMessage(message) {
   console.log('Sending scheduled message:', message);
   
   if(message.v2 == true){
-    // Example: Sending an image message
-    if (message.mediaUrl != '') {
-      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/image/${message.companyId}/${message.chatId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: message.mediaUrl, caption: message.message })
-      });
-    }else if (message.documentUrl != '') {
-      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/document/${message.companyId}/${message.chatId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          documentUrl: message.documentUrl, 
-          filename: message.fileName, 
-          caption: message.message 
-        })
-      });
-    }else if (message.message) {
-      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${message.companyId}/${message.chatId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: message.message })
-      });
+    for (const messageItem of message.messages) {
+      const chatId = messageItem.chatId;
+      const individualMessage = messageItem.message;
+      
+      if (message.mediaUrl != '') {
+        await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/image/${message.companyId}/${chatId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageUrl: message.mediaUrl, caption: individualMessage })
+        });
+      } else if (message.documentUrl != '') {
+        await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/document/${message.companyId}/${chatId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            documentUrl: message.documentUrl, 
+            filename: message.fileName, 
+            caption: individualMessage 
+          })
+        });
+      } else if (individualMessage) {
+        await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${message.companyId}/${chatId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: individualMessage })
+        });
+      }
     }
-    // Example: Sending a document message
-    
-    // Example: Sending a text message
-    
-
-    
-  }else{
-    //Example: Sending an image message
-    if (message.mediaUrl != '') {
-      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${message.whapiToken}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatId: message.chatId,imageUrl: message.mediaUrl, caption: message.message })
-      });
-    }else if (message.documentUrl != '') {
-      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${message.whapiToken}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          chatId: message.chatId,
-          documentUrl: message.documentUrl, 
-          filename: message.fileName, 
-          caption: message.message 
-        })
-      });
-    }else if (message.message) {
-      await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${message.chatId}/${message.whapiToken}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: message.message })
-      });
+  } else {
+    for (const messageItem of message.messages) {
+      const chatId = messageItem.chatId;
+      const individualMessage = messageItem.message;
+      
+      if (message.mediaUrl != '') {
+        await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/image/${message.whapiToken}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chatId: chatId, imageUrl: message.mediaUrl, caption: individualMessage })
+        });
+      } else if (message.documentUrl != '') {
+        await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/document/${message.whapiToken}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            chatId: chatId,
+            documentUrl: message.documentUrl, 
+            filename: message.fileName, 
+            caption: individualMessage 
+          })
+        });
+      } else if (individualMessage) {
+        await fetch(`https://mighty-dane-newly.ngrok-free.app/api/messages/text/${chatId}/${message.whapiToken}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: individualMessage })
+        });
+      }
     }
-    
-    
-
-    
   }
-  
 }
 
 // Modify the scheduleAllMessages function
