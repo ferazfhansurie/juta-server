@@ -334,6 +334,7 @@ const { handleHajoonCreateContact } = require('./blast/hajoonCreateContact.js');
 const { handleJutaCreateContact } = require('./blast/jutaCreateContact.js');
 const { handleNewMessagesVista } = require('./bots/handleMessagesVista.js');
 const { handleNewMessagesHappyProjects } = require('./bots/handleMessagesHappyProjects.js');
+const { handleNewMessagesBINA } = require('./bots/handleMessagesBINA.js');
 
 
 
@@ -414,6 +415,7 @@ const { off } = require('process');
 //custom bots
 const customHandlers = {
   '001': handleNewMessagesJuta2,
+  '002': handleNewMessagesBINA,
   '003': handleNewMessagesVista,
   '020': handleNewMessagesCNB,
   '042': handleNewMessagesZahinTravel,
