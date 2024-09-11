@@ -659,9 +659,9 @@ async function createUserInFirebase(userData) {
       const messageId = uuidv4();
   
       // Calculate the number of batches
-      const totalContacts = scheduledMessage.chatIds.length;
-      const batchSize = scheduledMessage.batchQuantity || totalContacts;
-      const numberOfBatches = Math.ceil(totalContacts / batchSize);
+      const totalMessages = scheduledMessage.messages.length;
+      const batchSize = scheduledMessage.batchQuantity || totalMessages;
+      const numberOfBatches = Math.ceil(totalMessages / batchSize);
   
       // Create batches and save them to Firebase
       const batchesRef = db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).collection('batches');
@@ -669,18 +669,21 @@ async function createUserInFirebase(userData) {
   
       for (let batchIndex = 0; batchIndex < numberOfBatches; batchIndex++) {
         const startIndex = batchIndex * batchSize;
-        const endIndex = Math.min((batchIndex + 1) * batchSize, totalContacts);
-        const batchChatIds = scheduledMessage.chatIds.slice(startIndex, endIndex);
+        const endIndex = Math.min((batchIndex + 1) * batchSize, totalMessages);
+        const batchMessages = scheduledMessage.messages.slice(startIndex, endIndex);
   
         const batchDelay = batchIndex * scheduledMessage.repeatInterval * getMillisecondsForUnit(scheduledMessage.repeatUnit);
         const batchScheduledTime = new Date(scheduledMessage.scheduledTime.toDate().getTime() + batchDelay);
   
         const batchData = {
           ...scheduledMessage,
-          chatIds: batchChatIds,
+          messages: batchMessages,
           batchIndex,
           batchScheduledTime: admin.firestore.Timestamp.fromDate(batchScheduledTime)
         };
+  
+        // Remove the original 'messages' array from the main scheduledMessage object
+        delete batchData.chatIds;
   
         const batchId = `${messageId}_batch_${batchIndex}`;
         await batchesRef.doc(batchId).set(batchData);
@@ -688,11 +691,13 @@ async function createUserInFirebase(userData) {
       }
   
       // Save the main scheduled message document
-      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set({
+      const mainMessageData = {
         ...scheduledMessage,
         numberOfBatches,
         status: 'scheduled'
-      });
+      };
+      delete mainMessageData.messages; // Remove the messages array from the main document
+      await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(mainMessageData);
   
       // Schedule all batches in the queue
       for (const batch of batches) {
@@ -752,26 +757,29 @@ async function createUserInFirebase(userData) {
       updatedMessage.status = updatedMessage.status || 'scheduled';
   
       // Calculate the number of batches
-      const totalContacts = updatedMessage.chatIds.length;
-      const batchSize = updatedMessage.batchQuantity || totalContacts;
-      const numberOfBatches = Math.ceil(totalContacts / batchSize);
+      const totalMessages = updatedMessage.messages.length;
+      const batchSize = updatedMessage.batchQuantity || totalMessages;
+      const numberOfBatches = Math.ceil(totalMessages / batchSize);
   
       // Create batches and save them to Firebase
       const batches = [];
       for (let batchIndex = 0; batchIndex < numberOfBatches; batchIndex++) {
         const startIndex = batchIndex * batchSize;
-        const endIndex = Math.min((batchIndex + 1) * batchSize, totalContacts);
-        const batchChatIds = updatedMessage.chatIds.slice(startIndex, endIndex);
+        const endIndex = Math.min((batchIndex + 1) * batchSize, totalMessages);
+        const batchMessages = updatedMessage.messages.slice(startIndex, endIndex);
   
         const batchDelay = batchIndex * updatedMessage.repeatInterval * getMillisecondsForUnit(updatedMessage.repeatUnit);
         const batchScheduledTime = new Date(updatedMessage.scheduledTime.toDate().getTime() + batchDelay);
   
         const batchData = {
           ...updatedMessage,
-          chatIds: batchChatIds,
+          messages: batchMessages,
           batchIndex,
           batchScheduledTime: admin.firestore.Timestamp.fromDate(batchScheduledTime)
         };
+  
+        // Remove the original 'messages' array from the batch data
+        delete batchData.chatIds;
   
         const batchId = `${messageId}_batch_${batchIndex}`;
         await batchesRef.doc(batchId).set(batchData);
@@ -779,10 +787,12 @@ async function createUserInFirebase(userData) {
       }
   
       // Save the main scheduled message document
-      await messageRef.set({
+      const mainMessageData = {
         ...updatedMessage,
         numberOfBatches
-      });
+      };
+      delete mainMessageData.messages; // Remove the messages array from the main document
+      await messageRef.set(mainMessageData);
   
       // 4. Add the new batches to the queue only if status is 'scheduled'
       if (updatedMessage.status === 'scheduled') {
