@@ -921,9 +921,8 @@ const worker = new Worker('scheduled-messages', async job => {
       const batchData = batchSnapshot.data();
 
       // Send messages for this batch
-      for (const chatId of batchData.chatIds) {
-        await sendScheduledMessage({ ...batchData, chatId });
-      }
+      await sendScheduledMessage(batchData);
+
       
       console.log(`Batch ${batchId} sent successfully`);
 
