@@ -1535,21 +1535,21 @@ async function handleConfirmedAppointment(client, msg) {
         
         \n\nThank you.`;
         const message = await client.sendMessage(result.gid._serialized, initialMessage)
-        await addMessagetoFirebase(message, '001',(result.gid._serialized).split('@')[0], groupTitle);
+        await addMessagetoFirebase(message, '001','+'+((result.gid._serialized).split('@')[0]), groupTitle);
         
         const documentUrl = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/kelven.jpg?alt=media&token=baef675f-43e3-4f56-b2ba-19db0a6ddbf5';
         const media = await MessageMedia.fromUrl(documentUrl);
         const documentMessage = await client.sendMessage(result.gid._serialized, media);
-        await addMessagetoFirebase(documentMessage, '001',(result.gid._serialized).split('@')[0], groupTitle);
+        await addMessagetoFirebase(documentMessage, '001','+'+((result.gid._serialized).split('@')[0]), groupTitle);
 
         const documentUrl2 = `https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Your%20Roofing's%20Doctor.pdf?alt=media&token=7c72f8e4-72cd-4da1-bb3d-387ffeb8ab91`;
         const media2 = await MessageMedia.fromUrl(documentUrl2);
         const documentMessage2 = await client.sendMessage(result.gid._serialized, media2);
-        await addMessagetoFirebase(documentMessage2, '001',(result.gid._serialized).split('@')[0], groupTitle);
+        await addMessagetoFirebase(documentMessage2, '001','+'+((result.gid._serialized).split('@')[0]), groupTitle);
 
         const finalMessage = `Your detail quotation will be prepared and sent out to this group in 3 to 5 working days ya 👌`;
         const message2 = await client.sendMessage(result.gid._serialized, finalMessage)
-        await addMessagetoFirebase(message2, '001',(result.gid._serialized).split('@')[0], groupTitle);
+        await addMessagetoFirebase(message2, '001','+'+((result.gid._serialized).split('@')[0]), groupTitle);
     } catch (error) {
         console.error('Error creating group:', error);
     }
