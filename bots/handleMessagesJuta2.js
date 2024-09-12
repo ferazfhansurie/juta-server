@@ -716,7 +716,7 @@ async function getTotalContacts(idSubstring) {
   async function scheduleFollowUpMessages(chatId, idSubstring, customerName) {
     const dailyMessages = [
         [
-            { type: 'image', url: 'https://example.com/your-image.jpg', caption: "Good afternoon!" },
+            { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-09-09%20at%2017.42.09_e25d8601.jpg?alt=media&token=e043d7eb-df18-451b-80cf-c212f69d601b', caption: "Good afternoon!" },
             "FREE Site Inspection Roofing, Slab Waterproofing with Senior Chinese Shifu & get a Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
             "Hi 😊 Snowy here from BINA Pasifik S/B. We specialized in Roofing & Waterproofing. Thank you for connecting us through Facebook.",
             "May I know which area are you from? How should I address you? 😊",
@@ -724,7 +724,7 @@ async function getTotalContacts(idSubstring) {
             "Is your house single or double-story? Is your roof roof tiles, metal roof, or concrete slab?"
         ],
         [
-            { type: 'image', url: 'https://example.com/your-image.jpg', caption: "Good afternoon!" },
+            { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-09-09%20at%2017.42.09_e25d8601.jpg?alt=media&token=e043d7eb-df18-451b-80cf-c212f69d601b', caption: "Good afternoon!" },
             "Hi, FREE Site Inspection Roofing and slab Waterproofing with Senior Chinese Shifu & get Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
             "May I know the condition of your roof? Is your roof leaking or do you want to refurbish/repaint your roof?"
         ],
@@ -751,7 +751,8 @@ async function getTotalContacts(idSubstring) {
 
     for (let day = 0; day < 6; day++) {
         for (let i = 0; i < 6; i++) {
-            const scheduledTime = moment().add(day + 1, 'days').startOf('day').add(16 + i, 'hours');
+            // Schedule messages every 2 minutes
+            const scheduledTime = moment().add((day * 6 + i) * 2, 'minutes');
             const message = dailyMessages[day][i];
             
             if (typeof message === 'object' && message.type === 'image') {
@@ -761,7 +762,9 @@ async function getTotalContacts(idSubstring) {
             }
         }
     }
-    const scheduledTime = moment().add(7, 'days').startOf('day').add(16, 'hours');
+
+    // Schedule the staff reminder 2 minutes after the last message
+    const scheduledTime = moment().add(6 * 6 * 2 + 2, 'minutes');
     const staffReminder = `Day 6 last follow up ${customerName}, ${chatId.split('@')[0]}`
     await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), chatId, idSubstring);
 }
