@@ -655,7 +655,7 @@ async function getTotalContacts(idSubstring) {
         documentUrl: "",
         fileName: null,
         mediaUrl: "",
-        message: [eventSummary],
+        messages: [eventSummary],
         mimeType: null,
         repeatInterval: 0,
         repeatUnit: "days",
