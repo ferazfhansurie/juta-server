@@ -9,6 +9,7 @@
 const OpenAI = require('openai');
 const axios = require('axios');
 const { google } = require('googleapis');
+const { MessageMedia } = require('whatsapp-web.js');
 const path = require('path');
 const { Client } = require('whatsapp-web.js');
 const util = require('util');
@@ -1377,8 +1378,8 @@ function extractAppointmentInfo(messageBody) {
 }
 async function addAppointmentToSpreadsheet(appointmentInfo) {
     const spreadsheetId = '1sQRyU0nTuUSnVWOJ44SAyWJXC0a_PbubttpRR_l0Uco';
-    const sheetName = 'Appointments';
-    const range = `${sheetName}!A:R`; // Expanded range to include all columns
+    const sheetName = '08.2024';
+    const range = `${sheetName}!A:S`; // Expanded range to include all columns
 
     const auth = new google.auth.GoogleAuth({
         keyFile: './service_account.json',
