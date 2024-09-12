@@ -1499,7 +1499,7 @@ async function handleConfirmedAppointment(client, msg) {
     await addAppointmentToSpreadsheet(appointmentInfo);
 
     // Create a new group
-    const groupTitle = `${appointmentInfo.clientPhone}  ${appointmentInfo.clientPhone}`;
+    const groupTitle = `${appointmentInfo.clientPhone}  ${appointmentInfo.clientName}`;
     const participants = [(appointmentInfo.clientPhone+'@c.us'), '60126029909@c.us', '601121677522@c.us'];
 
     try {
