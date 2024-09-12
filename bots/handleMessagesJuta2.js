@@ -655,7 +655,13 @@ async function getTotalContacts(idSubstring) {
         documentUrl: "",
         fileName: null,
         mediaUrl: "",
-        messages: [eventSummary],
+        message: eventSummary,
+        messages: [
+            {
+              chatId: chatId,
+              message: eventSummary
+            }
+          ],        
         mimeType: null,
         repeatInterval: 0,
         repeatUnit: "days",
@@ -692,6 +698,12 @@ async function getTotalContacts(idSubstring) {
         fileName: null,
         mediaUrl: imageUrl,
         message: caption,
+        messages: [
+            {
+              chatId: chatId,
+              message: caption
+            }
+          ],
         mimeType: "image/jpeg", // Adjust if needed
         repeatInterval: 0,
         repeatUnit: "days",
