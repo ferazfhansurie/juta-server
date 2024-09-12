@@ -919,6 +919,38 @@ async function rescheduleFollowUpMessages(idSubstring, chatId) {
     }
 }
 
+async function removeScheduledMessages(chatId, idSubstring) {
+    try {
+        const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
+        const snapshot = await scheduledMessagesRef.where('chatIds', 'array-contains', chatId).get();
+        
+        for (const doc of snapshot.docs) {
+            const messageId = doc.id;
+            const messageData = doc.data();
+            
+            // Prepare the updated message data
+            const updatedMessage = {
+                ...messageData,
+                status: 'completed',
+                chatIds: messageData.chatIds.filter(id => id !== chatId)
+            };
+            
+            // Call the API to update the message
+            try {
+                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
+                console.log(`Updated scheduled message ${messageId} for chatId: ${chatId}`);
+            } catch (error) {
+                console.error(`Error updating scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
+            }
+        }
+        
+        console.log(`Updated ${snapshot.size} scheduled messages for chatId: ${chatId}`);
+    } catch (error) {
+        console.error('Error removing scheduled messages:', error);
+    }
+}
+
+
 async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
@@ -1014,6 +1046,9 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
         if(firebaseTags.includes('meow')){
             // await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
             await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
+        }
+        if(firebaseTags.includes('tester')){
+            await removeScheduledMessages(msg.from, idSubstring);
         }
         if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
                     // Schedule removal of 'replied' tag after 1 hour
