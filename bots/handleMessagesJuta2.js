@@ -1260,8 +1260,11 @@ if (!contactData) {
             return;
             }
         }
-        if (msg.from.includes('120363178065670386')) {
-            if (msg.body.startsWith('<Confirmed Appointment>')) {
+        if ((msg.from).includes('120363178065670386')) {
+            console.log('detected message from group juta')
+            console.log(msg.body)
+            if ((msg.body).startsWith('<Confirmed Appointment>')) {
+                console.log('detected <CONFIRMED APPOINTMENT>')
                 await handleConfirmedAppointment(client, msg);
                 return;
             }
