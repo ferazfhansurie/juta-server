@@ -1511,31 +1511,29 @@ async function handleConfirmedAppointment(client, msg) {
         // Send appointment details to the new group
         // Send the initial message
         const initialMessage = `Hi 👋, Im Mr Kelvern(wa.me/601111393111)
-            from BINA Pasifik Sdn Bhd (Office No: 03-2770 9111)
-            And I've conducted the site inspection at your house that day.
-            This group has been created specifically to manage your house roofing case.
-
-            Below is our BINA group's department personnel:
-
-            1. Operation/ Job Arrangement (Ms Sheue Lih - 60186688766)
-            2. Manager (Mr Lim - 60193868776)
-
-            The functions of this group are to provide:
-            * Quotations, Invoices, Receipts, Warranty Certificate & Job arrangement
-
-            * Send pictures of job updates from time to time
-
-            * Or if you have any confirmation/bank slip or feedbacks/complaints you may speak out in this group also
-
-            ⬇Our Facebook page⬇
-            https://www.facebook.com/BINApasifik
-
-            ⬇Our Website⬇
-            www.BINApasifik.com
-
-            We are committed to providing you with our very best services 😃
-
-            Thank you.`;
+        \nfrom BINA Pasifik Sdn Bhd (Office No: 03-2770 9111)
+        \nAnd I've conducted the site inspection at your house that day.
+        \nThis group has been created specifically to manage your house roofing case.
+        \n\nBelow is our BINA group's department personnel:
+        
+        \n\n1. Operation/ Job Arrangement (Ms Sheue Lih - 60186688766)
+        \n2. Manager (Mr Lim - 60193868776)
+        
+        \n\nThe functions of this group are to provide:
+        \n* Quotations, Invoices, Receipts, Warranty Certificate & Job arrangement
+        
+        \n\n* Send pictures of job updates from time to time
+        
+        \n\n* Or if you have any confirmation/bank slip or feedbacks/complaints you may speak out in this group also
+        \n\n⬇Our Facebook page⬇
+        \nhttps://www.facebook.com/BINApasifik
+        
+        \n\n⬇Our Website⬇
+        \nwww.BINApasifik.com
+        
+        \n\nWe are committed to providing you with our very best services 😃
+        
+        \n\nThank you.`;
         const message = await client.sendMessage(result.gid._serialized, initialMessage)
         await addMessagetoFirebase(message, '001',(result.gid._serialized).split('@')[0], groupTitle);
         
