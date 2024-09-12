@@ -478,48 +478,48 @@ async function scheduleDailyReport(client, idSubstring) {
 
   console.log('Daily report and task reminder scheduled');
 }
-  async function scheduleReminderMessage(eventSummary, startDateTime, chatId) {
-    const reminderTime = moment(startDateTime).subtract(15, 'minutes');
-    const reminderMessage = `Reminder: "${eventSummary}" is starting in 15 minutes.`;
+//   async function scheduleReminderMessage(eventSummary, startDateTime, chatId) {
+//     const reminderTime = moment(startDateTime).subtract(15, 'minutes');
+//     const reminderMessage = `Reminder: "${eventSummary}" is starting in 15 minutes.`;
   
-    // Convert to seconds and ensure it's an integer
-    const scheduledTimeSeconds = Math.floor(reminderTime.valueOf() / 1000);
+//     // Convert to seconds and ensure it's an integer
+//     const scheduledTimeSeconds = Math.floor(reminderTime.valueOf() / 1000);
   
-    console.log('Scheduling reminder for:', reminderTime.format());
-    console.log('Scheduled time in seconds:', scheduledTimeSeconds);
+//     console.log('Scheduling reminder for:', reminderTime.format());
+//     console.log('Scheduled time in seconds:', scheduledTimeSeconds);
     
-      const scheduledMessage = {
-        batchQuantity: 1,
-        chatIds: [chatId],
-        companyId: "001", // Assuming this is the correct company ID
-        createdAt: admin.firestore.Timestamp.now(),
-        documentUrl: "",
-        fileName: null,
-        mediaUrl: "",
-        message: reminderMessage,
-        mimeType: null,
-        repeatInterval: 0,
-        repeatUnit: "days",
-        scheduledTime: {
-            seconds: scheduledTimeSeconds,
-            nanoseconds: 0
-          },
-        status: "scheduled",
-        v2: true,
-        whapiToken: null
-      };
+//       const scheduledMessage = {
+//         batchQuantity: 1,
+//         chatIds: [chatId],
+//         companyId: "001", // Assuming this is the correct company ID
+//         createdAt: admin.firestore.Timestamp.now(),
+//         documentUrl: "",
+//         fileName: null,
+//         mediaUrl: "",
+//         message: reminderMessage,
+//         mimeType: null,
+//         repeatInterval: 0,
+//         repeatUnit: "days",
+//         scheduledTime: {
+//             seconds: scheduledTimeSeconds,
+//             nanoseconds: 0
+//           },
+//         status: "scheduled",
+//         v2: true,
+//         whapiToken: null
+//       };
   
-    try {
-      console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
-      const response = await axios.post(`http://localhost:8443/api/schedule-message/001`, scheduledMessage);
-      console.log('Reminder scheduled successfully:', response.data);
-    } catch (error) {
-      console.error('Error scheduling reminder:', error.response ? error.response.data : error.message);
-      if (error.response && error.response.data) {
-        console.error('Server response:', error.response.data);
-      }
-    }
-  }
+//     try {
+//       console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
+//       const response = await axios.post(`http://localhost:8443/api/schedule-message/001`, scheduledMessage);
+//       console.log('Reminder scheduled successfully:', response.data);
+//     } catch (error) {
+//       console.error('Error scheduling reminder:', error.response ? error.response.data : error.message);
+//       if (error.response && error.response.data) {
+//         console.error('Server response:', error.response.data);
+//       }
+//     }
+//   }
 
   function getTodayDate() {
     return moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD');
@@ -996,8 +996,9 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
                 firebaseTags = ['stop bot']
             }
         }
-        if(!firebaseTags.includes('replied')){
-            await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
+        if(firebaseTags.includes('meow')){
+            // await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
+            await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
         }
         if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
                     // Schedule removal of 'replied' tag after 1 hour
