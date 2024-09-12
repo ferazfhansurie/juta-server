@@ -778,7 +778,7 @@ async function getTotalContacts(idSubstring) {
     // Schedule the staff reminder 2 minutes after the last message
     const scheduledTime = moment().add(6 * 6 * 2 + 2, 'minutes');
     const staffReminder = `Day 6 last follow up ${customerName}, ${chatId.split('@')[0]}`
-    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), chatId, idSubstring);
+    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), '60135186862@c.us', idSubstring);
 }
 
 

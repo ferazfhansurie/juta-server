@@ -13,6 +13,7 @@ const { MessageMedia } = require('whatsapp-web.js');
 const { google } = require('googleapis');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
+const moment = require('moment-timezone');
 const { firebase } = require('googleapis/build/src/apis/firebase/index.js');
 const db = admin.firestore();
 
@@ -80,6 +81,12 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
         fileName: null,
         mediaUrl: "",
         message: eventSummary,
+        messages: [
+            {
+              chatId: chatId,
+              message: eventSummary
+            }
+          ],        
         mimeType: null,
         repeatInterval: 0,
         repeatUnit: "days",
@@ -116,6 +123,12 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
         fileName: null,
         mediaUrl: imageUrl,
         message: caption,
+        messages: [
+            {
+              chatId: chatId,
+              message: caption
+            }
+          ],
         mimeType: "image/jpeg", // Adjust if needed
         repeatInterval: 0,
         repeatUnit: "days",
@@ -136,11 +149,10 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
     }
 }
 
-
-  async function scheduleFollowUpMessages(chatId, idSubstring, customerName) {
+async function scheduleFollowUpMessages(chatId, idSubstring, customerName) {
     const dailyMessages = [
         [
-            { type: 'image', url: 'https://example.com/your-image.jpg', caption: "Good afternoon!" },
+            { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-09-09%20at%2017.42.09_e25d8601.jpg?alt=media&token=e043d7eb-df18-451b-80cf-c212f69d601b', caption: "Good afternoon!" },
             "FREE Site Inspection Roofing, Slab Waterproofing with Senior Chinese Shifu & get a Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
             "Hi 😊 Snowy here from BINA Pasifik S/B. We specialized in Roofing & Waterproofing. Thank you for connecting us through Facebook.",
             "May I know which area are you from? How should I address you? 😊",
@@ -148,7 +160,7 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
             "Is your house single or double-story? Is your roof roof tiles, metal roof, or concrete slab?"
         ],
         [
-            { type: 'image', url: 'https://example.com/your-image.jpg', caption: "Good afternoon!" },
+            { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-09-09%20at%2017.42.09_e25d8601.jpg?alt=media&token=e043d7eb-df18-451b-80cf-c212f69d601b', caption: "Good afternoon!" },
             "Hi, FREE Site Inspection Roofing and slab Waterproofing with Senior Chinese Shifu & get Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
             "May I know the condition of your roof? Is your roof leaking or do you want to refurbish/repaint your roof?"
         ],
@@ -175,7 +187,8 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
 
     for (let day = 0; day < 6; day++) {
         for (let i = 0; i < 6; i++) {
-            const scheduledTime = moment().add(day + 1, 'days').startOf('day').add(16 + i, 'hours');
+            // Schedule messages every 2 minutes
+            const scheduledTime = moment().add((day * 6 + i) * 2, 'minutes');
             const message = dailyMessages[day][i];
             
             if (typeof message === 'object' && message.type === 'image') {
@@ -185,9 +198,11 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
             }
         }
     }
-    const scheduledTime = moment().add(7, 'days').startOf('day').add(16, 'hours');
+
+    // Schedule the staff reminder 2 minutes after the last message
+    const scheduledTime = moment().add(6 * 6 * 2 + 2, 'minutes');
     const staffReminder = `Day 6 last follow up ${customerName}, ${chatId.split('@')[0]}`
-    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), chatId, idSubstring);
+    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), '60135186862@c.us', idSubstring);
 }
 
 async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName){
@@ -437,6 +452,7 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
             let unreadCount = 0;
             let stopTag = contactData?.tags || [];
             const contact = await chat.getContact()
+            let firebaseTags = ['']
 
             console.log(contactData);
             if (contactData !== null) {
@@ -446,13 +462,22 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
                     contactID = extractedNumber;
                     contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
                 
-                    if (contactData.threadid) {
-                        threadID = contactData.threadid;
-                    } else {
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                        //await saveThreadIDGHL(contactID,threadID);
+                    firebaseTags = contactData.tags ?? [];
+                    // Remove 'snooze' tag if present
+                    if(firebaseTags.includes('snooze')){
+                        firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+                    }
+                    if(!firebaseTags.includes('replied') && firebaseTags.includes('5 Days Follow Up')){
+                        await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
+                    }
+                    
+                    if(!firebaseTags.includes('replied')){
+                        await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
+                        await removeScheduledMessages(msg.from, idSubstring);
+                    }
+
+                    if(firebaseTags.includes('replied')){
+                        await removeScheduledMessages(msg.from, idSubstring);
                     }
                 
             }else{
@@ -462,27 +487,11 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
                 contactID = extractedNumber;
                 contactName = contact.pushname || contact.name || extractedNumber;
                 await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
-                
-            }   
-            let firebaseTags = ['']
-            if (contactData) {
-                firebaseTags = contactData.tags ?? [];
-                // Remove 'snooze' tag if present
-                if(firebaseTags.includes('snooze')){
-                    firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
-                }
-                if(!firebaseTags.includes('replied') && firebaseTags.includes('5 Days Follow Up')){
-                    await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
-                }else if(!firebaseTags.includes('replied')){
-                    await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
-                    await removeScheduledMessages(msg.from, idSubstring);
-                }
-            } else {
                 if ((sender.to).includes('@g.us')) {
                     firebaseTags = ['stop bot']
                 }
-            }
-
+            }   
+            
             
                 
             let type = '';
@@ -700,9 +709,12 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
 
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-            if (msg.from.includes('120363046811985334')) {
-                if (msg.body.startsWith('<Confirmed Appointment>')) {
-                    await handleConfirmedAppointment(client, msg);
+            if ((msg.from).includes('120363046811985334')) {
+                console.log('detected message from group')
+                console.log(msg.body)
+                if ((msg.body).startsWith('<Confirmed Appointment>')) {
+                    console.log('detected <CONFIRMED APPOINTMENT>')
+                    await handleConfirmedAppointment(client, msg, idSubstring);
                     return;
                 }
             }
@@ -839,8 +851,8 @@ async function addtagbookedFirebase(contactID, tag, idSubstring) {
 
 async function addAppointmentToSpreadsheet(appointmentInfo) {
     const spreadsheetId = '1sQRyU0nTuUSnVWOJ44SAyWJXC0a_PbubttpRR_l0Uco';
-    const sheetName = 'Appointments';
-    const range = `${sheetName}!A:R`; // Expanded range to include all columns
+    const sheetName = '08.2024';
+    const range = `${sheetName}!A:S`; // Expanded range to include all columns
 
     const auth = new google.auth.GoogleAuth({
         keyFile: './service_account.json',
@@ -888,66 +900,64 @@ async function addAppointmentToSpreadsheet(appointmentInfo) {
     }
 }
 
-async function handleConfirmedAppointment(client, msg) {
+async function handleConfirmedAppointment(client, msg, idSubstring) {
     // Extract information from the message
     const appointmentInfo = extractAppointmentInfo(msg.body);
 
     await addAppointmentToSpreadsheet(appointmentInfo);
 
     // Create a new group
-    const groupTitle = `${appointmentInfo.clientPhone}  ${appointmentInfo.clientPhone}`;
+    const groupTitle = `${appointmentInfo.clientPhone}  ${appointmentInfo.clientName}`;
     const participants = [(appointmentInfo.clientPhone+'@c.us'), '60186688766@c.us', '60193668776@c.us'];
 
     try {
         const result = await client.createGroup(groupTitle, participants);
         console.log('Group created:', result);
 
-        await addContactToFirebase(result.gid._serialized, groupTitle, '002');
+        await addContactToFirebase(result.gid._serialized, groupTitle, idSubstring);
 
         // Send appointment details to the new group
         // Send the initial message
         const initialMessage = `Hi 👋, Im Mr Kelvern(wa.me/601111393111)
-            from BINA Pasifik Sdn Bhd (Office No: 03-2770 9111)
-            And I've conducted the site inspection at your house that day.
-            This group has been created specifically to manage your house roofing case.
-
-            Below is our BINA group's department personnel:
-
-            1. Operation/ Job Arrangement (Ms Sheue Lih - 60186688766)
-            2. Manager (Mr Lim - 60193868776)
-
-            The functions of this group are to provide:
-            * Quotations, Invoices, Receipts, Warranty Certificate & Job arrangement
-
-            * Send pictures of job updates from time to time
-
-            * Or if you have any confirmation/bank slip or feedbacks/complaints you may speak out in this group also
-
-            ⬇Our Facebook page⬇
-            https://www.facebook.com/BINApasifik
-
-            ⬇Our Website⬇
-            www.BINApasifik.com
-
-            We are committed to providing you with our very best services 😃
-
-            Thank you.`;
+        \nfrom BINA Pasifik Sdn Bhd (Office No: 03-2770 9111)
+        \nAnd I've conducted the site inspection at your house that day.
+        \nThis group has been created specifically to manage your house roofing case.
+        \n\nBelow is our BINA group's department personnel:
+        
+        \n\n1. Operation/ Job Arrangement (Ms Sheue Lih - 60186688766)
+        \n2. Manager (Mr Lim - 60193868776)
+        
+        \n\nThe functions of this group are to provide:
+        \n* Quotations, Invoices, Receipts, Warranty Certificate & Job arrangement
+        
+        \n\n* Send pictures of job updates from time to time
+        
+        \n\n* Or if you have any confirmation/bank slip or feedbacks/complaints you may speak out in this group also
+        \n\n⬇Our Facebook page⬇
+        \nhttps://www.facebook.com/BINApasifik
+        
+        \n\n⬇Our Website⬇
+        \nwww.BINApasifik.com
+        
+        \n\nWe are committed to providing you with our very best services 😃
+        
+        \n\nThank you.`;
         const message = await client.sendMessage(result.gid._serialized, initialMessage)
-        await addMessagetoFirebase(message, '002',(result.gid._serialized).split('@')[0], groupTitle);
+        await addMessagetoFirebase(message, idSubstring,'+'+((result.gid._serialized).split('@')[0]), groupTitle);
         
         const documentUrl = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/kelven.jpg?alt=media&token=baef675f-43e3-4f56-b2ba-19db0a6ddbf5';
         const media = await MessageMedia.fromUrl(documentUrl);
         const documentMessage = await client.sendMessage(result.gid._serialized, media);
-        await addMessagetoFirebase(documentMessage, '002',(result.gid._serialized).split('@')[0], groupTitle);
+        await addMessagetoFirebase(documentMessage, idSubstring,'+'+((result.gid._serialized).split('@')[0]), groupTitle);
 
         const documentUrl2 = `https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Your%20Roofing's%20Doctor.pdf?alt=media&token=7c72f8e4-72cd-4da1-bb3d-387ffeb8ab91`;
         const media2 = await MessageMedia.fromUrl(documentUrl2);
         const documentMessage2 = await client.sendMessage(result.gid._serialized, media2);
-        await addMessagetoFirebase(documentMessage2, '002',(result.gid._serialized).split('@')[0], groupTitle);
+        await addMessagetoFirebase(documentMessage2, idSubstring,'+'+((result.gid._serialized).split('@')[0]), groupTitle);
 
         const finalMessage = `Your detail quotation will be prepared and sent out to this group in 3 to 5 working days ya 👌`;
         const message2 = await client.sendMessage(result.gid._serialized, finalMessage)
-        await addMessagetoFirebase(message2, '002',(result.gid._serialized).split('@')[0], groupTitle);
+        await addMessagetoFirebase(message2, idSubstring,'+'+((result.gid._serialized).split('@')[0]), groupTitle);
     } catch (error) {
         console.error('Error creating group:', error);
     }
