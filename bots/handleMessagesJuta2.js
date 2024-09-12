@@ -639,6 +639,132 @@ async function getTotalContacts(idSubstring) {
     }
   }
   
+  async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSubstring) {
+    // Convert to seconds and ensure it's an integer
+    const scheduledTimeSeconds = Math.floor(startDateTime.getTime() / 1000);
+  
+    console.log('Scheduling reminder for:', moment(startDateTime).format());
+    console.log('Scheduled time in seconds:', scheduledTimeSeconds);
+    
+    const scheduledMessage = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: idSubstring,
+        createdAt: admin.firestore.Timestamp.now(),
+        documentUrl: "",
+        fileName: null,
+        mediaUrl: "",
+        message: [eventSummary],
+        mimeType: null,
+        repeatInterval: 0,
+        repeatUnit: "days",
+        scheduledTime: {
+            seconds: scheduledTimeSeconds,
+            nanoseconds: 0
+        },
+        status: "scheduled",
+        v2: true,
+        whapiToken: null
+    };
+  
+    try {
+      console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
+      const response = await axios.post(`http://localhost:8443/api/schedule-message/${idSubstring}`, scheduledMessage);
+      console.log('Reminder scheduled successfully:', response.data);
+    } catch (error) {
+      console.error('Error scheduling reminder:', error.response ? error.response.data : error.message);
+      if (error.response && error.response.data) {
+        console.error('Server response:', error.response.data);
+      }
+    }
+  }
+
+  async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, idSubstring) {
+    const scheduledTimeSeconds = Math.floor(scheduledTime.getTime() / 1000);
+    
+    const scheduledMessage = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: idSubstring,
+        createdAt: admin.firestore.Timestamp.now(),
+        documentUrl: "",
+        fileName: null,
+        mediaUrl: imageUrl,
+        message: caption,
+        mimeType: "image/jpeg", // Adjust if needed
+        repeatInterval: 0,
+        repeatUnit: "days",
+        scheduledTime: {
+            seconds: scheduledTimeSeconds,
+            nanoseconds: 0
+        },
+        status: "scheduled",
+        v2: true,
+        whapiToken: null
+    };
+
+    try {
+        const response = await axios.post(`http://localhost:8443/api/schedule-message/${idSubstring}`, scheduledMessage);
+        console.log('Image message scheduled successfully:', response.data);
+    } catch (error) {
+        console.error('Error scheduling image message:', error.response ? error.response.data : error.message);
+    }
+}
+
+
+  async function scheduleFollowUpMessages(chatId, idSubstring, customerName) {
+    const dailyMessages = [
+        [
+            { type: 'image', url: 'https://example.com/your-image.jpg', caption: "Good afternoon!" },
+            "FREE Site Inspection Roofing, Slab Waterproofing with Senior Chinese Shifu & get a Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
+            "Hi 😊 Snowy here from BINA Pasifik S/B. We specialized in Roofing & Waterproofing. Thank you for connecting us through Facebook.",
+            "May I know which area are you from? How should I address you? 😊",
+            "Any issues with your roof? Leaking while raining? Any photo?",
+            "Is your house single or double-story? Is your roof roof tiles, metal roof, or concrete slab?"
+        ],
+        [
+            { type: 'image', url: 'https://example.com/your-image.jpg', caption: "Good afternoon!" },
+            "Hi, FREE Site Inspection Roofing and slab Waterproofing with Senior Chinese Shifu & get Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
+            "May I know the condition of your roof? Is your roof leaking or do you want to refurbish/repaint your roof?"
+        ],
+        [
+            "That day you pm me about the water leakage problem",
+            "Is there a leak in your home or shop??🧐"
+        ],
+        [
+            "Good day,",
+            "We'd like to schedule a 🆓 FREE inspection at your place. We're available on Tuesday, Wednesday, Saturday, or Sunday.",
+            "Which day works best for you???🤔"
+        ],
+        [
+            "Hi",
+            "You may contact +60193668776",
+            "My manager will personally address your technical questions about the roof.",
+        ],
+        [
+            "Morning",
+            "Have you contacted my manager??",
+            "You can contact him directly by calling +60193668776 ☺️",
+        ]
+    ];
+
+    for (let day = 0; day < 6; day++) {
+        for (let i = 0; i < 6; i++) {
+            const scheduledTime = moment().add(day + 1, 'days').startOf('day').add(16 + i, 'hours');
+            const message = dailyMessages[day][i];
+            
+            if (typeof message === 'object' && message.type === 'image') {
+                await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring);
+            } else {
+                await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring);
+            }
+        }
+    }
+    const scheduledTime = moment().add(7, 'days').startOf('day').add(16, 'hours');
+    const staffReminder = `Day 6 last follow up ${customerName}, ${chatId.split('@')[0]}`
+    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), chatId, idSubstring);
+}
+
 
   async function listAssignedContacts(idSubstring, assigneeName, limit = 10) {
     try {
@@ -1134,6 +1260,12 @@ if (!contactData) {
             return;
             }
         }
+        if (msg.from.includes('120363178065670386')) {
+            if (msg.body.startsWith('<Confirmed Appointment>')) {
+                await handleConfirmedAppointment(client, msg);
+                return;
+            }
+        }
 
         currentStep = userState.get(sender.to) || steps.START;
         switch (currentStep) {
@@ -1214,6 +1346,211 @@ function formatPhoneNumber(phoneNumber) {
   
   console.log('Formatted phone number:', cleaned);
   return cleaned;
+}
+function extractAppointmentInfo(messageBody) {
+    const lines = messageBody.split('\n');
+    const info = {};
+
+    lines.forEach(line => {
+        if (line.includes('Date:')) info.date = line.split('Date:')[1].trim();
+        if (line.includes('Time:')) info.time = line.split('Time:')[1].trim();
+        if (line.includes('Senior Inspector:')) info.inspectorName = line.split('Senior Inspector:')[1].trim();
+        if (line.includes('Contact Direct:')) info.inspectorPhone = line.split('Contact Direct:')[1].trim().replace('wa.me/', '');
+        if (line.includes('Vehicle No Plate:')) info.vehiclePlate = line.split('Vehicle No Plate:')[1].trim();
+        if (line.includes('Client:')) info.clientName = line.split('Client:')[1].trim();
+        if (line.includes('Contact:')) info.clientPhone = line.split('Contact:')[1].trim().replace('wa.me/', '');
+        if (line.includes('Site Add:')) {
+            info.siteAddress = line.split('Site Add:')[1].trim();
+            // Capture multi-line address
+            let i = lines.indexOf(line) + 1;
+            while (i < lines.length && !lines[i].includes('Email')) {
+                info.siteAddress += ' ' + lines[i].trim();
+                i++;
+            }
+        }
+    });
+
+    return info;
+}
+async function addAppointmentToSpreadsheet(appointmentInfo) {
+    const spreadsheetId = '1sQRyU0nTuUSnVWOJ44SAyWJXC0a_PbubttpRR_l0Uco';
+    const sheetName = 'Appointments';
+    const range = `${sheetName}!A:R`; // Expanded range to include all columns
+
+    const auth = new google.auth.GoogleAuth({
+        keyFile: './service_account.json',
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
+
+    const sheets = google.sheets({ version: 'v4', auth });
+
+    const values = [
+        [
+            '', // No. (auto-increment in spreadsheet)
+            appointmentInfo.date,
+            appointmentInfo.time,
+            appointmentInfo.clientPhone,
+            appointmentInfo.clientName,
+            '', // Assuming the client is always the owner
+            appointmentInfo.siteAddress,
+            '', // Waze link (can be added later if available)
+            '', // Email (can be added later if available)
+            appointmentInfo.issue || '', // If you have this information
+            '', // WhatsApp group (can be filled later)
+            '', // 9x9 Pictures
+            '', // Hand written quotation
+            '', // Draft quotation photos
+            '', // Typed draft quotation
+            '', // sent
+            '', // detailed quotation
+            '', // sent
+            ''  // payment
+        ]
+    ];
+
+    try {
+        const response = await sheets.spreadsheets.values.append({
+            spreadsheetId,
+            range,
+            valueInputOption: 'USER_ENTERED',
+            insertDataOption: 'INSERT_ROWS',
+            resource: { values },
+        });
+
+        console.log(`${response.data.updates.updatedCells} cells appended.`);
+    } catch (error) {
+        console.error('Error adding appointment to spreadsheet:', error);
+    }
+}
+
+async function addContactToFirebase(groupId, groupTitle, idSubstring) {
+    const extractedNumber = groupId.split('@')[0];
+    const data = {
+        additionalEmails: [],
+        address1: null,
+        assignedTo: null,
+        businessId: null,
+        phone: extractedNumber,
+        tags: [''],
+        chat: {
+            contact_id: extractedNumber,
+            id: groupId,
+            name: groupTitle,
+            not_spam: true,
+            tags: [''],
+            timestamp: Date.now(),
+            type: 'group',
+            unreadCount: 0,
+            last_message: {
+                chat_id: groupId,
+                from: groupId,
+                from_me: true,
+                id: "",
+                source: "",
+                status: "",
+                text: {
+                    body: ""
+                },
+                timestamp: Date.now(),
+                type: 'text',
+            },
+        },
+        chat_id: groupId,
+        city: null,
+        companyName: null,
+        contactName: groupTitle,
+        unreadCount: 0,
+        threadid: "",
+        phoneIndex: 0,
+        last_message: {
+            chat_id: groupId,
+            from: groupId,
+            from_me: true,
+            id: Date.now().toString(),
+            source: "",
+            status: "",
+            text: {
+                body: ""
+            },
+            timestamp: Date.now(),
+            type: 'text',
+        },
+        createdAt: admin.firestore.Timestamp.now(),
+        profilePicUrl: "",
+    };
+
+    try {
+        await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data);
+        console.log('Group added to Firebase:', groupId);
+    } catch (error) {
+        console.error('Error adding group to Firebase:', error);
+    }
+}
+
+
+async function handleConfirmedAppointment(client, msg) {
+    // Extract information from the message
+    const appointmentInfo = extractAppointmentInfo(msg.body);
+
+    await addAppointmentToSpreadsheet(appointmentInfo);
+
+    // Create a new group
+    const groupTitle = `${appointmentInfo.clientPhone}  ${appointmentInfo.clientPhone}`;
+    const participants = [(appointmentInfo.clientPhone+'@c.us'), '60126029909@c.us', '601121677522@c.us'];
+
+    try {
+        const result = await client.createGroup(groupTitle, participants);
+        console.log('Group created:', result);
+
+        await addContactToFirebase(result.gid._serialized, groupTitle, '001');
+
+        // Send appointment details to the new group
+        // Send the initial message
+        const initialMessage = `Hi 👋, Im Mr Kelvern(wa.me/601111393111)
+            from BINA Pasifik Sdn Bhd (Office No: 03-2770 9111)
+            And I've conducted the site inspection at your house that day.
+            This group has been created specifically to manage your house roofing case.
+
+            Below is our BINA group's department personnel:
+
+            1. Operation/ Job Arrangement (Ms Sheue Lih - 60186688766)
+            2. Manager (Mr Lim - 60193868776)
+
+            The functions of this group are to provide:
+            * Quotations, Invoices, Receipts, Warranty Certificate & Job arrangement
+
+            * Send pictures of job updates from time to time
+
+            * Or if you have any confirmation/bank slip or feedbacks/complaints you may speak out in this group also
+
+            ⬇Our Facebook page⬇
+            https://www.facebook.com/BINApasifik
+
+            ⬇Our Website⬇
+            www.BINApasifik.com
+
+            We are committed to providing you with our very best services 😃
+
+            Thank you.`;
+        const message = await client.sendMessage(result.gid._serialized, initialMessage)
+        await addMessagetoFirebase(message, '001',(result.gid._serialized).split('@')[0], groupTitle);
+        
+        const documentUrl = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/kelven.jpg?alt=media&token=baef675f-43e3-4f56-b2ba-19db0a6ddbf5';
+        const media = await MessageMedia.fromUrl(documentUrl);
+        const documentMessage = await client.sendMessage(result.gid._serialized, media);
+        await addMessagetoFirebase(documentMessage, '001',(result.gid._serialized).split('@')[0], groupTitle);
+
+        const documentUrl2 = `https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Your%20Roofing's%20Doctor.pdf?alt=media&token=7c72f8e4-72cd-4da1-bb3d-387ffeb8ab91`;
+        const media2 = await MessageMedia.fromUrl(documentUrl2);
+        const documentMessage2 = await client.sendMessage(result.gid._serialized, media2);
+        await addMessagetoFirebase(documentMessage2, '001',(result.gid._serialized).split('@')[0], groupTitle);
+
+        const finalMessage = `Your detail quotation will be prepared and sent out to this group in 3 to 5 working days ya 👌`;
+        const message2 = await client.sendMessage(result.gid._serialized, finalMessage)
+        await addMessagetoFirebase(message2, '001',(result.gid._serialized).split('@')[0], groupTitle);
+    } catch (error) {
+        console.error('Error creating group:', error);
+    }
 }
 
 async function sendMessage(client, phoneNumber, message, idSubstring) {
