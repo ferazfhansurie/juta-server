@@ -58,12 +58,7 @@ async function handleJutaCreateContact(req, res, client) {
     console.log(chatId);
     console.log(first_name);
     try {
-        const message = `Hi! Im Faeez from Juta
-
-Congratulations on taking the first step towards revolutionizing your business communication with Juta Teknologi!
-
-Juta Teknologi - Join Us To Automate.
-https://jutasoftware.co/`;
+        const message = `Hi! Im Faeez from Juta`;
         const msg = await client.sendMessage(chatId, message);
         client.sendMessage('120363178065670386@g.us', 'New Lead '+first_name +' '+phoneWithPlus);
         const tags = ['fb'];
