@@ -564,7 +564,7 @@ async function createUserInFirebase(userData) {
   // Update the processContact function to use the provided tags
   async function processContact(row, companyId, tags) {
     let name = row.Name;
-
+    
     let phone = await formatPhoneNumber(row.Phone);
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth()-6);
@@ -621,6 +621,18 @@ async function createUserInFirebase(userData) {
         threadid: '',
         last_message: null,
       };
+
+      if(companyId == '079'){
+        let branch = row.Branch;
+        let address = row.Address;
+        let expiryDate = row.ExpiryDate;
+        let vehicleType = row.VehicleNum;
+
+        contactData.branch = branch;
+        contactData.address1 = address;
+        contactData.expiryDate = expiryDate;
+        contactData.vehicleType = vehicleType;
+      }
       await contactRef.set(contactData);
       console.log(`Added new contact: ${name} - ${phone}`);
     }

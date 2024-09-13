@@ -922,7 +922,14 @@ async function rescheduleFollowUpMessages(idSubstring, chatId) {
 async function removeScheduledMessages(chatId, idSubstring) {
     try {
         const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
-        const snapshot = await scheduledMessagesRef.where('chatIds', 'array-contains', chatId).get();
+        
+        // Query for documents where:
+        // 1. chatIds array contains the specified chatId
+        // 2. status is not 'completed'
+        const snapshot = await scheduledMessagesRef
+            .where('chatIds', 'array-contains', chatId)
+            .where('status', '!=', 'completed')
+            .get();
         
         for (const doc of snapshot.docs) {
             const messageId = doc.id;
