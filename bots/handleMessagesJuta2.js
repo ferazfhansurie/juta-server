@@ -923,9 +923,6 @@ async function removeScheduledMessages(chatId, idSubstring) {
     try {
         const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
         
-        // Query for documents where:
-        // 1. chatIds array contains the specified chatId
-        // 2. status is not 'completed'
         const snapshot = await scheduledMessagesRef
             .where('chatIds', 'array-contains', chatId)
             .where('status', '!=', 'completed')
@@ -941,6 +938,20 @@ async function removeScheduledMessages(chatId, idSubstring) {
                 status: 'completed',
                 chatIds: messageData.chatIds.filter(id => id !== chatId)
             };
+            
+            // Ensure scheduledTime is properly formatted
+            if (updatedMessage.scheduledTime && typeof updatedMessage.scheduledTime === 'object') {
+                updatedMessage.scheduledTime = {
+                    seconds: Math.floor(updatedMessage.scheduledTime.seconds),
+                    nanoseconds: updatedMessage.scheduledTime.nanoseconds || 0
+                };
+            } else {
+                // If scheduledTime is missing or invalid, use the current time
+                updatedMessage.scheduledTime = {
+                    seconds: Math.floor(Date.now() / 1000),
+                    nanoseconds: 0
+                };
+            }
             
             // Call the API to update the message
             try {
