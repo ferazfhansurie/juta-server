@@ -132,7 +132,7 @@ async function scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, customer
     for (let day = 1; day <= 10; day++) {
         const message = `Day ${day} ${baseMessage}`;
         const scheduledTime = moment().add(day, 'days').set({hour: 10, minute: 0, second: 0}); // Set to 10:00 AM each day
-        await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring);
+        await scheduleReminderMessage(message, scheduledTime.toDate(), '60135186862@c.us', idSubstring);
     }
 }
 
