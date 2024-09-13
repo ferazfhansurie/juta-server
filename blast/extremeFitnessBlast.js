@@ -78,10 +78,10 @@ async function handleExtremeFitnessBlast(req, res, client) {
         await addMessagetoFirebase(message1, '074', phoneWithPlus, first_name);
         await addMessageAssistant(currentThreadId, `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`);
         
-        res.json({ phone, first_name, success: true, result, threadId: currentThreadId });
+        res.json({ phone, first_name, threadId: currentThreadId });
     } catch (error) {
         console.error(`Error sending message to ${phone}:`, error);
-        res.json({ phone, first_name, success: false, error: error.message });
+        res.json({ phone, first_name, error: error.message });
     }
 }
 
