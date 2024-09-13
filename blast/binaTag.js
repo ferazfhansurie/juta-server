@@ -2,13 +2,15 @@ const fetch = require('node-fetch');
 const admin = require('../firebase.js');
 const db = admin.firestore();
 const OpenAI = require('openai');
+const moment = require('moment-timezone');
+
 let ghlConfig = {};
 const openai = new OpenAI({
     apiKey: process.env.OPENAIKEY,
 });
-async function fetchConfigFromDatabase() {
+async function fetchConfigFromDatabase(idSubstring) {
     try {
-        const docRef = db.collection('companies').doc('045');
+        const docRef = db.collection('companies').doc(idSubstring);
         const doc = await docRef.get();
         if (!doc.exists) {
             console.log('No such document!');
@@ -38,52 +40,97 @@ async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
     }
 }
 
-async function handleBinaTag(req, res, client) {
+async function handleBinaTag(req, res) {
     console.log('bina webhook');
     console.log(req.body);
-    await fetchConfigFromDatabase();
+    const idSubstring = '001';
 
-    const requestType = req.body;
-    const idSubstring = '002';
+    await fetchConfigFromDatabase(idSubstring);
 
+    const { requestType, phone, first_name } = req.body;
 
     if (!phone || !first_name) {
-        return res.status(400).json({ error: 'Phone number and name are required' });
+        return res.status(400).json({ error: 'Phone number, name, and quote date are required' });
     }
 
-    phone = phone.replace(/\s+|-/g, '');
-    let phoneWithPlus = phone;
-    if(!phone.startsWith('+')){
-        phoneWithPlus = "+"+phone;
-    }else{
-        phone = phone.replace('+', '');
+    let phoneWithPlus = phone.replace(/\s+|-/g, '');
+    if (!phoneWithPlus.startsWith('+')) {
+        phoneWithPlus = "+" + phoneWithPlus;
     }
-    
+    const phoneWithoutPlus = phoneWithPlus.replace('+', '');
 
-    const chatId = `${phone.replace(/^\+/, '')}@c.us`;
-
+    const chatId = `${phoneWithoutPlus}@c.us`;
 
     console.log(chatId);
-    console.log(first_name);
     try {
-        if(requestType == 'addBeforeQuote'){
-            await scheduleFollowUpMessages(chatId, idSubstring);
+        switch (requestType) {
+            case 'addBeforeQuote':
+                await scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, first_name, phoneWithPlus);
+                res.json({ success: true });
+                break;
+            case 'addAfterQuote':
+                await scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, first_name);
+                res.json({ success: true });
+                break;
+            case 'removeBeforeQuote':
+                await removeScheduledMessages(chatId, idSubstring);
+                res.json({ success: true });
+            case 'removeAfterQuote':
+                await removeScheduledMessages(chatId, idSubstring);
+                res.json({ success: true });
+                break;
+            default:
+                res.status(400).json({ error: 'Invalid request type' });
         }
-
-
-
-        res.json({ success: true });
     } catch (error) {
-        console.error(`Error sending message to ${phone}:`, error);
-        res.json({ phone, first_name, success: false, error: error.message });
+        res.status(500).json({ phone: phoneWithPlus, first_name, success: false, error: error.message });
     }
 }
 
-async function scheduleFollowUpMessages(chatId, idSubstring) {
-    const message = "Hi there! This is a follow-up message from BINA Pasifik S/B. We specialize in Roofing & Waterproofing. Do you have any questions or concerns about your roof?";
+async function scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, customerName) {
+    const dailyMessages = [
+        [
+            `Hello, ${customerName}, have you reviewed the quotation and photos we sent you?`,
+            "If you have any questions, feel free to ask in this group ya... 😊"
+        ],
+        [
+            "Regarding the quotation we sent you the other day…",
+            "Is there anything you would like us to explain to you in more detail? 🤔"
+        ],
+        [
+            "Good day,",
+            "We can schedule your work within the next two weeks",
+            "We'd like to know if you're interested in repairing your roof? 🧐"
+        ],
+        [
+            "Hi",
+            "You can ask questions about your roof quotation in this group yaa",
+            "Mr. Kelvin, who came to inspect your roof that day, can answer any technical questions regarding your roof 👌"
+        ],
+        [
+            "Hello, although the quotation is valid for only 14 days, but if you're interested in proceeding with the roof repair, please let us know",
+            "We can see what we can do to adjust the quotation for you again 😊",
+        ]
+    ];
+
+    for (let day = 0; day < dailyMessages.length; day++) {
+        for (let i = 0; i < dailyMessages[day].length; i++) {
+            // Schedule messages every 2 hours
+            const scheduledTime = moment().add(day, 'days').add(i * 2, 'hours').set({hour: 10, minute: 0, second: 0});
+            const message = dailyMessages[day][i];
+            
+            await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring);
+        }
+    }
+}
+
+
+async function scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, customerName, contactNumber) {
+    const baseMessage = `Quotation reminder for ${customerName}, ${contactNumber}`;
 
     // Schedule the message once a day for 10 days
-    for (let day = 0; day < 10; day++) {
+    for (let day = 1; day <= 10; day++) {
+        const message = `Day ${day} ${baseMessage}`;
         const scheduledTime = moment().add(day, 'days').set({hour: 10, minute: 0, second: 0}); // Set to 10:00 AM each day
         await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring);
     }
@@ -135,208 +182,57 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
     }
   }
 
-async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_name){
-    console.log('Adding message to Firebase');
-    console.log('idSubstring:', idSubstring);
-    console.log('extractedNumber:', extractedNumber);
-
-    if (!extractedNumber) {
-        console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
-        return;
-    }
-
-    if (!idSubstring) {
-        console.error('Invalid idSubstring for Firebase document path');
-        return;
-    }
-    let messageBody = msg.body;
-    let audioData = null;
-    let type = '';
-    if(msg.type == 'chat'){
-        type ='text'
-    }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
-        return;
-    }else{
-        type = msg.type;
-    }
-    
-    if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
-        console.log('Voice message detected');
-        const media = await msg.downloadMedia();
-        const transcription = await transcribeAudio(media.data);
-        console.log('Transcription:', transcription);
-                
-        messageBody = transcription;
-        audioData = media.data;
-        console.log(msg);
-    }
-    const messageData = {
-        chat_id: msg.from,
-        from: msg.from ?? "",
-        from_me: msg.fromMe ?? false,
-        id: msg.id._serialized ?? "",
-        status: "delivered",
-        text: {
-            body: messageBody ?? ""
-        },
-        timestamp: msg.timestamp ?? 0,
-        type: type,
-    };
-
-    if(msg.hasQuotedMsg){
-        const quotedMsg = await msg.getQuotedMessage();
-        // Initialize the context and quoted_content structure
-        messageData.text.context = {
-          quoted_content: {
-            body: quotedMsg.body
-          }
-        };
-        const authorNumber = '+'+(quotedMsg.from).split('@')[0];
-        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-        messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
-    }
-
-    if((msg.from).includes('@g.us')){
-        const authorNumber = '+'+(msg.author).split('@')[0];
-
-        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-        if(authorData){
-            messageData.author = authorData.contactName;
-        }else{
-            messageData.author = msg.author;
-        }
-    }
-
-    if (msg.type === 'audio' || msg.type === 'ptt') {
-        messageData.audio = {
-            mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
-            data: audioData // This is the base64 encoded audio data
-        };
-    }
-
-    if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
-        try {
-            const media = await msg.downloadMedia();
-            if (media) {
-              if (msg.type === 'image') {
-                messageData.image = {
-                    mimetype: media.mimetype,
-                    data: media.data,  // This is the base64-encoded data
-                    filename: msg._data.filename || "",
-                    caption: msg._data.caption || "",
-                };
-                // Add width and height if available
-                if (msg._data.width) messageData.image.width = msg._data.width;
-                if (msg._data.height) messageData.image.height = msg._data.height;
-              } else if (msg.type === 'document') {
-                  messageData.document = {
-                      mimetype: media.mimetype,
-                      data: media.data,  // This is the base64-encoded data
-                      filename: msg._data.filename || "",
-                      caption: msg._data.caption || "",
-                      pageCount: msg._data.pageCount,
-                      fileSize: msg._data.size,
-                  };
-              }else if (msg.type === 'video') {
-                    messageData.video = {
-                        mimetype: media.mimetype,
-                        filename: msg._data.filename || "",
-                        caption: msg._data.caption || "",
-                    };
-                    // Store video data separately or use a cloud storage solution
-                    const videoUrl = await storeVideoData(media.data, msg._data.filename);
-                    messageData.video.link = videoUrl;
-              } else {
-                  messageData[msg.type] = {
-                      mimetype: media.mimetype,
-                      data: media.data,
-                      filename: msg._data.filename || "",
-                      caption: msg._data.caption || "",
-                  };
-              }
-  
-              // Add thumbnail information if available
-              if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
-                  messageData[msg.type].thumbnail = {
-                      height: msg._data.thumbnailHeight,
-                      width: msg._data.thumbnailWidth,
-                  };
-              }
-  
-              // Add media key if available
-              if (msg.mediaKey) {
-                  messageData[msg.type].mediaKey = msg.mediaKey;
-              }
-
-              
-            }  else {
-                console.log(`Failed to download media for message: ${msg.id._serialized}`);
-                messageData.text = { body: "Media not available" };
-            }
-        } catch (error) {
-            console.error(`Error handling media for message ${msg.id._serialized}:`, error);
-            messageData.text = { body: "Error handling media" };
-        }
-    }
-
-    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-    const messagesRef = contactRef.collection('messages');
-
-    const messageDoc = messagesRef.doc(msg.id._serialized);
-    await messageDoc.set(messageData, { merge: true });
-    console.log(messageData);
-    await addNotificationToUser(idSubstring, messageData, first_name);
-    return messageData;
-}
-
-async function addNotificationToUser(companyId, message, contactName) {
-    console.log('noti');
+  async function removeScheduledMessages(chatId, idSubstring) {
     try {
-        // Find the user with the specified companyId
-        message.from = contactName
-        const usersRef = db.collection('user');
-        const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
-
-        if (querySnapshot.empty) {
-            console.log('No matching documents.');
-            return;
-        }
-
-        // Filter out undefined values from the message object
-        const cleanMessage = Object.fromEntries(
-            Object.entries(message).filter(([_, value]) => value !== undefined)
-        );
-
-        // Add the new message to the notifications subcollection of the user's document
-        querySnapshot.forEach(async (doc) => {
-            const userRef = doc.ref;
-            const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...cleanMessage, read: false };
+        const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
         
-            await notificationsRef.add(updatedMessage);
-            console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
-        });
+        const snapshot = await scheduledMessagesRef
+            .where('chatIds', 'array-contains', chatId)
+            .where('status', '!=', 'completed')
+            .get();
+        
+        for (const doc of snapshot.docs) {
+            const messageId = doc.id;
+            const messageData = doc.data();
+            
+            // Prepare the updated message data
+            const updatedMessage = {
+                ...messageData,
+                status: 'completed',
+                chatIds: messageData.chatIds.filter(id => id !== chatId)
+            };
+            
+            // Ensure scheduledTime is properly formatted
+            if (updatedMessage.scheduledTime && typeof updatedMessage.scheduledTime === 'object') {
+                updatedMessage.scheduledTime = {
+                    seconds: Math.floor(updatedMessage.scheduledTime.seconds),
+                    nanoseconds: updatedMessage.scheduledTime.nanoseconds || 0
+                };
+            } else {
+                // If scheduledTime is missing or invalid, use the current time
+                updatedMessage.scheduledTime = {
+                    seconds: Math.floor(Date.now() / 1000),
+                    nanoseconds: 0
+                };
+            }
+            
+            // Call the API to update the message
+            try {
+                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
+                console.log(`Updated scheduled message ${messageId} for chatId: ${chatId}`);
+            } catch (error) {
+                console.error(`Error updating scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
+            }
+        }
+        
+        console.log(`Updated ${snapshot.size} scheduled messages for chatId: ${chatId}`);
     } catch (error) {
-        console.error('Error adding notification: ', error);
+        console.error('Error removing scheduled messages:', error);
     }
 }
 
-async function addMessageAssistant(threadId, message) {
-    const response = await openai.beta.threads.messages.create(
-        threadId,
-        {
-            role: "assistant",
-            content: message
-        }
-    );
-    console.log(response);
-    return response;
-}
-function createMessage(name) {
-    return `Hi ${name}! 
-Thanks for signing up with Extreme Fitness, SG's #1 Transformation & Fat-loss Studio. 🏋
 
-We’ve helped hundreds of people transform their bodies, and we can’t wait to help you too! `;
-}
+
+
 
 module.exports = { handleBinaTag };

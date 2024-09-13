@@ -378,7 +378,11 @@ async function getChatMetadata(chatId,) {
 async function removeScheduledMessages(chatId, idSubstring) {
     try {
         const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
-        const snapshot = await scheduledMessagesRef.where('chatIds', 'array-contains', chatId).get();
+        
+        const snapshot = await scheduledMessagesRef
+            .where('chatIds', 'array-contains', chatId)
+            .where('status', '!=', 'completed')
+            .get();
         
         for (const doc of snapshot.docs) {
             const messageId = doc.id;
@@ -390,6 +394,20 @@ async function removeScheduledMessages(chatId, idSubstring) {
                 status: 'completed',
                 chatIds: messageData.chatIds.filter(id => id !== chatId)
             };
+            
+            // Ensure scheduledTime is properly formatted
+            if (updatedMessage.scheduledTime && typeof updatedMessage.scheduledTime === 'object') {
+                updatedMessage.scheduledTime = {
+                    seconds: Math.floor(updatedMessage.scheduledTime.seconds),
+                    nanoseconds: updatedMessage.scheduledTime.nanoseconds || 0
+                };
+            } else {
+                // If scheduledTime is missing or invalid, use the current time
+                updatedMessage.scheduledTime = {
+                    seconds: Math.floor(Date.now() / 1000),
+                    nanoseconds: 0
+                };
+            }
             
             // Call the API to update the message
             try {
@@ -405,6 +423,8 @@ async function removeScheduledMessages(chatId, idSubstring) {
         console.error('Error removing scheduled messages:', error);
     }
 }
+
+
 
 
 const messageQueue = new Map();
@@ -463,23 +483,26 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
                     contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
                 
                     firebaseTags = contactData.tags ?? [];
-                    // Remove 'snooze' tag if present
-                    if(firebaseTags.includes('snooze')){
-                        firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
-                    }
-                    if(!firebaseTags.includes('replied') && firebaseTags.includes('5 Days Follow Up')){
-                        await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
-                    }
-                    
-                    if(!firebaseTags.includes('replied')){
-                        await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
-                        await removeScheduledMessages(msg.from, idSubstring);
-                    }
+                    if ((sender.to).includes('@g.us')) {
+                        firebaseTags = ['stop bot']
+                    }else{
+                        // Remove 'snooze' tag if present
+                        if(firebaseTags.includes('snooze')){
+                            firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+                        }
+                        if(!firebaseTags.includes('replied') && firebaseTags.includes('5 Days Follow Up')){
+                            await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
+                        }
 
-                    if(firebaseTags.includes('replied')){
-                        await removeScheduledMessages(msg.from, idSubstring);
+                        if(!firebaseTags.includes('replied')){
+                            await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
+                            await removeScheduledMessages(msg.from, idSubstring);
+                        }
+
+                        if(firebaseTags.includes('replied')){
+                            await removeScheduledMessages(msg.from, idSubstring);
+                        }
                     }
-                
             }else{
                 
                 await customWait(2500); 

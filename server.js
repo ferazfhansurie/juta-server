@@ -335,7 +335,7 @@ const { handleJutaCreateContact } = require('./blast/jutaCreateContact.js');
 const { handleNewMessagesVista } = require('./bots/handleMessagesVista.js');
 const { handleNewMessagesHappyProjects } = require('./bots/handleMessagesHappyProjects.js');
 const { handleNewMessagesBINA } = require('./bots/handleMessagesBINA.js');
-
+const { handleBinaTag } = require('./blast/binaTag.js');
 
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -395,6 +395,9 @@ app.post('/juta/blast', async (req, res) => {
 
  const client = botData[0].client;
  await handleJutaCreateContact(req, res,client);
+});
+app.post('/api/bina/tag', async (req, res) => {
+  await handleBinaTag(req, res);
 });
 
 //spreadsheet
@@ -721,7 +724,6 @@ function formatExpiryDate(periodOfCover) {
         numberOfBatches,
         status: 'scheduled'
       };
-      delete mainMessageData.messages; // Remove the messages array from the main document
       await db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId).set(mainMessageData);
   
       // Schedule all batches in the queue
@@ -752,7 +754,10 @@ function formatExpiryDate(periodOfCover) {
   app.put('/api/schedule-message/:companyId/:messageId', async (req, res) => {
     const { companyId, messageId } = req.params;
     const updatedMessage = req.body;
-  
+    
+    console.log('Received update request for message:', messageId);
+    console.log('Updated message data:', JSON.stringify(updatedMessage, null, 2));
+
     try {
       // 1. Delete the existing messages from the queue
       const jobs = await messageQueue.getJobs(['active', 'waiting', 'delayed', 'paused']);
