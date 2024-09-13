@@ -622,23 +622,36 @@ async function createUserInFirebase(userData) {
         last_message: null,
       };
 
-      if(companyId == '079'){
-        let branch = row.Branch;
-        let address = row.Address;
-        let expiryDate = row.ExpiryDate;
-        let vehicleType = row.VehicleNum;
-
-        contactData.branch = branch;
-        contactData.address1 = address;
-        contactData.expiryDate = expiryDate;
-        contactData.vehicleType = vehicleType;
+      if (companyId == '079') {
+        contactData.branch = row['BRANCH NAME'] || null;
+        contactData.address1 = row['ADDRESS'] || null;
+        contactData.expiryDate = formatExpiryDate(row['PERIOD OF COVER']);
+        contactData.email = row['EMAIL'] || null;
+        contactData.vehicleNumber = row['VEH. NO'] || null;
       }
+
       await contactRef.set(contactData);
       console.log(`Added new contact: ${name} - ${phone}`);
     }
   } else {
     console.warn(`Skipping invalid phone number for ${name}`);
   }
+}
+
+function formatExpiryDate(periodOfCover) {
+  if (!periodOfCover) return null;
+
+  const dateRange = periodOfCover.split(' to ');
+  if (dateRange.length !== 2) return null;
+
+  const endDate = new Date(dateRange[1]);
+  if (isNaN(endDate.getTime())) return null;
+
+  const year = endDate.getFullYear();
+  const month = String(endDate.getMonth() + 1).padStart(2, '0');
+  const day = String(endDate.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
   function formatPhoneNumber(phone) {
