@@ -780,7 +780,62 @@ async function getTotalContacts(idSubstring) {
     const staffReminder = `Day 6 last follow up ${customerName}, ${chatId.split('@')[0]}`
     await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), '60135186862@c.us', idSubstring);
 }
-
+async function sendImage(client, phoneNumber, imageUrl, caption, idSubstring) {
+    console.log('Sending image to:', phoneNumber);
+    console.log('Image URL:', imageUrl);
+    console.log('Caption:', caption);
+    console.log('idSubstring:', idSubstring);
+  
+    try {
+      const formattedNumberForWhatsApp = formatPhoneNumber(phoneNumber).slice(1) + '@c.us';
+      const formattedNumberForFirebase = formatPhoneNumber(phoneNumber);
+  
+      if (!formattedNumberForWhatsApp || !formattedNumberForFirebase) {
+        throw new Error('Invalid phone number');
+      }
+  
+      const media = await MessageMedia.fromUrl(imageUrl);
+      const sent = await client.sendMessage(formattedNumberForWhatsApp, media, { caption: caption });
+  
+      const messageData = {
+        chat_id: formattedNumberForWhatsApp,
+        from: client.info.wid._serialized,
+        from_me: true,
+        id: sent.id._serialized,
+        source: "web",
+        status: "sent",
+        image: {
+          mimetype: media.mimetype,
+          data: media.data,
+          filename: media.filename,
+          caption: caption
+        },
+        timestamp: sent.timestamp,
+        type: 'image',
+      };
+  
+      const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(formattedNumberForFirebase);
+      const messagesRef = contactRef.collection('messages');
+      const messageDoc = messagesRef.doc(sent.id._serialized);
+      await messageDoc.set(messageData, { merge: true });
+  
+      const response = {
+        status: 'success',
+        message: 'Image sent successfully and added to Firebase',
+        messageId: sent.id._serialized,
+        timestamp: sent.timestamp,
+      };
+  
+      return JSON.stringify(response);
+    } catch (error) {
+      console.error('Error in sendImage:', error);
+      return JSON.stringify({ 
+        status: 'error',
+        error: 'Failed to send image or add to Firebase',
+        details: error.message 
+      });
+    }
+  }
 
   async function listAssignedContacts(idSubstring, assigneeName, limit = 10) {
     try {
@@ -2207,6 +2262,23 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
     for (const toolCall of toolCalls) {
         console.log(`Processing tool call: ${toolCall.function.name}`);
         switch (toolCall.function.name) {
+            case 'sendImage':
+                try {
+                  console.log('Sending image...');
+                  const args = JSON.parse(toolCall.function.arguments);
+                  const result = await sendImage(client, phoneNumber, args.imageUrl, args.caption, idSubstring);
+                  toolOutputs.push({
+                    tool_call_id: toolCall.id,
+                    output: result,
+                  });
+                } catch (error) {
+                  console.error('Error in handleToolCalls for sendImage:', error);
+                  toolOutputs.push({
+                    tool_call_id: toolCall.id,
+                    output: JSON.stringify({ error: error.message }),
+                  });
+                }
+                break;
             case 'registerUser':
                 try {
                     console.log('Registering user...');
@@ -2740,6 +2812,31 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
 
 
     const tools = [
+        {
+            type: "function",
+            function: {
+              name: "sendImage",
+              description: "Send an image to a WhatsApp contact",
+              parameters: {
+                type: "object",
+                properties: {
+                  phoneNumber: {
+                    type: "string",
+                    description: "The phone number of the recipient"
+                  },
+                  imageUrl: {
+                    type: "string",
+                    description: "The URL of the image to send"
+                  },
+                  caption: {
+                    type: "string",
+                    description: "The caption for the image"
+                  }
+                },
+              
+              }
+            }
+          },
         {
             type: "function",
             function: {
