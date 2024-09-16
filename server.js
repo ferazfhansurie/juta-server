@@ -628,7 +628,7 @@ async function createUserInFirebase(userData) {
       if (companyId == '079') {
         contactData.branch = row['BRANCH NAME'] || null;
         contactData.address1 = row['ADDRESS'] || null;
-        contactData.expiryDate = formatExpiryDate(row['PERIOD OF COVER']);
+        contactData.expiryDate = formatExpiryDate(row['PERIOD OF COVER']) || null;
         contactData.email = row['EMAIL'] || null;
         contactData.vehicleNumber = row['VEH. NO'] || null;
       }
