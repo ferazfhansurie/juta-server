@@ -44,7 +44,7 @@ async function handleExtremeFitnessBlast(req, res, client) {
     await fetchConfigFromDatabase();
 
 
-    const { first_name, threadid, text } = req.body;
+    const { first_name, threadid, text } = req.body.customData;
     let { phone } = req.body;  // Change this to let
 
     if (!phone || !first_name) {
