@@ -43,12 +43,11 @@ async function handleExtremeFitnessBlast(req, res, client) {
     console.log(req.body);
     await fetchConfigFromDatabase();
 
-
-    const { first_name, text } = (req.body).customData;
-    let { phone } = (req.body).phone;  // Change this to let
+    const { first_name, text } = req.body.customData;
+    let phone = req.body.phone;  // Phone is directly in req.body, not in a nested object
 
     if (!phone || !first_name) {
-        return res.status(400).json({ error: 'Phone number, name, and contact_id are required' });
+        return res.status(400).json({ error: 'Phone number and name are required' });
     }
 
     let phoneWithPlus = phone;
@@ -57,19 +56,18 @@ async function handleExtremeFitnessBlast(req, res, client) {
     }else{
         phone = phone.replace('+', '');
     }
-        console.log('creating thread');
-        const thread = await openai.beta.threads.create();
-        const currentThreadId = thread.id;
-        console.log('New thread created:', currentThreadId);
-        await saveThreadIDFirebase(phoneWithPlus, currentThreadId, '074');
+
+    const thread = await openai.beta.threads.create();
+    const currentThreadId = thread.id;
+    await saveThreadIDFirebase(phoneWithPlus, currentThreadId, '074');
 
     const chatId = `${phone.replace(/^\+/, '')}@c.us`;
-    console.log(chatId);
-    console.log(first_name);
+    console.log("chatid: ",chatId);
+    console.log("first_name: ",first_name);
+
     try {
         const message = text;
         const message1 = await client.sendMessage(chatId, message);
-        
 
         // Add message to assistant
         await addMessagetoFirebase(message1, '074', phoneWithPlus, first_name);
