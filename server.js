@@ -1433,8 +1433,7 @@ async function storeVideoData(videoData, filename) {
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
 
 async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retryCount = 0) {
-    const maxRetries = 5;
-    const baseDelay = 1000; // 1 second base delay
+    
 
     try {
         let phoneNumber = contact.number;
@@ -1543,22 +1542,16 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
         }
         const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
         await contactRef.set(contactData, { merge: true });
-        const messages = await chat.fetchMessages({ limit: 100 });
+        const messages = await chat.fetchMessages({ limit: 20 });
 
         // Save messages
         if (messages && messages.length > 0) {
-          // Sort messages by timestamp in ascending order
-          const sortedMessages = messages.sort((a, b) => {
-            const timestampA = a.timestamp ? new Date(a.timestamp * 1000).getTime() : 0;
-            const timestampB = b.timestamp ? new Date(b.timestamp * 1000).getTime() : 0;
-            return timestampA - timestampB;
-          });
-        
-          const messagesRef = contactRef.collection('messages');
-          let batch = db.batch();
-          let count = 0;
+            const sortedMessages = messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            const messagesRef = contactRef.collection('messages');
+            let batch = db.batch();
+            let count = 0;
           
-          for (const message of sortedMessages) {
+            for (const message of sortedMessages) {
             let type2 = message.type === 'chat' ? 'text' : message.type;
             
             //console.log(message);
@@ -1651,7 +1644,6 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retry
         
         // Delay before next operation
         console.log(`Succesfully saved contact ${extractedNumber} for bot ${botName}`);
-        await customWait(baseDelay);
     } catch (error) {
         console.error(`Error saving contact for bot ${botName}:`, error);
         
