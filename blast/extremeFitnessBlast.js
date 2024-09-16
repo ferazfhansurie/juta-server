@@ -44,27 +44,24 @@ async function handleExtremeFitnessBlast(req, res, client) {
     await fetchConfigFromDatabase();
 
 
-    const { first_name, threadid, text } = req.body.customData;
-    let { phone } = req.body;  // Change this to let
+    const { first_name, text } = (req.body).customData;
+    let { phone } = (req.body).phone;  // Change this to let
 
     if (!phone || !first_name) {
         return res.status(400).json({ error: 'Phone number, name, and contact_id are required' });
     }
 
-    let currentThreadId = threadid || null;
     let phoneWithPlus = phone;
     if(!phone.startsWith('+')){
         phoneWithPlus = "+"+phone;
     }else{
         phone = phone.replace('+', '');
     }
-    if (!currentThreadId) {
         console.log('creating thread');
         const thread = await openai.beta.threads.create();
-        currentThreadId = thread.id;
+        const currentThreadId = thread.id;
         console.log('New thread created:', currentThreadId);
         await saveThreadIDFirebase(phoneWithPlus, currentThreadId, '074');
-    }
 
     const chatId = `${phone.replace(/^\+/, '')}@c.us`;
     console.log(chatId);
