@@ -149,6 +149,41 @@ class bhqSpreadsheet {
       }
 
       if(currentDateMalay === 'Ahad'){
+        const totalHours = rows[0][2]
+        const mondayHours = rows[0][7]
+        const mondayAttendance = rows[1][8]
+        const tuesdayHours = rows[0][14]
+        const tuesdayAttendance = rows[1][15]
+        const wednesdayHours = rows[0][21]
+        const wednesdayAttendance = rows[1][22]
+        const thursdayHours = rows[0][28]
+        const thursdayAttendance = rows[1][29]
+        const fridayHours = rows[0][35]
+        const fridayAttendance = rows[1][36]
+        const saturdayHours = rows[0][42]
+        const saturdayAttendance = rows[1][43]
+        const sundayHours = rows[0][49]
+        const sundayAttendance = rows[1][50]
+
+        const reportMessage = `Weekly Class Report:
+
+Total Hours: ${totalHours}
+
+Monday:    ${mondayHours} hours (${mondayAttendance})
+Tuesday:   ${tuesdayHours} hours (${tuesdayAttendance})
+Wednesday: ${wednesdayHours} hours (${wednesdayAttendance})
+Thursday:  ${thursdayHours} hours (${thursdayAttendance})
+Friday:    ${fridayHours} hours (${fridayAttendance})
+Saturday:  ${saturdayHours} hours (${saturdayAttendance})
+Sunday:    ${sundayHours} hours (${sundayAttendance})
+
+Thank you for your dedication to teaching this week!`;
+
+
+        await this.sendWeeklyReport('ttest', '60126029909', reportMessage);
+
+        
+
       }
 
       console.log(`Finished processing timetable`);
@@ -294,6 +329,25 @@ class bhqSpreadsheet {
 
   async sendReminderToTeacher(teacherName, phoneNumber, startTime, endTime) {
     const message = `Hello ${teacherName}, this is a reminder that you have a class from ${startTime} to ${endTime}. It starts in about 2 hours.`;
+
+    const botData = this.botMap.get(this.botName);
+    if (!botData || !botData[0].client) {
+      console.log(`WhatsApp client not found for bot ${this.botName}`);
+      return;
+    }
+    const client = botData[0].client;
+    const extractedNumber = '+'+phoneNumber.split('@')[0];
+    try {
+      const sentMessage = await client.sendMessage(`${phoneNumber}@c.us`, message);
+      await this.addMessagetoFirebase(sentMessage, this.botName, extractedNumber);
+      console.log(`Reminder sent to ${teacherName} (${phoneNumber})`);
+      // You can add additional logging or processing here if needed
+    } catch (error) {
+      console.error(`Error sending reminder to ${teacherName} (${phoneNumber}):`, error);
+    }
+  }
+
+  async sendWeeklyReport(teacherName, phoneNumber, message) {
 
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
