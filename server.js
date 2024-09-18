@@ -74,103 +74,6 @@ async function saveMediaLocally(base64Data, mimeType, filename) {
   return `/media/${uniqueFilename}`;
 }
 
-async function checkAndProcessNewRows(spreadsheetId, range, botName) {
-  try {
-    console.log(`Starting to check for new rows for bot ${botName}`);
-    const { lastProcessedRow } = await loadLastProcessedRow();
-    console.log(`Last processed row: ${lastProcessedRow}`);
-
-    const response = await sheets.spreadsheets.values.get({
-      spreadsheetId,
-      range,
-    }).catch(error => {
-      console.error(`Error fetching spreadsheet data: ${error}`);
-      throw error;
-    });
-
-    const rows = response.data.values;
-    if (!rows || rows.length === 0) {
-      console.log('No data found in the spreadsheet.');
-      return;
-    }
-
-    console.log(`Total rows in spreadsheet: ${rows.length}`);
-
-    let newLastProcessedRow = lastProcessedRow;
-
-    // Process new rows
-    for (let i = lastProcessedRow + 1; i < rows.length; i++) {
-      const row = rows[i];
-      const [timestamp, leadsource, name, email, phoneNumber, icNumber, fieldOfStudy, levelOfQualification, nationality, modeOfStudy, articleName, colIssued] = row;
-
-      console.log(`Processing row ${i + 1}: ${name} (${phoneNumber})`);
-      
-      // Send WhatsApp message
-      const botData = botMap.get(botName);
-      if (!botData || !botData.client) {
-        console.log(`WhatsApp client not found for bot ${botName}`);
-        continue; // Skip this iteration and continue with the next row
-      }
-      const client = botData.client;
-
-      // Construct the message
-      const message = `New lead received:
-      Name: ${name}
-      Email: ${email}
-      Phone: ${phoneNumber}
-      Field of Study: ${fieldOfStudy}
-      Level of Qualification: ${levelOfQualification}
-      Nationality: ${nationality}
-      Mode of Study: ${modeOfStudy}
-      Article Name: ${articleName}
-      COL Issued: ${colIssued}`;
-
-      // Send the message to a designated number or group
-      const designatedRecipient = process.env.DESIGNATED_RECIPIENT; // Set this in your .env file
-      try {
-        await client.sendMessage('601121677522@c.us', message);
-        console.log(`Message sent for ${name} (${phoneNumber})`);
-      } catch (error) {
-        console.error(`Error sending message for ${name} (${phoneNumber}):`, error);
-      }
-
-      newLastProcessedRow = i;
-    }
-
-    // Update the last processed row
-    await saveLastProcessedRow(newLastProcessedRow);
-    console.log(`Updated last processed row to ${newLastProcessedRow}`);
-  } catch (error) {
-    console.error('Error processing spreadsheet:', error);
-  }
-}
-
-async function loadLastProcessedRow() {
-  try {
-    const data = await readFileAsync(LAST_PROCESSED_ROW_FILE, 'utf8');
-    const parsedData = JSON.parse(data);
-    console.log(`Loaded last processed row: ${parsedData.lastProcessedRow}`);
-    return parsedData;
-  } catch (error) {
-    if (error.code === 'ENOENT') {
-      console.log('No saved state found, starting from the beginning.');
-      return { lastProcessedRow: 0 };
-    }
-    console.error('Error loading last processed row:', error);
-    throw error;
-  }
-}
-
-async function saveLastProcessedRow(lastProcessedRow) {
-  try {
-    const data = JSON.stringify({ lastProcessedRow });
-    await writeFileAsync(LAST_PROCESSED_ROW_FILE, data, 'utf8');
-    console.log(`Saved last processed row: ${lastProcessedRow}`);
-  } catch (error) {
-    console.error('Error saving last processed row:', error);
-    throw error;
-  }
-}
 
 wss.on('connection', (ws,req) => {
     console.log('Client connected');
@@ -185,11 +88,7 @@ wss.on('connection', (ws,req) => {
   const openai = new OpenAI({
     apiKey: process.env.OPENAIKEY,
 });
-  function sendProgressUpdate(client, progress) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: 'progress', progress }));
-    }
-  }
+  
   
   function broadcastProgress(botName, action, progress) {
     wss.clients.forEach((client) => {
@@ -220,88 +119,10 @@ wss.on('connection', (ws,req) => {
     });
     botStatusMap.set(botName,status);
   }
-  async function ghlToken(companyId) {
-    try {
-        await fetchConfigFromDatabase(companyId);
-        const { ghl_id, ghl_secret, ghl_refreshToken } = ghlConfig;
-
-        // Generate new token using fetched credentials and refresh token
-        const encodedParams = new URLSearchParams();
-        encodedParams.set('client_id', ghl_id);
-        encodedParams.set('client_secret', ghl_secret);
-        encodedParams.set('grant_type', 'refresh_token');
-        encodedParams.set('refresh_token', ghl_refreshToken);
-        encodedParams.set('user_type', 'Location');
-
-        const options = {
-            method: 'POST',
-            url: 'https://services.leadconnectorhq.com/oauth/token',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-                Accept: 'application/json'
-            },
-            data: encodedParams,
-        };
-
-        const { data: newTokenData } = await axios.request(options);
-
-        await db.collection('companies').doc(companyId).set({
-            ghl_accessToken: newTokenData.access_token,
-            ghl_refreshToken: newTokenData.refresh_token,
-        }, { merge: true });
-
-   
-    } catch (error) {
-       
-        throw error;
-    }
-}
-async function fetchConfigFromDatabase(companyId) {
-    try {
-        const docRef = db.collection('companies').doc(companyId);
-        const doc = await docRef.get();
-        if (!doc.exists) {
-            console.log(`No such document for company ${companyId}!`);
-            return;
-        }
-        ghlConfig = doc.data();
-    } catch (error) {
-        //console.error(`Error fetching config for company ${companyId}:`, error);
-        throw error;
-    }
-}
-
-async function updateAllTokens() {
+  
 
 
-    const companyIds = Array.from({ length: 23 }, (_, i) => `00${i + 1}`.slice(-3));
-    for (const companyId of companyIds) {
-      console.log(companyId);
-        try {
-            await ghlToken(companyId);
-        
-        } catch (error) {
-           // console.error(`Error updating token for company ${companyId}:`, error);
-        }
-    }
-}
 
-// Schedule the token update to run every 12 hours
-cron.schedule('0 */12 * * *', async () => {
-    console.log('Starting token update for all companies...');
-    await updateAllTokens();
-    console.log('Token update for all companies complete.');
-});
-
-// Initial call to update tokens on script start
-(async () => {
-    try {
-
-        await updateAllTokens();
-    } catch (error) {
-        //console.error('Error during initial token update:', error);
-    }
-})();
 
 const { handleNewMessagesGL } = require('./bots/handleMessagesGL.js');
 const { handleNewMessagesArul } = require('./bots/handleMessagesArul.js');
@@ -402,6 +223,7 @@ app.post('/api/bina/tag', async (req, res) => {
 
 //spreadsheet
 const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
+
 // const applyRadarSpreadsheetLPUniten = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN).js');
 // const applyRadarSpreadsheetLPUnitenPK = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN PK).js');
 // const applyRadarSpreadsheetLPMMUPK = require('./spreadsheet/applyradarspreadsheet(LP - MMU PK).js');
@@ -410,9 +232,9 @@ const msuSpreadsheetPartTime = require('./spreadsheet/msuspreadsheet(PartTime).j
 // const msuSpreadsheetApel = require('./spreadsheet/msuspreadsheet(Apel).js');
 const msuSpreadsheetCOL = require('./spreadsheet/msuspreadsheet(COL).js');
 const msuSpreadsheetLeads = require('./spreadsheet/msuspreadsheet(Leads).js');
+const bhqSpreadsheet = require('./spreadsheet/bhqspreadsheet.js');
 
 
-const { off } = require('process');
 
 
 //custom bots
@@ -1717,73 +1539,6 @@ async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
   }
 }
 
-// async function initializeBot(botName, retryCount = 0) {
-//     const maxRetries = 3;
-//     const retryDelay = 5000; // 5 seconds
-
-//     try {
-//         console.log(`DEBUG: Starting initialization for ${botName}`);
-//         const client = new Client({
-//             authStrategy: new LocalAuth({
-//                 clientId: botName,
-//             }),
-//             puppeteer: { 
-//                 args: ['--no-sandbox', '--disable-setuid-sandbox'],
-//                 headless: true,
-//                 timeout: 60000 // 60 seconds timeout
-//             }
-//         });
-//         botMap.set(botName, { client, status: 'initializing', qrCode: null });
-
-//         // Set up event listeners
-//         client.on('qr', async (qr) => {
-//             console.log(`${botName} - QR RECEIVED`);
-//             try {
-//                 const qrCodeData = await qrcode.toDataURL(qr);
-//                 botMap.set(botName, { client, status: 'qr', qrCode: qrCodeData });
-//                 broadcastAuthStatus(botName, 'qr', qrCodeData);
-//             } catch (err) {
-//                 console.error(`Error generating QR code for ${botName}:`, err);
-//             }
-//         });
-
-//         client.on('authenticated', () => {
-//             console.log(`${botName} - AUTHENTICATED`);
-//             botMap.set(botName, { client, status: 'authenticated', qrCode: null });
-//             broadcastAuthStatus(botName, 'authenticated');
-//         });
-
-//         client.on('ready', async () => {
-//             console.log(`${botName} - READY`);
-//             botMap.set(botName, { client, status: 'ready', qrCode: null });
-//             setupMessageHandler(client, botName);
-//         });
-
-//         client.on('auth_failure', msg => {
-//             console.error(`${botName} - AUTHENTICATION FAILURE`, msg);
-//             botMap.set(botName, { client, status: 'auth_failure', qrCode: null });
-//         });
-
-//         client.on('disconnected', (reason) => {
-//             console.log(`${botName} - DISCONNECTED:`, reason);
-//             botMap.set(botName, { client, status: 'disconnected', qrCode: null });
-//         });
-
-//         await client.initialize();
-//         console.log(`DEBUG: Bot ${botName} initialized successfully`);
-//     } catch (error) {
-//         console.error(`Error initializing bot ${botName}:`, error);
-//         botMap.set(botName, { client: null, status: 'error', qrCode: null, error: error.message });
-        
-//         if (retryCount < maxRetries) {
-//             console.log(`Retrying initialization for ${botName} in ${retryDelay / 1000} seconds...`);
-//             setTimeout(() => initializeBot(botName, retryCount + 1), retryDelay);
-//         } else {
-//             console.error(`Failed to initialize ${botName} after ${maxRetries} attempts`);
-//         }
-//     }
-// }
-
 async function processChats(client, botName, phoneIndex) {
   try {
       const chats = await client.getChats();
@@ -1866,7 +1621,8 @@ async function main(reinitialize = false) {
   // const msuAutomationCOL = new msuSpreadsheetCOL(botMap);
   // const msuAutomationPartTime = new msuSpreadsheetPartTime(botMap);
   // const msuAutomationLeads = new msuSpreadsheetLeads(botMap);
-
+  const bhqAutomation = new bhqSpreadsheet(botMap);
+  bhqAutomation.initialize();
   // msuAutomationCOL.initialize();
   // msuAutomationPartTime.initialize();
   // msuAutomationLeads.initialize();
@@ -2000,28 +1756,6 @@ app.get('/api/assistant-test/', async (req, res) => {
       res.status(500).json({ error: error.code});
     }
   });
-  async function getContact(number) {
-    const options = {
-        method: 'GET',
-        url: 'https://services.leadconnectorhq.com/contacts/search/duplicate',
-        params: {
-            locationId: ghlConfig.ghl_location,
-            number: number
-        },
-        headers: {
-          Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
-          Version: '2021-07-28',
-          Accept: 'application/json'
-        }
-    };
-
-    try {
-      const response = await limiter.schedule(() => axios.request(options));
-      return(response.data.contact);
-    } catch (error) {
-        console.error(error);
-    }
-}
 
   app.get('/api/chats/:token/:locationId/:accessToken/:userName/:userRole/:userEmail/:companyId', async (req, res) => {
     const { token, locationId, accessToken, userName, userRole, userEmail,companyId } = req.params;
@@ -2766,84 +2500,12 @@ app.post('/api/fetch-users', async (req, res) => {
   }
 });
 
-async function fetchProjectId(token) {
-  try {
-    const response = await axios.get('https://manager.whapi.cloud/projects', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: 'application/json',
-      },
-    });
-    //console.log(response.data);
-    const projectId = response.data.projects[0].id;
-    return projectId;
-  } catch (error) {
-    console.error(`Error fetching project ID:`, error);
-    throw error;
-  }
-}
+
 
 async function customWait(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-async function createChannel(projectId, token, companyID) {
-  try {
-      const response = await axios.put('https://manager.whapi.cloud/channels', {
-          projectId: projectId,
-          name: companyID,
-      }, {
-          headers: {
-              Authorization: `Bearer ${token}`,
-              'Content-Type': 'application/json',
-              Accept: 'application/json'
-          }
-      });
-   
-      whapiToken = response.data.token
-      // Get the companies collection
-      const companiesCollection = db.collection('companies');
-        
-
-      // Save the whapiToken to a new document
-      await companiesCollection.doc(companyID).set({
-          whapiToken: whapiToken
-      }, { merge: true });
-      
-      await customWait(60000);
-      // Now call the webhook settings API
-      await axios.patch('https://gate.whapi.cloud/settings', {
-        webhooks: [
-          {
-            events: [
-              {
-                type: 'messages',
-                method: 'post'
-              },
-              {
-                type: 'statuses',
-                method: 'post'
-              }
-            ],
-            mode: 'method',
-            url: `https://48ae-115-135-122-145.ngrok-free.app/${companyID}/template/hook`
-          }
-        ],
-        callback_persist: true
-      }, {
-        headers: {
-          Authorization: `Bearer ${whapiToken}`,
-          'Content-Type': 'application/json',
-          Accept: 'application/json'
-        }
-      });
-      //console.log(response.data);
-      return response.data;
-  } catch (error) {
-      console.error(`Error creating channel for project ID ${projectId}:`, error);
-      throw error;
-  }
-}
 
 app.post('/api/channel/create/:companyID', async (req, res) => {
     const { companyID } = req.params;

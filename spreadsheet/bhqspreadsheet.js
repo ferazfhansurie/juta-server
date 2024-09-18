@@ -1,64 +1,172 @@
+const OpenAI = require('openai');
 const axios = require('axios');
-const admin = require('firebase-admin');
+const { google } = require('googleapis');
+const path = require('path');
+const { Client } = require('whatsapp-web.js');
+const util = require('util');
+const moment = require('moment-timezone');
+const fs = require('fs');
+const cron = require('node-cron');
+
+const { v4: uuidv4 } = require('uuid');
+
+const { URLSearchParams } = require('url');
+const admin = require('../firebase.js');
 const db = admin.firestore();
 
-async function scheduleFollowUpMessages(client, chatId, contactName, idSubstring) {
-    const followUpDelays = [3 * 60 * 60 * 1000, 24 * 60 * 60 * 1000, 3 * 24 * 60 * 60 * 1000]; // 3 hours, 24 hours, 3 days in milliseconds
-    const followUpMessages = [
-        `hi ${contactName}, just checking in. can i book an appointment for you or do you need any help?`,
-        `hello ${contactName}, i noticed you haven't responded. can i book you an appointment or is there anything you need help with?`,
-        `hi ${contactName}, i'm following up one last time. please let me know if i can book you an appointment or do you need any assistance.`
-    ];
+const openai = new OpenAI({
+  apiKey: process.env.OPENAIKEY,
+});
 
-    const scheduledMessages = followUpDelays.map((delay, index) => {
-        const reminderTime = new Date(Date.now() + delay);
-        const scheduledTimeSeconds = Math.floor(reminderTime.valueOf() / 1000);
+const readFileAsync = util.promisify(fs.readFile);
+const writeFileAsync = util.promisify(fs.writeFile);
 
-        return {
-            batchQuantity: 1,
-            chatIds: [chatId],
-            companyId: idSubstring,
-            createdAt: admin.firestore.Timestamp.now(),
-            documentUrl: "",
-            fileName: null,
-            mediaUrl: "",
-            message: followUpMessages[index],
-            mimeType: null,
-            repeatInterval: 0,
-            repeatUnit: "days",
-            scheduledTime: {
-                seconds: scheduledTimeSeconds,
-                nanoseconds: 0
-            },
-            status: "scheduled",
-            v2: true,
-            whapiToken: null,
-            tag: 'followup'
-        };
+class bhqSpreadsheet {
+  constructor(botMap) {
+    this.botName = '001';
+    this.spreadsheetId = '1nrRkv4QHj_It7Dm21b4uCR7BVN6UTb_p09-8t440lKc';
+    this.sheetName = 'juta test'; // Update this to match your sheet name
+    this.range = `${this.sheetName}!A:AV`; // Update this to cover all columns
+    this.botMap = botMap;
+
+    this.auth = new google.auth.GoogleAuth({
+      keyFile: './service_account.json',
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
-    try {
-        console.log('Sending schedule request for follow-up messages:', JSON.stringify(scheduledMessages));
-        const response = await axios.post(`http://localhost:8443/api/schedule-message/${idSubstring}`, { messages: scheduledMessages });
-        console.log('Follow-up messages scheduled successfully:', response.data);
-    } catch (error) {
-        console.error('Error scheduling follow-up messages:', error.response ? error.response.data : error.message);
-        if (error.response && error.response.data) {
-            console.error('Server response:', error.response.data);
-        }
-    }
-}
+    this.sheets = google.sheets({ version: 'v4', auth: this.auth });
+  }
 
-async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_name) {
+  async refreshAndProcessTimetable() {
+    try {
+      console.log(`Refreshing and processing timetable for bot ${this.botName}`);
+
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: this.range,
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length === 0) {
+        console.log('No data found in the spreadsheet.');
+        return;
+      }
+
+      console.log(`Total rows in spreadsheet: ${rows.length}`);
+
+      const currentDate = moment().format('dddd').toUpperCase();
+      const currentTime = moment();
+
+      let currentDateMalay;
+      switch(currentDate){
+        case 'MONDAY':
+          currentDateMalay = 'Isnin';
+          break;
+        case 'TUESDAY':
+          currentDateMalay = 'Selasa';
+          break;
+        case 'WEDNESDAY':
+          currentDateMalay = 'Rabu';
+          break;
+        case 'THURSDAY':
+          currentDateMalay = 'Khamis';
+          break;
+        case 'FRIDAY':
+          currentDateMalay = 'Jumaat';
+          break;
+        case 'SATURDAY':
+          currentDateMalay = 'Sabtu';
+          break;
+        case 'SUNDAY':
+          currentDateMalay = 'Ahad';
+          break;
+        default:
+          currentDateMalay = currentDate;
+          break;
+      }
+
+      // Find the column index for the current day using the Malay name
+      const dayIndex = rows[3].findIndex(day => day.trim().toLowerCase() === currentDateMalay.toLowerCase());
+      if (dayIndex === -1) {
+        console.log(`Column for ${currentDateMalay} (${currentDate}) not found. Available columns:`, rows[3]);
+        return;
+      }
+
+      console.log(`Found column for ${currentDateMalay} (${currentDate}) at index ${dayIndex}`);
+      console.log(`Processing rows starting from index 5`);
+
+      for (let i = 5; i < rows.length; i++) {
+        const timeSlot = rows[i][0];
+        if (!timeSlot) {
+          continue;
+        }
+
+        console.log(`Row ${i}: Processing time slot ${timeSlot}`);
+        const startTime = rows[i][0];
+        const endTime = rows[i][1];
+        const classStartTime = moment(startTime, 'h:mm A');
+        console.log('classStartTime: ', classStartTime.format('YYYY-MM-DD HH:mm:ss'));    
+        console.log('currentTime: ', currentTime.format('YYYY-MM-DD HH:mm:ss'));    
+
+        const timeUntilClass = classStartTime.diff(currentTime, 'minutes');
+
+        console.log(`  Class starts at ${startTime}, time until class: ${timeUntilClass} minutes`);
+
+        // Check if the class is within the next 2 hours
+        if (timeUntilClass > 0 && timeUntilClass <= 120) {
+          console.log(`  Classes at this time slot are within the next 2 hours`);
+          
+          // Process all teachers for this time slot
+          let j = i;
+          while (j < rows.length && rows[j][0] === startTime) {
+            const teacherName = rows[j][dayIndex];
+            const phoneNumber = rows[j][dayIndex + 1];
+            const customerName = rows[j][dayIndex + 2];
+            const customerPhone = rows[j][dayIndex + 3];
+
+            console.log(`  Teacher: ${teacherName}, Phone: ${phoneNumber}`);
+
+            if (teacherName && phoneNumber) {
+              console.log(`  Sending reminder...`);
+              await this.sendReminderToTeacher(teacherName, phoneNumber, startTime, endTime);
+              if(customerName && customerPhone){
+                await this.sendReminderToCustomer(customerName, customerPhone, startTime, endTime);
+              } else{
+                console.log(`  Missing customer name or phone number, skipping customer reminder`);
+              }
+            } else {
+              console.log(`  Missing teacher name or phone number, skipping teacher sreminder`);
+            }
+
+            j++;
+          }
+
+          // Skip to the next time slot
+          i = j - 1;
+        } else {
+          console.log(`  Classes at this time slot are not within the next 2 hours, skipping`);
+        }
+      }
+
+      if(currentDateMalay === 'Ahad'){
+      }
+
+      console.log(`Finished processing timetable`);
+
+    } catch (error) {
+      console.error('Error processing timetable:', error);
+    }
+  }
+  async addMessagetoFirebase(msg, idSubstring, extractedNumber){
     console.log('Adding message to Firebase');
     console.log('idSubstring:', idSubstring);
     console.log('extractedNumber:', extractedNumber);
-
-    if (!extractedNumber) {
+  
+    if (!extractedNumber || !extractedNumber.startsWith('+60')) {
         console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
         return;
     }
-
+  
     if (!idSubstring) {
         console.error('Invalid idSubstring for Firebase document path');
         return;
@@ -66,15 +174,12 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_nam
     let messageBody = msg.body;
     let audioData = null;
     let type = '';
-    if(msg.type == 'chat'){
+    if(msg.type === 'chat'){
         type ='text'
-    }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
-        return;
-    }else{
+      }else{
         type = msg.type;
-    }
-    
-    if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+      }
+    if (msg.hasMedia && msg.type === 'audio') {
         console.log('Voice message detected');
         const media = await msg.downloadMedia();
         const transcription = await transcribeAudio(media.data);
@@ -96,23 +201,10 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_nam
         timestamp: msg.timestamp ?? 0,
         type: type,
     };
-
-    if(msg.hasQuotedMsg){
-        const quotedMsg = await msg.getQuotedMessage();
-        // Initialize the context and quoted_content structure
-        messageData.text.context = {
-          quoted_content: {
-            body: quotedMsg.body
-          }
-        };
-        const authorNumber = '+'+(quotedMsg.from).split('@')[0];
-        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-        messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
-    }
-
+  
     if((msg.from).includes('@g.us')){
         const authorNumber = '+'+(msg.author).split('@')[0];
-
+  
         const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
         if(authorData){
             messageData.author = authorData.contactName;
@@ -120,15 +212,15 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_nam
             messageData.author = msg.author;
         }
     }
-
-    if (msg.type === 'audio' || msg.type === 'ptt') {
+  
+    if (msg.type === 'audio') {
         messageData.audio = {
             mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
             data: audioData // This is the base64 encoded audio data
         };
     }
-
-    if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
+  
+    if (msg.hasMedia &&  msg.type !== 'audio') {
         try {
             const media = await msg.downloadMedia();
             if (media) {
@@ -181,7 +273,9 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_nam
               if (msg.mediaKey) {
                   messageData[msg.type].mediaKey = msg.mediaKey;
               }
-            } else {
+  
+              
+            }  else {
                 console.log(`Failed to download media for message: ${msg.id._serialized}`);
                 messageData.text = { body: "Media not available" };
             }
@@ -190,35 +284,68 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, first_nam
             messageData.text = { body: "Error handling media" };
         }
     }
-
     const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
     const messagesRef = contactRef.collection('messages');
-
+  
     const messageDoc = messagesRef.doc(msg.id._serialized);
     await messageDoc.set(messageData, { merge: true });
-    console.log(messageData);
-    await addNotificationToUser(idSubstring, messageData, first_name);
-    return messageData;
+    console.log(messageData);  
+  }
+
+  async sendReminderToTeacher(teacherName, phoneNumber, startTime, endTime) {
+    const message = `Hello ${teacherName}, this is a reminder that you have a class from ${startTime} to ${endTime}. It starts in about 2 hours.`;
+
+    const botData = this.botMap.get(this.botName);
+    if (!botData || !botData[0].client) {
+      console.log(`WhatsApp client not found for bot ${this.botName}`);
+      return;
+    }
+    const client = botData[0].client;
+    const extractedNumber = '+'+phoneNumber.split('@')[0];
+    try {
+      const sentMessage = await client.sendMessage(`${phoneNumber}@c.us`, message);
+      await this.addMessagetoFirebase(sentMessage, this.botName, extractedNumber);
+      console.log(`Reminder sent to ${teacherName} (${phoneNumber})`);
+      // You can add additional logging or processing here if needed
+    } catch (error) {
+      console.error(`Error sending reminder to ${teacherName} (${phoneNumber}):`, error);
+    }
+  }
+
+  async sendReminderToCustomer(customerName, phoneNumber, startTime, endTime) {
+    const message = `Hello ${customerName}, this is a reminder that you have a class from ${startTime} to ${endTime}. It starts in about 2 hours.`;
+
+    const botData = this.botMap.get(this.botName);
+    if (!botData || !botData[0].client) {
+      console.log(`WhatsApp client not found for bot ${this.botName}`);
+      return;
+    }
+    const client = botData[0].client;
+    const extractedNumber = '+'+phoneNumber.split('@')[0];
+    try {
+      const sentMessage = await client.sendMessage(`${phoneNumber}@c.us`, message);
+      await this.addMessagetoFirebase(sentMessage, this.botName, extractedNumber);
+      console.log(`Reminder sent to ${customerName} (${phoneNumber})`);
+      // You can add additional logging or processing here if needed
+    } catch (error) {
+      console.error(`Error sending reminder to ${customerName} (${phoneNumber}):`, error);
+    }
+  }
+
+  scheduleRefresh(cronExpression) {
+    cron.schedule(cronExpression, async () => {
+      console.log(`Refreshing timetable for bot ${this.botName}...`);
+      await this.refreshAndProcessTimetable();
+    });
+  }
+
+  initialize() {
+    // Run the refresh immediately when initialized
+    this.refreshAndProcessTimetable();
+
+    // Schedule regular refreshes
+    this.scheduleRefresh('*/15 * * * *'); // Every 15 minutes
+  }
 }
 
-// You'll need to implement or import these functions
-async function transcribeAudio(audioData) {
-    // Implementation of audio transcription
-}
-
-async function storeVideoData(videoData, filename) {
-    // Implementation of video storage
-}
-
-async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
-    // Implementation of fetching contact data
-}
-
-async function addNotificationToUser(idSubstring, messageData, first_name) {
-    // Implementation of adding notification to user
-}
-
-module.exports = {
-    scheduleFollowUpMessages,
-    addMessagetoFirebase
-};
+module.exports = bhqSpreadsheet;
