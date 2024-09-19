@@ -128,9 +128,9 @@ class bhqSpreadsheet {
 
             if (teacherName && phoneNumber) {
               console.log(`  Sending reminder...`);
-              await this.sendReminderToTeacher(teacherName, phoneNumber, startTime, endTime);
               if(customerName && customerPhone){
-                await this.sendReminderToCustomer(customerName, customerPhone, startTime, endTime);
+                await this.sendReminderToTeacher(teacherName, phoneNumber, customerName);
+                await this.sendReminderToCustomer(customerName, customerPhone, teacherName);
               } else{
                 console.log(`  Missing customer name or phone number, skipping customer reminder`);
               }
@@ -327,8 +327,8 @@ Thank you for your dedication to teaching this week!`;
     console.log(messageData);  
   }
 
-  async sendReminderToTeacher(teacherName, phoneNumber, startTime, endTime) {
-    const message = `Hello ${teacherName}, this is a reminder that you have a class from ${startTime} to ${endTime}. It starts in about 2 hours.`;
+  async sendReminderToTeacher(teacherName, phoneNumber, customerName) {
+    const message = `Hai ${teacherName}, kelas anda dengan ${customerName} akan bermula dalam 2 jam. Sila sahkan kehadiran anda dengan membalas 'Ya' atau maklumkan jika ada sebarang perubahan.`;
 
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
@@ -366,8 +366,8 @@ Thank you for your dedication to teaching this week!`;
     }
   }
 
-  async sendReminderToCustomer(customerName, phoneNumber, startTime, endTime) {
-    const message = `Hello ${customerName}, this is a reminder that you have a class from ${startTime} to ${endTime}. It starts in about 2 hours.`;
+  async sendReminderToCustomer(customerName, phoneNumber, teacherName) {
+    const message = `Hai ${customerName}, kelas anda dengan ${teacherName} akan bermula dalam 2 jam. Sila sahkan kehadiran anda dengan membalas 'Ya' atau maklumkan jika ada sebarang perubahan.`;
 
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
