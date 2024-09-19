@@ -10,6 +10,7 @@ const OpenAI = require('openai');
 const axios = require('axios').default;
 const { Client } = require('whatsapp-web.js');
 
+const { v4: uuidv4 } = require('uuid');
 
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
