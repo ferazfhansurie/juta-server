@@ -849,7 +849,9 @@ async function sendScheduledMessage(message) {
         await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/text/${message.companyId}/${chatId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: individualMessage })
+          body: JSON.stringify({ message: individualMessage,
+            phoneIndex: message.phoneIndex
+           })
         });
       }
     }
