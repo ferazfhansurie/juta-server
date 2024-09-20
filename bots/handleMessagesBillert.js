@@ -84,7 +84,7 @@ async function storeAssignmentState(idSubstring) {
 async function assignNewContactToEmployee(contactID, idSubstring, client) {
     const employeeList = [
         { name: 'Hilmi', fullName: 'Hilmi Sales', phone: '+60146531563', status: 'ON', weight: 12 },
-        { name: 'Zara', fullName: 'Isha Sales', phone: '+60143407573', status: 'ON', weight: 12 },
+        { name: 'Zara', fullName: 'Isha Sales', phone: '+60143407573', status: 'OFF', weight: 12 },
         { name: 'Stanie', fullName: 'Stanie Sales', phone: '+60167104128', status: 'ON', weight: 16 },
         { name: 'Qayyim', fullName: 'Qayyim Billert', phone: '+60167009798', status: 'ON', weight: 12 },
         { name: 'Bazilah', fullName: 'Bazilah Agent Sales', phone: '+601126926822', status: 'ON', weight: 12 },
