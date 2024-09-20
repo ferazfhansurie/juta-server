@@ -675,6 +675,44 @@ function formatExpiryDate(periodOfCover) {
     }
   });
 
+  app.delete('/api/schedule-message/:companyId/:messageId', async (req, res) => {
+    const { companyId, messageId } = req.params;
+  
+    try {
+      console.log(`Attempting to delete scheduled message: ${messageId} for company: ${companyId}`);
+  
+      // 1. Remove the message and its batches from Firebase
+      const messageRef = db.collection('companies').doc(companyId).collection('scheduledMessages').doc(messageId);
+      const batchesRef = messageRef.collection('batches');
+      
+      // Check if the message exists
+      const messageDoc = await messageRef.get();
+      if (!messageDoc.exists) {
+        return res.status(404).json({ error: 'Scheduled message not found' });
+      }
+  
+      // Delete batches
+      const batchesSnapshot = await batchesRef.get();
+      const batch = db.batch();
+      batchesSnapshot.docs.forEach(doc => batch.delete(doc.ref));
+      batch.delete(messageRef);
+      await batch.commit();
+  
+      // 2. Remove the jobs from the queue
+      const jobs = await messageQueue.getJobs(['active', 'waiting', 'delayed', 'paused']);
+      for (const job of jobs) {
+        if (job.id.startsWith(messageId)) {
+          await job.remove();
+        }
+      }
+  
+      console.log(`Successfully deleted scheduled message: ${messageId}`);
+      res.json({ message: 'Scheduled message deleted successfully' });
+    } catch (error) {
+      console.error('Error deleting scheduled message:', error);
+      res.status(500).json({ error: 'Failed to delete scheduled message' });
+    }
+  });
 // New route for syncing contacts
 app.post('/api/sync-contacts/:companyId', async (req, res) => {
   const { companyId } = req.params;
