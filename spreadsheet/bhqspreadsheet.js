@@ -37,6 +37,83 @@ class bhqSpreadsheet {
     this.sheets = google.sheets({ version: 'v4', auth: this.auth });
   }
 
+  async updateAttendance(phoneNumber, isAttending) {
+    try {
+      console.log(`Updating attendance for ${phoneNumber}`);
+      const phoneWithoutPlus = phoneNumber.replace('+', '');
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: this.range,
+      });
+
+      const rows = response.data.values;
+      if (!rows || rows.length === 0) {
+        console.log('No data found in the spreadsheet.');
+        return;
+      }
+
+      const currentDate = moment().format('dddd').toUpperCase();
+      let currentDateMalay;
+      switch(currentDate){
+        case 'MONDAY':
+          currentDateMalay = 'Isnin';
+          break;
+        case 'TUESDAY':
+          currentDateMalay = 'Selasa';
+          break;
+        case 'WEDNESDAY':
+          currentDateMalay = 'Rabu';
+          break;
+        case 'THURSDAY':
+          currentDateMalay = 'Khamis';
+          break;
+        case 'FRIDAY':
+          currentDateMalay = 'Jumaat';
+          break;
+        case 'SATURDAY':
+          currentDateMalay = 'Sabtu';
+          break;
+        case 'SUNDAY':
+          currentDateMalay = 'Ahad';
+          break;
+        default:
+          currentDateMalay = currentDate;
+          break;
+      }
+      // Find the column index for the current day
+      const dayIndex = rows[3].findIndex(day => day.trim().toLowerCase() === currentDateMalay.toLowerCase());
+      if (dayIndex === -1) {
+        console.log(`Column for ${currentDateMalay} (${currentDate}) not found.`);
+        return;
+      }
+
+      // Find the row with the matching phone number
+      const rowIndex = rows.findIndex(row => row[dayIndex + 1] === phoneWithoutPlus);
+      if (rowIndex === -1) {
+        console.log(`No matching phone number found for ${phoneWithoutPlus}`);
+        return;
+      }
+
+      // Update the KEHADIRAN column
+      const attendanceColumn = dayIndex + 7; // KEHADIRAN column is 7 columns after the day column
+      const updateRange = `${this.sheetName}!${this.columnToLetter(attendanceColumn)}${rowIndex + 1}`;
+      
+      await this.sheets.spreadsheets.values.update({
+        spreadsheetId: this.spreadsheetId,
+        range: updateRange,
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+          values: [[isAttending ? 'TRUE' : 'FALSE']]
+        }
+      });
+
+      console.log(`Attendance updated for ${phoneNumber}`);
+    } catch (error) {
+      console.error('Error updating attendance:', error);
+    }
+  }
+
+
   async refreshAndProcessTimetable() {
     try {
       console.log(`Refreshing and processing timetable for bot ${this.botName}`);

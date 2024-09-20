@@ -1,18 +1,25 @@
-// handleMessagesGL.js
+// handleMessagesTemplateWweb.js
+
+//STEP BY STEP GUIDE
+//1. CHANGE all handleMessagesTemplate to -> handleMessages<YourBotName>
+//2. CHANGE all idSubstring to firebase collection name
+//3. CHANGE all <assistant> to openai assistant id
+//4. CHANGE all Template to your <YourBotName>
+
 const OpenAI = require('openai');
 const axios = require('axios').default;
+const { Client } = require('whatsapp-web.js');
+
+const { v4: uuidv4 } = require('uuid');
+const bhqSpreadsheet = require('../spreadsheet/bhqspreadsheet.js');
 
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
 const db = admin.firestore();
-const config = require('../config.js');
-
-const timers = {}; // To keep track of timers for each chat
-const messageTimestamps = {}; // To keep track of the timestamps of the bot's first replies
 
 let ghlConfig = {};
 
-
+// Schedule the task to run every 12 hours
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAIKEY,
@@ -20,14 +27,13 @@ const openai = new OpenAI({
 
 const steps = {
     START: 'start',
-    NEW_CONTACT: 'newContact',
-    CREATE_CONTACT: 'createContact',
-    POLL: 'poll',
 };
 const userState = new Map();
+
 async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
+
 async function addNotificationToUser(companyId, message) {
     console.log('noti');
     try {
@@ -36,418 +42,596 @@ async function addNotificationToUser(companyId, message) {
         const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
 
         if (querySnapshot.empty) {
-          
+            console.log('No matching documents.');
             return;
         }
+
+        // Filter out undefined values from the message object
+        const cleanMessage = Object.fromEntries(
+            Object.entries(message).filter(([_, value]) => value !== undefined)
+        );
 
         // Add the new message to the notifications subcollection of the user's document
         querySnapshot.forEach(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...message, read: false };
+            const updatedMessage = { ...cleanMessage, read: false };
         
             await notificationsRef.add(updatedMessage);
-           
+            console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
         });
     } catch (error) {
         console.error('Error adding notification: ', error);
     }
 }
-async function sendPushNotification(fcmToken, message) {
-    console.log(message);
-    const payload = {
-        notification: {
-            title: message.from_name || 'New Message',
-            body: message.text.body || 'You have received a new message.',
-            icon:'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/logo2.png?alt=media&token=d31d1696-1be8-44a8-b6c5-f6808eb78f6c',
-            image:'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/211666_forward_icon.png?alt=media&token=597bb1cf-6ebc-4677-8729-08397df0eb36'
+
+
+async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName){
+    console.log('Adding message to Firebase');
+    console.log('idSubstring:', idSubstring);
+    console.log('extractedNumber:', extractedNumber);
+
+    if (!extractedNumber) {
+        console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
+        return;
+    }
+
+    if (!idSubstring) {
+        console.error('Invalid idSubstring for Firebase document path');
+        return;
+    }
+    let messageBody = msg.body;
+    let audioData = null;
+    let type = '';
+    if(msg.type == 'chat'){
+        type ='text'
+    }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
+        return;
+    }else{
+        type = msg.type;
+    }
+    
+    if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+        console.log('Voice message detected');
+        const media = await msg.downloadMedia();
+        const transcription = await transcribeAudio(media.data);
+        console.log('Transcription:', transcription);
+                
+        messageBody = transcription;
+        audioData = media.data;
+        console.log(msg);
+    }
+    const messageData = {
+        chat_id: msg.from,
+        from: msg.from ?? "",
+        from_me: msg.fromMe ?? false,
+        id: msg.id._serialized ?? "",
+        status: "delivered",
+        text: {
+            body: messageBody ?? ""
         },
-        data: {
-            message: JSON.stringify(message)
+        timestamp: msg.timestamp ?? 0,
+        type: type,
+    };
+
+    if(msg.hasQuotedMsg){
+        const quotedMsg = await msg.getQuotedMessage();
+        // Initialize the context and quoted_content structure
+        messageData.text.context = {
+          quoted_content: {
+            body: quotedMsg.body
+          }
+        };
+        const authorNumber = '+'+(quotedMsg.from).split('@')[0];
+        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
+    }
+
+    if((msg.from).includes('@g.us')){
+        const authorNumber = '+'+(msg.author).split('@')[0];
+
+        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        if(authorData){
+            messageData.author = authorData.contactName;
+        }else{
+            messageData.author = msg.author;
         }
+    }
+
+    if (msg.type === 'audio' || msg.type === 'ptt') {
+        messageData.audio = {
+            mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+            data: audioData // This is the base64 encoded audio data
+        };
+    }
+
+    if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
+        try {
+            const media = await msg.downloadMedia();
+            if (media) {
+              if (msg.type === 'image') {
+                messageData.image = {
+                    mimetype: media.mimetype,
+                    data: media.data,  // This is the base64-encoded data
+                    filename: msg._data.filename || "",
+                    caption: msg._data.caption || "",
+                };
+                // Add width and height if available
+                if (msg._data.width) messageData.image.width = msg._data.width;
+                if (msg._data.height) messageData.image.height = msg._data.height;
+              } else if (msg.type === 'document') {
+                  messageData.document = {
+                      mimetype: media.mimetype,
+                      data: media.data,  // This is the base64-encoded data
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                      pageCount: msg._data.pageCount,
+                      fileSize: msg._data.size,
+                  };
+              }else if (msg.type === 'video') {
+                    messageData.video = {
+                        mimetype: media.mimetype,
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
+                    };
+                    // Store video data separately or use a cloud storage solution
+                    const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                    messageData.video.link = videoUrl;
+              } else {
+                  messageData[msg.type] = {
+                      mimetype: media.mimetype,
+                      data: media.data,
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                  };
+              }
+  
+              // Add thumbnail information if available
+              if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                  messageData[msg.type].thumbnail = {
+                      height: msg._data.thumbnailHeight,
+                      width: msg._data.thumbnailWidth,
+                  };
+              }
+  
+              // Add media key if available
+              if (msg.mediaKey) {
+                  messageData[msg.type].mediaKey = msg.mediaKey;
+              }
+
+              
+            }  else {
+                console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                messageData.text = { body: "Media not available" };
+            }
+        } catch (error) {
+            console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+            messageData.text = { body: "Error handling media" };
+        }
+    }
+
+    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+    const messagesRef = contactRef.collection('messages');
+
+    const messageDoc = messagesRef.doc(msg.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+    console.log(messageData);
+    await addNotificationToUser(idSubstring, messageData, contactName);
+}
+
+
+async function getChatMetadata(chatId,) {
+    const url = `https://gate.whapi.cloud/chats/${chatId}`;
+    const headers = {
+        'Authorization': `Bearer ${ghlConfig.whapiToken}`,
+        'Accept': 'application/json'
     };
 
     try {
-        await admin.messaging().sendToDevice(fcmToken, payload);
-        console.log('Push notification sent successfully');
+        const response = await axios.get(url, { headers });
+        return response.data;
     } catch (error) {
-        console.error('Error sending push notification:', error);
+        console.error('Error fetching chat metadata:', error.response.data);
+        throw error;
+    }
+}
+async function transcribeAudio(audioData) {
+    try {
+        const formData = new FormData();
+        formData.append('file', Buffer.from(audioData, 'base64'), {
+            filename: 'audio.ogg',
+            contentType: 'audio/ogg',
+        });
+        formData.append('model', 'whisper-1');
+        formData.append('response_format', 'json');
+
+        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${process.env.OPENAIKEY}`,
+            },
+        });
+
+        return response.data.text;
+    } catch (error) {
+        console.error('Error transcribing audio:', error);
+        return '';
     }
 }
 
-async function handleNewMessagesBHQ(req, res) {
+const messageQueue = new Map();
+const MAX_QUEUE_SIZE = 5;
+const RATE_LIMIT_DELAY = 5000; // 5 seconds
+
+async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
+    console.log('Handling new Messages '+botName);
+
+    //const url=req.originalUrl
+
+    // Find the positions of the '/' characters
+    //const firstSlash = url.indexOf('/');
+    //const secondSlash = url.indexOf('/', firstSlash + 1);
+
+    // Extract the substring between the first and second '/'
+    //const idSubstring = url.substring(firstSlash + 1, secondSlash);
+    const idSubstring = botName;
     try {
+
         // Initial fetch of config
-        await fetchConfigFromDatabase();
-        
-        const receivedMessages = req.body.messages;
-        for (const message of receivedMessages) {
-            if (message.from_me) break;
-            console.log(message);
+        await fetchConfigFromDatabase(idSubstring);
+
+        //const receivedMessages = req.body.messages;
+            if (msg.fromMe){
+                return;
+            }
 
             const sender = {
-                to: message.chat_id,
-                name: message.from_name
+                to: msg.from,
+                name:msg.notifyName,
             };
+
             
-            if (!message.chat_id.includes("whatsapp")) {
-                break;
-            }
-     
-            let assistantID;
+            let contactID;
             let contactName;
             let threadID;
-            let botStatus;
             let query;
             let answer;
             let parts;
+            let currentStep;
+            const extractedNumber = '+'+(sender.to).split('@')[0];
+            const chat = await msg.getChat();
+            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
+            let unreadCount = 0;
+            let stopTag = contactData?.tags || [];
+            const contact = await chat.getContact()
 
-
-            const senderTo = sender.to;
-            const extractedNumber = '+' + senderTo.match(/\d+/)[0];
-            await callWebhookNotification('https://hook.us1.make.com/c2nnehk5h6l61wohvu1lxfweqxffc9ll',sender.name,message.text.body);
-            const dbData = await getDataFromDatabase(extractedNumber);
-            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber);
-            threadID = dbData.thread_id;
-            botStatus = dbData.bot_status;
-            if (botStatus === 'on') {
-                console.log('bot is running for this contact');
-            } else {
-                console.log('bot is turned off for this contact');
-                continue;
-            }
-            if (dbData.name) {
-                contactName = dbData.name;
-                console.log('name in true :', contactName);
-            } else {
-                await createContact(sender.name, extractedNumber);
-                contactName = sender.name; // Initialize savedName with sender's name
-                await saveNameToDatabase(extractedNumber, contactName);
-                console.log('name in false :', contactName);
-            }
-            const contactPresent = await getContact(extractedNumber);
-            const chat = await getChatMetadata(message.chat_id);
-            const id = message.chat_id.split('@')[0];
-        
-
-
-            if (contactPresent !== null) {
-                const stopTag = contactPresent.tags;
+            console.log(contactData);
+            if (contactData !== null) {
+                stopTag = contactData.tags;
                 console.log(stopTag);
-                if (stopTag.includes('stop bot')) {
-                    console.log('Bot stopped for this message');
-                    continue;
-                } else {
-                    contactID = contactPresent.id;
-                    contactName = contactPresent.fullNameLowerCase;
-                    console.log(contactID);
-                    console.log(contactPresent.id);
-                 
-                    const threadIdField = contactPresent.customFields.find(field => field.id === 'oeSpka9m9YgEtAdBz1Bc');
-                    if (threadIdField) {
-                        threadID = threadIdField.value;
+                    unreadCount = contactData.unreadCount ?? 0;
+                    contactID = extractedNumber;
+                    contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
+                
+                    if (contactData.threadid) {
+                        threadID = contactData.threadid;
                     } else {
                         const thread = await createThread();
                         threadID = thread.id;
-                        await saveThreadIDGHL(contactID, threadID);
+                        await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                        //await saveThreadIDGHL(contactID,threadID);
                     }
-                    const invSentTag = contactPresent.tags
-                    if (invSentTag.includes('invoice sent')) {
-                        assistantID = config.blast_assistantID;
-                    } else {
-                        assistantID = config.booking_assistantID;
-                    }
+                
+            }else{
+                
+                await customWait(2500); 
+
+                contactID = extractedNumber;
+                contactName = contact.pushname || contact.name || extractedNumber;
+                
+                const thread = await createThread();
+                threadID = thread.id;
+                console.log(threadID);
+                await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                console.log('sent new contact to create new contact');
+            }   
+            let firebaseTags = ['']
+            if (contactData) {
+                firebaseTags = contactData.tags ?? [];
+                // Remove 'snooze' tag if present
+                if(firebaseTags.includes('snooze')){
+                    firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
                 }
             } else {
-                await createContact(sender.name,extractedNumber);
-                await customWait(2500);
-                const contactPresent = await getContact(extractedNumber);
-                const stopTag = contactPresent.tags;
-                if (message.from_me){
-                    if(stopTag.includes('idle')){
-                    removeTagBookedGHL(contactPresent.id,'idle');
-                    }
-                    break;
+                if ((sender.to).includes('@g.us')) {
+                    firebaseTags = ['stop bot']
                 }
-                console.log(stopTag);
-
-                contactID = contactPresent.id;
-                contactName = contactPresent.fullNameLowerCase;
-
-                const threadIdField = contactPresent.customFields.find(field => field.id === 'oeSpka9m9YgEtAdBz1Bc');
-                if (threadIdField) {
-                    threadID = threadIdField.value;
-                } else {
-                    const thread = await createThread();
-                    threadID = thread.id;
-                    await saveThreadIDGHL(contactID,threadID);
-                }
-                console.log('sent new contact to create new contact');
             }
-            const contactPresent2 = await getContact(extractedNumber);
+
+            
+                
+            let type = '';
+            if(msg.type == 'chat'){
+                type ='text'
+            }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
+                return;
+            }else{
+                type = msg.type;
+            }
+                
+            if(extractedNumber.includes('status')){
+                return;
+            }
+
+            // First, let's handle the transcription if it's an audio message
+            let messageBody = msg.body;
+            let audioData = null;
+
+            if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+                console.log('Voice message detected');
+                const media = await msg.downloadMedia();
+                const transcription = await transcribeAudio(media.data);
+                console.log('Transcription:', transcription);
+                    
+                messageBody = transcription;
+                audioData = media.data;
+                console.log(msg);
+            }
+            
             const data = {
                 additionalEmails: [],
                 address1: null,
                 assignedTo: null,
                 businessId: null,
-                phone:extractedNumber,
-                tags:contactData.tags??[],
+                phone: extractedNumber,
+                tags: firebaseTags,
                 chat: {
-                    chat_pic: chat.chat_pic ?? "",
-                    chat_pic_full: chat.chat_pic_full ?? "",
-                    contact_id: contactPresent2.id,
-                    id: message.chat_id,
-                    name: contactPresent2.firstName,
+                    contact_id: extractedNumber,
+                    id: msg.from,
+                    name: contactName || contact.name || contact.pushname || extractedNumber,
                     not_spam: true,
-                    tags: contactPresent2.tags??[],
-                    timestamp: message.timestamp,
+                    tags: firebaseTags,
+                    timestamp: chat.timestamp || Date.now(),
                     type: 'contact',
                     unreadCount: 0,
                     last_message: {
-                        chat_id: chat.id,
-                        device_id: message.device_id ?? "",
-                        from: message.from ?? "",
-                        from_me: message.from_me ?? false,
-                        id: message.id ?? "",
-                        source: message.source ?? "",
+                        chat_id: msg.from,
+                        from: msg.from ?? "",
+                        from_me: msg.fromMe ?? false,
+                        id: msg.id._serialized ?? "",
+                        source: chat.deviceType ?? "",
                         status: "delivered",
-                        text: message.text ?? "",
-                        timestamp: message.timestamp ?? 0,
-                        type: message.type ?? "",
+                        text: {
+                            body: messageBody ?? ""
+                        },
+                        timestamp: msg.timestamp ?? 0,
+                        type:type,
                     },
                 },
-                chat_id: message.chat_id,
-                chat_pic: chat.chat_pic ?? "",
-                chat_pic_full: chat.chat_pic_full ?? "",
+                chat_id: msg.from,
                 city: null,
                 companyName: null,
-                contactName: sender.name??extractedNumber,
-                country: contactPresent2.country ?? "",
-                customFields: contactPresent2.customFields ?? {},
+                contactName: contactName || contact.name || contact.pushname || extractedNumber,
+                unreadCount: unreadCount + 1,
+                threadid: threadID ?? "",
+                phoneIndex: phoneIndex,
                 last_message: {
-                    chat_id: chat.id,
-                    device_id: message.device_id ?? "",
-                    from: message.from ?? "",
-                    from_me: message.from_me ?? false,
-                    id: message.id ?? "",
-                    source: message.source ?? "",
+                    chat_id: msg.from,
+                    from: msg.from ?? "",
+                    from_me: msg.fromMe ?? false,
+                    id: msg.id._serialized ?? "",
+                    source: chat.deviceType ?? "",
                     status: "delivered",
-                    text: message.text ?? "",
-                    timestamp: message.timestamp ?? 0,
-                    type: message.type ?? "",
+                    text: {
+                        body: messageBody ?? ""
+                    },
+                    timestamp: msg.timestamp ?? 0,
+                    type: type,
                 },
             };
-            
-            await addNotificationToUser('009', message);
-            // Add the data to Firestore
-      await db.collection('companies').doc('009').collection('contacts').doc(extractedNumber).set(data); 
-      const firebaseTags = contactData.tags??[];
-                if(firebaseTags !== undefined){
-                    if(firebaseTags.includes('stop bot')){
-                        console.log('bot stop');
-                    break;
-                    }
-                }
-            if (message.type === 'text') {
-                contactID = contactPresent.id;
-                const stopTag = contactPresent.tags;
-                if(stopTag.includes('follow up')){
-                    await removeTagBookedGHL(contactID, 'follow up');
-                }    
-                await customWait(10000);
-                await addtagbookedGHL(contactPresent.id,'follow up');
-                query = `${message.text.body} user_name: ${contactName}`;
-                answer = await handleOpenAIAssistant(query, threadID,assistantID);
-                parts = answer.split(/\s*\|\|\s*/);
-                for (let i = 0; i < parts.length; i++) {
-                    const part = parts[i].trim();
-                    if (part) {
-                        await sendWhapiRequest('messages/text', { to: sender.to, body: part });
-                        console.log('Part sent:', part);    
-                        if(part.includes('Kenapa pusat Al-Quran kami sesuai untuk anak')){
-                            const imagePath = 'https://i.postimg.cc/PxbqjP22/P001.jpg';
-                            const imagePath2 = 'https://i.postimg.cc/HsNdFwTT/kelas-mengaji-di-center2.jpg';
-                            const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/V002.mp4?alt=media&token=40667073-e38c-40b9-a711-b28e19e04dad';
-                            // Send the image
-                            await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath2 });
-                        }     
-                        if(part.includes('Kenapa pusat Al-Quran kami sesuai untuk dewasa')){
-                            const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/V002.mp4?alt=media&token=40667073-e38c-40b9-a711-b28e19e04dad';
-                            // Send the image
-                            await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath2 });
-                        }  
-                        if(part.includes('Kenapa kelas KAFA kami?')){
-                            const imagePath = 'https://i.postimg.cc/1533kR6r/P003.jpg';
-                            const imagePath2 = 'https://i.postimg.cc/d34thgMC/P002.jpg';
-                            const vidPath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/V002.mp4?alt=media&token=40667073-e38c-40b9-a711-b28e19e04dad';
-                            // Send the image
-                            await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath2 });
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath2 });
-
-                        }
-                        if(part.includes('Untuk makluman, kelas mengaji al-quran ke rumah untuk anak')){
-                            const imagePath = 'https://i.postimg.cc/yxV8YsGB/P004.jpg';
-                            const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/V004.mp4?alt=media&token=a5a965c4-aa72-4033-b9d1-7c3ec8404569';
-                            // Send the image
-                            await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes('Untuk makluman, kelas mengaji quran ke rumah untuk dewasa')){
-                            const imagePath = 'https://i.postimg.cc/P5Bfvm7S/P005.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes("- Ibu bapa dapat pantau pembelajaran anak")){
-                            const imagePath = 'https://i.postimg.cc/P58THCqY/kelas-mengaji-online.jpg';
-                            const vidPath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/V005.mp4?alt=media&token=68045ff7-9dec-4820-87c8-52229594e271';
-                            // Send the image
-                            await sendWhapiRequest('messages/video', { to: sender.to, media: vidPath });
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes('Untuk makluman, kelas mengaji quran online untuk dewasa')){
-                            const imagePath = 'https://i.postimg.cc/jSWdj8MW/P007.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes('kelas mengaji seminggu sekali untuk anak')){
-                            const imagePath = 'https://i.postimg.cc/TPgdVKMf/PA001.jpg';
-                            const imagePath2 = 'https://i.postimg.cc/1tS9Jys6/PA002.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath2 });
-
-                        }
-                        if(part.includes('kelas mengaji seminggu sekali untuk dewasa')){
-                            const imagePath = 'https://i.postimg.cc/TPgdVKMf/PA001.jpg';
-                            const imagePath2 = 'https://i.postimg.cc/GhtbM7wM/PA003.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath2 });
-                        }
-                        if(part.includes('kelas KAFA harian')){
-                            const imagePath = 'https://i.postimg.cc/MHPq6RRb/PA004.jpg';
-                            const imagePath2 = 'https://i.postimg.cc/MZdWmk4M/PA005.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath2 });
-                        }
-                        if(part.includes('kelas mengaji ke rumah untuk anak')){
-                            const imagePath = 'https://i.postimg.cc/9MBcksQk/PA006.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes('kelas mengaji ke rumah untuk dewasa')){
-                            const imagePath = 'https://i.postimg.cc/9MBcksQk/PA006.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes('mereka juga akan ada aktiviti online')){
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/BHQ%2FPAKEJ%20ONLINE.jpg?alt=media&token=5d925f85-4df1-43ac-a0c1-bbce566bcd20';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes('kelas mengaji online untuk dewasa')){
-                            const imagePath = 'https://i.postimg.cc/yxY7CnJ8/PA007.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes('MAYBANK')){
-                            const imagePath = 'https://i.postimg.cc/J4dW7RVW/qr-bhq.jpg';
-        
-                            // Send the image
-                            await sendWhapiRequest('messages/image', { to: sender.to, media: imagePath });
-                        }
-                        if(part.includes('Terima kasih banyak encik/puan')){
-                            await addtagbookedGHL(contactPresent.id,'stop bot');
-                            break;
-                        }
-                        
-                    }  
-                }
-                console.log('Response sent.');
-                console.log(stopTag);
-                if (stopTag.includes('intro')) {
-                await removeTagBookedGHL(contactID, 'intro');
-                }
-                // Start the 6-hour timer
-                 // start6HourTimer(sender.to, contactID);
-            }
-
-            if (message.type === 'image') {
-                continue;
-            }
-        }
-        res.send('All messages processed');
-    } catch (e) {
-        console.error('Error:', e.message);
-        res.status(500).send('Internal Server Error');
+    // Only add createdAt if it's a new contact
+    if (!contactData) {
+    data.createdAt = admin.firestore.Timestamp.now();
     }
-}
+            let profilePicUrl = "";
+            if (contact.getProfilePicUrl()) {
+            try {
+                profilePicUrl = await contact.getProfilePicUrl() || "";
+            } catch (error) {
+                console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
+            }
+            }
+            data.profilePicUrl = profilePicUrl;
 
-async function getContactDataFromDatabaseByPhone(phoneNumber) {
-    try {
-        // Check if phoneNumber is defined
-        if (!phoneNumber) {
-            throw new Error("Phone number is undefined or null");
+            
+
+            const messageData = {
+                chat_id: msg.from,
+                from: msg.from ?? "",
+                from_me: msg.fromMe ?? false,
+                id: msg.id._serialized ?? "",
+                source: chat.deviceType ?? "",
+                status: "delivered",
+                text: {
+                    body: messageBody ?? ""
+                },
+                timestamp: msg.timestamp ?? 0,
+                type: type,
+                phoneIndex: phoneIndex,
+            };
+
+            if(msg.hasQuotedMsg){
+            const quotedMsg = await msg.getQuotedMessage();
+            // Initialize the context and quoted_content structure
+            messageData.text.context = {
+                quoted_content: {
+                body: quotedMsg.body
+                }
+            };
+            const authorNumber = '+'+(quotedMsg.from).split('@')[0];
+            const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+            messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
+        }
+                
+            if((sender.to).includes('@g.us')){
+                const authorNumber = '+'+(msg.author).split('@')[0];
+
+                const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+                if(authorData){
+                    messageData.author = authorData.contactName;
+                }else{
+                    messageData.author = authorNumber;
+                }
+            }
+            if (msg.type === 'audio' || msg.type === 'ptt') {
+                messageData.audio = {
+                    mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+                    data: audioData // This is the base64 encoded audio data
+                };
+            }
+
+            if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
+            try {
+                const media = await msg.downloadMedia();
+                if (media) {
+                    if (msg.type === 'image') {
+                    messageData.image = {
+                        mimetype: media.mimetype,
+                        data: media.data,  // This is the base64-encoded data
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
+                    };
+                    // Add width and height if available
+                    if (msg._data.width) messageData.image.width = msg._data.width;
+                    if (msg._data.height) messageData.image.height = msg._data.height;
+                    } else if (msg.type === 'document') {
+                        messageData.document = {
+                            mimetype: media.mimetype,
+                            data: media.data,  // This is the base64-encoded data
+                            filename: msg._data.filename || "",
+                            caption: msg._data.caption || "",
+                            pageCount: msg._data.pageCount,
+                            fileSize: msg._data.size,
+                        };
+                    }else if (msg.type === 'video') {
+                        messageData.video = {
+                            mimetype: media.mimetype,
+                            filename: msg._data.filename || "",
+                            caption: msg._data.caption || "",
+                        };
+                        // Store video data separately or use a cloud storage solution
+                        const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                        messageData.video.link = videoUrl;
+                    } else {
+                        messageData[msg.type] = {
+                            mimetype: media.mimetype,
+                            data: media.data,
+                            filename: msg._data.filename || "",
+                            caption: msg._data.caption || "",
+                        };
+                    }
+        
+                    // Add thumbnail information if available
+                    if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                        messageData[msg.type].thumbnail = {
+                            height: msg._data.thumbnailHeight,
+                            width: msg._data.thumbnailWidth,
+                        };
+                    }
+        
+                    // Add media key if available
+                    if (msg.mediaKey) {
+                        messageData[msg.type].mediaKey = msg.mediaKey;
+                    }
+
+                    
+                } else {
+                    console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                    messageData.text = { body: "Media not available" };
+                }
+            } catch (error) {
+                console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+                messageData.text = { body: "Error handling media" };
+            }
         }
 
-        // Initial fetch of config
-        await fetchConfigFromDatabase();
+            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+            const messagesRef = contactRef.collection('messages');
 
-        let threadID;
-        let contactName;
-        let bot_status;
-        const contactsRef = db.collection('companies').doc('009').collection('contacts');
-        const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+            const messageDoc = messagesRef.doc(msg.id._serialized);
+            await messageDoc.set(messageData, { merge: true });
+            console.log(msg);
+            await addNotificationToUser(idSubstring, messageData);
 
-        if (querySnapshot.empty) {
-            console.log('No matching documents.');
-            return null;
-        } else {
-            const doc = querySnapshot.docs[0];
-            const contactData = doc.data();
-            contactName = contactData.name;
-            threadID = contactData.thread_id;
-            bot_status = contactData.bot_status;
+            // Add the data to Firestore
+            await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
+        
+            if (msg.fromMe){
+                if(stopTag.includes('idle')){
+                }
+                return;
+            }
+            if(stopTag.includes('stop bot')){
+                console.log('Bot stopped for this message');
+                return;
+            }
 
-            if (!threadID) {
+            //reset bot command
+            if (msg.body.includes('/resetbot')) {
                 const thread = await createThread();
                 threadID = thread.id;
-                await doc.ref.update({
-                    thread_id: threadID
-                });
+                await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
+                return;
             }
 
-        
-            return { ...contactData, thread_id: threadID, };
-        }
-    } catch (error) {
-        console.error('Error fetching or updating document:', error);
-        throw error;
+            //test bot command
+            if (msg.body.includes('/hello')) {
+                
+                client.sendMessage(msg.from, 'tested.');
+                return;
+            }
+            if(ghlConfig.stopbot){
+                if(ghlConfig.stopbot == true){
+                    console.log('bot stop all');
+                    return;
+                }
+            }
+            if(firebaseTags !== undefined){
+                if(firebaseTags.includes('stop bot')){
+                    console.log('bot stop');
+                return;
+                }
+            }
+
+            currentStep = userState.get(sender.to) || steps.START;
+            switch (currentStep) {
+                case steps.START:
+                    var context = "";
+
+                    
+                    
+                    
+                    if(msg.body.toLowerCase().includes('ya') || msg.body.toLowerCase().includes('yes')){
+                        // Call the method to update the spreadsheet
+                        const spreadsheet = new bhqSpreadsheet(this.botMap);
+                        await spreadsheet.updateAttendance(extractedNumber, true);
+
+                        // Send confirmation message
+                        client.sendMessage(msg.from, 'Terima kasih! Kehadiran anda telah disahkan.');                    
+                    }
+                    console.log('Response sent.');
+                    userState.set(sender.to, steps.START);
+                    break;
+                default:
+                    // Handle unrecognized step
+                    console.error('Unrecognized step:', currentStep);
+                    break;
+            }
+        return('All messages processed');
+    } catch (e) {
+        console.error('Error:', e.message);
+        return(e.message);
     }
 }
 
@@ -469,180 +653,46 @@ async function removeTagBookedGHL(contactID, tag) {
 
     try {
         const response = await axios.request(options);
-        console.log('Tag removed from contact:', response.data);
     } catch (error) {
         console.error('Error removing tag from contact:', error);
     }
 }
-async function getChatMetadata(chatId,) {
-    const url = `https://gate.whapi.cloud/chats/${chatId}`;
-    const headers = {
-        'Authorization': `Bearer ${ghlConfig.whapiToken}`,
-        'Accept': 'application/json'
+
+async function storeVideoData(videoData, filename) {
+    const bucket = admin.storage().bucket();
+    const uniqueFilename = `${uuidv4()}_${filename}`;
+    const file = bucket.file(`videos/${uniqueFilename}`);
+
+    await file.save(Buffer.from(videoData, 'base64'), {
+        metadata: {
+            contentType: 'video/mp4', // Adjust this based on the actual video type
+        },
+    });
+
+    const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2500', // Adjust expiration as needed
+    });
+
+    return url;
+}
+
+async function getContactById(contactId) {
+    const options = {
+        method: 'GET',
+        url: `https://services.leadconnectorhq.com/contacts/${contactId}`,
+        headers: {
+            Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
+            Version: '2021-07-28',
+            Accept: 'application/json'
+        }
     };
 
     try {
-        const response = await axios.get(url, { headers });
-        return response.data;
+        const response = await axios.request(options);
+        return response.data.contact;
     } catch (error) {
-       // console.error('Error fetching chat metadata:', error.response.data);
-        throw error;
-    }
-}
-function start6HourTimer(chatId, contactId) {
-    // Clear any existing timer for this chat
-    if (timers[chatId]) {
-        clearTimeout(timers[chatId]);
-    }
-
-    // Set a new timer for 6 hours
-    timers[chatId] = setTimeout(async () => {
-        await sendWhapiRequest('messages/text', { to: chatId, body: "Assalamualaikum apa khabar tuan/puan. Semoga Allah menjaga kesihatan tuan/puan dan sentiasa dalam keberkahan. Maaf mengganggu. Boleh saya tahu adakah tuan/puan masih berminat untuk dapatkan maklumat lanjut berkenaan perkhidmatan kelas mengaji yang kami sediakan?" });
-        // await addtagbookedGHL(contactId, 'stop bot');
-        console.log('6-hour follow-up message sent and bot stopped.');
-    }, 60 * 1000); // 6 * 60 * 60 * 1000 6 hours in milliseconds
-}
-
-async function handleNewMessageReceived(message) {
-    const senderTo = message.chat_id;
-    if (timers[senderTo]) {
-        clearTimeout(timers[senderTo]);
-        delete timers[senderTo];
-        console.log('User replied within 6 hours, timer cleared.');
-    }
-}
-
-async function createThread() {
-    console.log('Creating a new thread...');
-    const thread = await openai.beta.threads.create();
-    return thread;
-}
-
-async function saveNameToDatabase(phoneNumber, savedName) {
-    try {
-        const docRef = db.collection('companies').doc('009').collection('customers').doc(phoneNumber);
-        await docRef.set({
-            name: savedName
-        }, { merge: true });
-    } catch (error) {
-        console.error('Error fetching or updating document:', error);
-        throw error;
-    }
-}
-
-async function addMessage(threadId, message) {
-    console.log('Adding a new message to thread: ' + threadId);
-    const response = await openai.beta.threads.messages.create(
-        threadId,
-        {
-            role: "user",
-            content: message
-        }
-    );
-    return response;
-}
-
-async function getDataFromDatabase(phoneNumber) {
-    try {
-        // Initial fetch of config
-        await fetchConfigFromDatabase();
-
-        let threadID;
-        let contactName;
-        let bot_status;
-        const docRef = db.collection('companies').doc('009').collection('customers').doc(phoneNumber);
-        const doc = await docRef.get();
-        if (!doc.exists) {
-            console.log('No such document! Creating a new entry.');
-            const contactPresent = await getContact(phoneNumber);
-            if (contactPresent !== null) {
-                contactName = contactPresent.fullNameLowerCase;
-                console.log('Contact name in getData: ' + contactName);
-                const threadIdField = contactPresent.customFields.find(field => field.id === 'oeSpka9m9YgEtAdBz1Bc');
-                if (threadIdField) {
-                    threadID = threadIdField.value;
-                } else {
-                    const thread = await createThread();
-                    threadID = thread.id;
-                }
-                const stopTag = contactPresent.tags;
-                if (stopTag.includes('stop bot')) {
-                    bot_status = 'off';
-                } else {
-                    bot_status = 'on';
-                }
-                if(stopTag.includes('on bot')){
-                    bot_status = 'on';
-                }else {
-                    bot_status = 'off';
-                }
-                await docRef.set({
-                    thread_id: threadID,
-                    bot_status: bot_status,
-                    name: contactName
-                });
-            } else {
-                const thread = await createThread();
-                threadID = thread.id;
-                await docRef.set({
-                    thread_id: threadID,
-                    bot_status: 'on'
-                });
-            }
-            const updatedData = await docRef.get();
-            return updatedData.data();
-        } else {
-            console.log('Document found. Returning thread_id.');
-            return doc.data();
-        }
-    } catch (error) {
-        console.error('Error fetching or updating document:', error);
-        throw error;
-    }
-}
-
-async function callWebhookNotification(webhook,name,message) {
-    console.log('Calling webhook...');
-    const webhookUrl = webhook;
-    const body = JSON.stringify({ name,message }); // Include sender's text in the request body
-    const response = await fetch(webhookUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: body
-    });  let responseData =""
-    console.log(response.body);
-    if(response.status === 200){
-        responseData= await response.text(); // Dapatkan respons sebagai teks
-
-    }else{
-        responseData = 'stop'
-    }
-    console.log('Webhook response:', responseData); // Log raw response
- return responseData;
-}
-
-async function checkingNameStatus(threadId, runId) {
-    const runObject = await openai.beta.threads.runs.retrieve(
-        threadId,
-        runId
-    );
-
-    const status = runObject.status;
-    console.log(runObject);
-    console.log('Current status: ' + status);
-    
-    if(status == 'completed') {
-        clearInterval(pollingInterval);
-
-        const messagesList = await openai.beta.threads.messages.list(threadId);
-        const latestMessage = messagesList.body.data[0].content;
-
-        console.log("Latest Message:");
-        console.log(latestMessage[0].text.value);
-        const nameGen = latestMessage[0].text.value;
-        return nameGen;
+        console.error(error);
     }
 }
 
@@ -664,66 +714,79 @@ async function addtagbookedGHL(contactID, tag) {
     };
 
     try {
-      const response =  await axios.request(options);
-      console.log(response);
+        await axios.request(options);
     } catch (error) {
         console.error('Error adding tag to contact:', error);
     }
 }
-async function getContactById(contactId) {
-    const options = {
-        method: 'GET',
-        url: `https://services.leadconnectorhq.com/contacts/${contactId}`,
-        headers: {
-            Authorization: `Bearer ${ghlConfig.ghl_accessToken}`,
-            Version: '2021-07-28',
-            Accept: 'application/json'
-        }
-    };
 
-    try {
-        const response = await axios.request(options);
-        return response.data.contact;
-    } catch (error) {
-        console.error(error);
-    }
-}
-async function waitForNameCompletion(threadId, runId) {
-    return new Promise((resolve, reject) => {
-        pollingInterval = setInterval(async () => {
-            const name = await checkingNameStatus(threadId, runId);
-            if (name) {
-                clearInterval(pollingInterval);
-                resolve(name);
-            }
-        }, 1000);
-    });
+async function createThread() {
+    console.log('Creating a new thread...');
+    const thread = await openai.beta.threads.create();
+    return thread;
 }
 
-async function runNameAssistant(assistantID,threadId) {
-    console.log('Running assistant for thread: ' + threadId);
-    const response = await openai.beta.threads.runs.create(
+async function addMessage(threadId, message) {
+    const response = await openai.beta.threads.messages.create(
         threadId,
         {
-            assistant_id: assistantID
+            role: "user",
+            content: message
         }
     );
-
-    const runId = response.id;
-    console.log('Run ID:', runId);
-
-    const nameGen = await waitForNameCompletion(threadId, runId);
-    return nameGen;
+    return response;
 }
 
-async function handleOpenAINameAssistant(senderName) {
-    const threadId = 'thread_z88KPYbsJ6IAMwPuXtdCw84R';
-    const assistantId = 'asst_lMkTF4mTO4aFKTHUUcSQsp1w';
+async function callWebhook(webhook,senderText,thread) {
+    console.log('calling webhook')
+    const webhookUrl = webhook;
+    const body = JSON.stringify({ senderText,thread}); // Include sender's text in the request body
+    const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: body
+    });  let responseData =""
+    if(response.status === 200){
+        responseData= await response.text(); // Dapatkan respons sebagai teks
+    }else{
+        responseData = 'stop'
+    }
+ return responseData;
+}
 
-    await addMessage(threadId, senderName);
-    const response = await runNameAssistant(assistantId, threadId);
+async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
+    try {
+        // Check if phoneNumber is defined
+        if (!phoneNumber) {
+            throw new Error("Phone number is undefined or null");
+        }
 
-    return response;
+        // Initial fetch of config
+        //await fetchConfigFromDatabase(idSubstring);
+
+        let threadID;
+        let contactName;
+        let bot_status;
+        const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+        const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+
+        if (querySnapshot.empty) {
+            console.log('No matching documents.');
+            return null;
+        } else {
+            const doc = querySnapshot.docs[0];
+            const contactData = doc.data();
+            contactName = contactData.name;
+            threadID = contactData.thread_id;
+            bot_status = contactData.bot_status;
+            return { ...contactData};
+        }
+    } catch (error) {
+        console.error('Error fetching or updating document:', error);
+        throw error;
+    }
 }
 
 async function checkingStatus(threadId, runId) {
@@ -731,13 +794,8 @@ async function checkingStatus(threadId, runId) {
         threadId,
         runId
     );
-
-    const status = runObject.status;
-    console.log(runObject);
-    console.log('Current status: ' + status);
-    
+    const status = runObject.status; 
     if(status == 'completed') {
-        clearInterval(pollingInterval);
         try{
             const messagesList = await openai.beta.threads.messages.list(threadId);
             const latestMessage = messagesList.body.data[0].content;
@@ -747,21 +805,33 @@ async function checkingStatus(threadId, runId) {
             const answer = latestMessage[0].text.value;
             return answer;
         } catch(error){
-            console.log("error from handleNewMessagesbhq: "+error)
+            console.log("error from handleNewMessagesBHQ: "+error)
+            throw error;
         }
-        
     }
+    return null; // Return null if not completed
 }
 
 async function waitForCompletion(threadId, runId) {
     return new Promise((resolve, reject) => {
-        pollingInterval = setInterval(async () => {
-            const answer = await checkingStatus(threadId, runId);
-            if (answer) {
+        const maxAttempts = 30; // Maximum number of attempts
+        let attempts = 0;
+        const pollingInterval = setInterval(async () => {
+            attempts++;
+            try {
+                const answer = await checkingStatus(threadId, runId);
+                if (answer) {
+                    clearInterval(pollingInterval);
+                    resolve(answer);
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(pollingInterval);
+                    reject(new Error("Timeout: Assistant did not complete in time"));
+                }
+            } catch (error) {
                 clearInterval(pollingInterval);
-                resolve(answer);
+                reject(error);
             }
-        }, 1000);
+        }, 2000); // Poll every 2 seconds
     });
 }
 
@@ -775,15 +845,16 @@ async function runAssistant(assistantID,threadId) {
     );
 
     const runId = response.id;
-    console.log('Run ID:', runId);
 
     const answer = await waitForCompletion(threadId, runId);
     return answer;
 }
 
-async function handleOpenAIAssistant(message, threadID,assistantID) {
+async function handleOpenAIAssistant(message, threadID) {
+    console.log(ghlConfig.assistantId);
+    const assistantId = ghlConfig.assistantId;
     await addMessage(threadID, message);
-    const answer = await runAssistant(assistantID,threadID);
+    const answer = await runAssistant(assistantId,threadID);
     return answer;
 }
 
@@ -800,9 +871,9 @@ async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
     const url = `https://gate.whapi.cloud/${endpoint}`;
     const response = await fetch(url, options);
     const jsonResponse = await response.json();
-    console.log('Whapi response:', JSON.stringify(jsonResponse, null, 2));
     return jsonResponse;
 }
+
 
 async function saveThreadIDGHL(contactID,threadID){
     const options = {
@@ -816,7 +887,7 @@ async function saveThreadIDGHL(contactID,threadID){
         },
         data: {
             customFields: [
-                {key: 'thread_id', field_value: threadID}
+                {key: 'threadid', field_value: threadID}
             ],
         }
     };
@@ -825,6 +896,21 @@ async function saveThreadIDGHL(contactID,threadID){
         await axios.request(options);
     } catch (error) {
         console.error(error);
+    }
+}
+
+async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
+    
+    // Construct the Firestore document path
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+
+    try {
+        await db.doc(docPath).set({
+            threadid: threadID
+        }, { merge: true }); // merge: true ensures we don't overwrite the document, just update it
+        console.log(`Thread ID saved to Firestore at ${docPath}`);
+    } catch (error) {
+        console.error('Error saving Thread ID to Firestore:', error);
     }
 }
 
@@ -877,16 +963,16 @@ async function getContact(number) {
 }
 
 
-async function fetchConfigFromDatabase() {
+async function fetchConfigFromDatabase(idSubstring) {
     try {
-        const docRef = db.collection('companies').doc('009');
+        const docRef = db.collection('companies').doc(idSubstring);
         const doc = await docRef.get();
         if (!doc.exists) {
             console.log('No such document!');
             return;
         }
         ghlConfig = doc.data();
-        console.log(doc.data);
+        console.log(ghlConfig);
     } catch (error) {
         console.error('Error fetching config:', error);
         throw error;

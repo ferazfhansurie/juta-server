@@ -251,6 +251,7 @@ const customHandlers = {
   '063': handleNewMessagesHappyProjects,
   '072': handleNewMessagesBillert,
   '074': handleNewMessagesExtremeFitness,
+  '075': handleNewMessagesBHQ,
 };
 
 
