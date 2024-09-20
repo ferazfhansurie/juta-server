@@ -453,6 +453,7 @@ async function createUserInFirebase(userData) {
         contactData.expiryDate = formatExpiryDate(row['PERIOD OF COVER']) || null;
         contactData.email = row['EMAIL'] || null;
         contactData.vehicleNumber = row['VEH. NO'] || null;
+        contactData.ic = row['IC/PASSPORT/BUSINESS REG. NO'] || null;
       }
 
       await contactRef.set(contactData);
