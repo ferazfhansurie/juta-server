@@ -344,48 +344,48 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
     }
   }
 
-async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName, today) {
+async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
     try {
-        console.log('Checking for conflicts before creating appointment...');
-        const conflictCheck = await checkScheduleConflicts(startDateTime, endDateTime);
-
-        if (conflictCheck.conflict) {
-            if (conflictCheck.error) {
-                return { error: `Failed to check for conflicts: ${conflictCheck.error}` };
-            }
-            return { 
-                error: 'Scheduling conflict detected', 
-                conflictingAppointments: conflictCheck.conflictingAppointments 
-            };
+      console.log('Checking for conflicts before creating appointment...');
+      const conflictCheck = await checkScheduleConflicts(startDateTime, endDateTime);
+  
+      if (conflictCheck.conflict) {
+        if (conflictCheck.error) {
+          return { error: `Failed to check for conflicts: ${conflictCheck.error}` };
         }
-
-        console.log('Creating appointment...');
-
-        const userRef = db.collection('user').doc('faeezree@gmail.com');
-        const appointmentsCollectionRef = userRef.collection('appointments');
-        const newAppointmentRef = appointmentsCollectionRef.doc(); 
-
-        const newAppointment = {
-            id: newAppointmentRef.id,
-            title: summary,
-            startTime: startDateTime,
-            endTime: endDateTime,
-            address: description || "",
-            appointmentStatus: 'new',
-            staff: ["Firaz"],
-            color: "#1F3A8A", // Default color
-            packageId: "ja872PCc3kd7uQ4tQxB3",
-            dateAdded: today || new Date().toISOString(),
-            contacts: contactPhone && contactName ? [{
-                id: contactPhone,
-                name: contactName,
-                session: null
-            }] : [],
+        return { 
+          error: 'Scheduling conflict detected', 
+          conflictingAppointments: conflictCheck.conflictingAppointments 
         };
+      }
+  
+      console.log('Creating appointment...');
 
-        await newAppointmentRef.set(newAppointment);
-
-        console.log('Appointment created successfully:', newAppointment);
+      const userRef = db.collection('user').doc('faeezree@gmail.com');
+      const appointmentsCollectionRef = userRef.collection('appointments');
+      const newAppointmentRef = appointmentsCollectionRef.doc(); 
+  
+      const newAppointment = {
+        id: newAppointmentRef.id,
+        title: summary,
+        startTime: startDateTime,
+        endTime: endDateTime,
+        address: description || "",
+        appointmentStatus: 'new',
+        staff: ["Firaz"],
+        color: "#1F3A8A", // Default color
+        packageId: "ja872PCc3kd7uQ4tQxB3",
+        dateAdded: new Date().toISOString(),
+        contacts: contactPhone && contactName ? [{
+          id: contactPhone,
+          name: contactName,
+          session: null
+        }] : [],
+      };
+  
+      await newAppointmentRef.set(newAppointment);
+  
+      console.log('Appointment created successfully:', newAppointment);
 
         // Format the date and time for better readability
         const startDate = new Date(startDateTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -393,22 +393,22 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
         const endTime = new Date(endDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
         return {
-            success: true,
-            message: 'Appointment created successfully',
-            appointmentDetails: {
-                title: summary,
-                date: startDate,
-                time: `${startTime} - ${endTime}`,
-                description: description || "No description provided",
-                contact: contactName ? `${contactName} (${contactPhone})` : "No contact information provided",
-                staff: newAppointment.staff.join(", ")
-            }
+        success: true,
+        message: 'Appointment created successfully',
+        appointmentDetails: {
+            title: summary,
+            date: startDate,
+            time: `${startTime} - ${endTime}`,
+            description: description || "No description provided",
+            contact: contactName ? `${contactName} (${contactPhone})` : "No contact information provided",
+            staff: newAppointment.staff.join(", ")
+        }
         };
     } catch (error) {
-        console.error('Error in createCalendarEvent:', error);
-        return { error: `Failed to create appointment: ${error.message}` };
+      console.error('Error in createCalendarEvent:', error);
+      return { error: `Failed to create appointment: ${error.message}` };
     }
-}
+  }
   async function deleteTask(idSubstring, taskIndex) {
     const companyRef = db.collection('companies').doc(idSubstring);
     const doc = await companyRef.get();
@@ -2489,49 +2489,54 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                 }
                 break;
                 case 'createCalendarEvent':
-    try {
-        console.log('Parsing arguments for createCalendarEvent...');
-        const args = JSON.parse(toolCall.function.arguments);
-        console.log('Arguments:', args);
-        
-        // Get today's date first
-        const today = new Date();
-        console.log('Today\'s date:', today.toISOString());
-
-        // Parse and validate dates
-        const parsedStart = parseAndValidateDateTime(args.startDateTime, today);
-        const parsedEnd = parseAndValidateDateTime(args.endDateTime, today);
-
-        if (parsedStart.error) {
-            throw new Error(`Invalid start date/time: ${parsedStart.error}`);
-        }
-        if (parsedEnd.error) {
-            throw new Error(`Invalid end date/time: ${parsedEnd.error}`);
-        }
-        if (parsedEnd.date < parsedStart.date) {
-            throw new Error('End time cannot be before start time');
-        }
-        
-        console.log('Calling createCalendarEvent...');
-        const result = await createCalendarEvent(
-            args.summary, 
-            args.description, 
-            parsedStart.isoString, 
-            parsedEnd.isoString,
-            args.contactPhone,
-            args.contactName,
-            today.toISOString()
-        );
-        
-        // ... rest of the code remains the same
-    } catch (error) {
-        console.error('Error in handleToolCalls for createCalendarEvent:', error);
-        toolOutputs.push({
-            tool_call_id: toolCall.id,
-            output: JSON.stringify({ error: error.message, today: new Date().toISOString() }),
-        });
-    }      
-    break;
+                    try {
+                        console.log('Parsing arguments for createCalendarEvent...');
+                        const args = JSON.parse(toolCall.function.arguments);
+                        console.log('Arguments:', args);
+                        
+                        console.log('Calling createCalendarEvent...');
+                        const result = await createCalendarEvent(
+                            args.summary, 
+                            args.description, 
+                            args.startDateTime, 
+                            args.endDateTime,
+                            args.contactPhone,
+                            args.contactName
+                        );
+                        
+                        if (result.error) {
+                            if (result.error === 'Scheduling conflict detected') {
+                                console.log('Scheduling conflict detected, preparing conflict information...');
+                                toolOutputs.push({
+                                    tool_call_id: toolCall.id,
+                                    output: JSON.stringify({
+                                        error: result.error,
+                                        conflictingAppointments: result.conflictingAppointments
+                                    }),
+                                });
+                            } else {
+                                console.error('Error creating event:', result.error);
+                                toolOutputs.push({
+                                    tool_call_id: toolCall.id,
+                                    output: JSON.stringify({ error: result.error }),
+                                });
+                            }
+                        } else {
+                            console.log('Event created successfully, preparing tool output...');
+                            toolOutputs.push({
+                                tool_call_id: toolCall.id,
+                                output: JSON.stringify(result),
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Error in handleToolCalls for createCalendarEvent:');
+                        console.error(error);
+                        toolOutputs.push({
+                            tool_call_id: toolCall.id,
+                            output: JSON.stringify({ error: error.message }),
+                        });
+                    }      
+                    break;
             case 'getTodayDate':
                 console.log('Getting today\'s date...');
                 const todayDate = getTodayDate();
@@ -2702,49 +2707,7 @@ async function fetchRecentChatHistory(threadId) {
         return [];
     }
 }
-function parseAndValidateDateTime(dateTimeString, today) {
-    // Helper function to get the next occurrence of a day
-    function getNextDayOccurrence(dayName, startDate) {
-        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-        const dayIndex = days.indexOf(dayName.toLowerCase());
-        if (dayIndex === -1) return null;
-        
-        const result = new Date(startDate);
-        result.setDate(result.getDate() + (dayIndex + 7 - result.getDay()) % 7);
-        return result;
-    }
 
-    // Handle relative date references
-    const lowerCaseInput = dateTimeString.toLowerCase();
-    let parsedDate;
-
-    if (lowerCaseInput === 'today') {
-        parsedDate = new Date(today);
-    } else if (lowerCaseInput === 'tomorrow') {
-        parsedDate = new Date(today);
-        parsedDate.setDate(parsedDate.getDate() + 1);
-    } else if (lowerCaseInput.includes('this weekend')) {
-        parsedDate = getNextDayOccurrence('saturday', today);
-    } else if (['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].includes(lowerCaseInput)) {
-        parsedDate = getNextDayOccurrence(lowerCaseInput, today);
-    } else {
-        // If it's not a relative reference, try parsing it as a date string
-        parsedDate = new Date(dateTimeString);
-    }
-
-    if (isNaN(parsedDate.getTime())) {
-        return { error: 'Invalid date format' };
-    }
-
-    if (parsedDate < today) {
-        return { error: 'Date is in the past' };
-    }
-
-    return {
-        date: parsedDate,
-        isoString: parsedDate.toISOString(),
-    };
-}
 async function analyzeChatsWithAI(chatHistory) {
     const prompt = `Analyze the following chat history and determine the lead's interest level. 
                     Consider factors such as engagement, questions asked, and expressions of interest. Finally, your final answer should be a string that categorizes their interest level into three categories: high interest, moderate interest, or low interest.
@@ -3142,24 +3105,18 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "createCalendarEvent",
-                description: "Schedule a meeting in Calendar. The contact name should be included in the title of the event. Supports relative date references like 'today', 'tomorrow', 'this weekend', or day names.",
+                description: "Schedule a meeting in Calendar. Always call getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
                 parameters: {
                     type: "object",
                     properties: {
                         summary: { type: "string", description: "Title of the event" },
                         description: { type: "string", description: "Description or address of the event" },
-                        startDateTime: { 
-                            type: "string", 
-                            description: "Start date and time. Can be ISO 8601 format or relative references like 'today', 'tomorrow', 'this weekend', or day names (e.g., 'Monday')"
-                        },
-                        endDateTime: { 
-                            type: "string", 
-                            description: "End date and time. Can be ISO 8601 format or relative references like 'today', 'tomorrow', 'this weekend', or day names (e.g., 'Monday')"
-                        },
+                        startDateTime: { type: "string", description: "Start date and time in ISO 8601 format" },
+                        endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
                         contactPhone: { type: "string", description: "Phone number of the contact" },
                         contactName: { type: "string", description: "Name of the contact" },
                     },
-                    required: ["summary", "startDateTime", "endDateTime", "contactName"],
+                    required: ["summary", "startDateTime", "endDateTime","contactName"],
                 },
             },
         },
