@@ -509,10 +509,12 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
 
                 contactID = extractedNumber;
                 contactName = contact.pushname || contact.name || extractedNumber;
-                await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
                 if ((sender.to).includes('@g.us')) {
                     firebaseTags = ['stop bot']
+                }else{
+                    await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
                 }
+                
             }   
             
             

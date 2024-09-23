@@ -1116,13 +1116,13 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
                 firebaseTags = ['stop bot']
             }
         }
-        if(firebaseTags.includes('meow')){
-            // await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
-            await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
-        }
-        if(firebaseTags.includes('tester')){
-            await removeScheduledMessages(msg.from, idSubstring);
-        }
+        // if(firebaseTags.includes('meow')){
+        //     // await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
+        //     await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
+        // }
+        // if(firebaseTags.includes('tester')){
+        //     await removeScheduledMessages(msg.from, idSubstring);
+        // }
         if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
                     // Schedule removal of 'replied' tag after 1 hour
             // scheduleRepliedTagRemoval(idSubstring, extractedNumber, msg.from);
