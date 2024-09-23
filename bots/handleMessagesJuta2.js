@@ -2800,6 +2800,15 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     let assistantId = ghlConfig.assistantId;
     if (tags !== undefined && tags.includes('team')) { 
         assistantId = ghlConfig.assistantIdTeam;
+    } else if (tags !== undefined && tags.includes('demo')) {
+        const contactData = await getContactDataFromDatabaseByPhone(phoneNumber, idSubstring);
+        if (contactData && contactData.companyName && ghlConfig.demoAssistant[contactData.companyName]) {
+            assistantId = ghlConfig.demoAssistant[contactData.companyName];
+        } else {
+            console.warn(`Demo assistant not found for company: ${contactData?.companyName}`);
+            // Fallback to default assistant if no matching demo assistant is found
+            assistantId = ghlConfig.assistantIdTeam;
+        }
     }
    
     await addMessage(threadID, message);
