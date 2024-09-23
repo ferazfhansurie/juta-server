@@ -451,7 +451,7 @@ async function createUserInFirebase(userData) {
       if (companyId == '079') {
         contactData.branch = row['BRANCH NAME'] || null;
         contactData.address1 = row['ADDRESS'] || null;
-        contactData.expiryDate = formatExpiryDate(row['PERIOD OF COVER']) || null;
+        contactData.expiryDate = row['PERIOD OF COVER'] || null;
         contactData.email = row['EMAIL'] || null;
         contactData.vehicleNumber = row['VEH. NO'] || null;
         contactData.ic = row['IC/PASSPORT/BUSINESS REG. NO'] || null;
@@ -465,21 +465,6 @@ async function createUserInFirebase(userData) {
   }
 }
 
-function formatExpiryDate(periodOfCover) {
-  if (!periodOfCover) return null;
-
-  const dateRange = periodOfCover.split(' to ');
-  if (dateRange.length !== 2) return null;
-
-  const endDate = new Date(dateRange[1]);
-  if (isNaN(endDate.getTime())) return null;
-
-  const year = endDate.getFullYear();
-  const month = String(endDate.getMonth() + 1).padStart(2, '0');
-  const day = String(endDate.getDate()).padStart(2, '0');
-
-  return `${year}-${month}-${day}`;
-}
 
   function formatPhoneNumber(phone) {
     // Remove all non-numeric characters
