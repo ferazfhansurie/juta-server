@@ -35,6 +35,9 @@ class bhqSpreadsheet {
     });
 
     this.sheets = google.sheets({ version: 'v4', auth: this.auth });
+    this.remindersFile = path.join(__dirname, 'sentReminders.json');
+    this.sentReminders = {};
+    this.loadSentReminders();
   }
 
   async updateAttendance(phoneNumber, isAttending) {
@@ -113,6 +116,27 @@ class bhqSpreadsheet {
     }
   }
 
+  async loadSentReminders() {
+    try {
+      const data = await fs.readFile(this.remindersFile, 'utf8');
+      this.sentReminders = JSON.parse(data);
+    } catch (error) {
+      if (error.code === 'ENOENT') {
+        console.log('Reminders file not found, starting with empty reminders');
+        this.sentReminders = {};
+      } else {
+        console.error('Error loading reminders:', error);
+      }
+    }
+  }
+
+  async saveSentReminders() {
+    try {
+      await fs.writeFile(this.remindersFile, JSON.stringify(this.sentReminders, null, 2));
+    } catch (error) {
+      console.error('Error saving reminders:', error);
+    }
+  }
 
   async refreshAndProcessTimetable() {
     try {
@@ -204,12 +228,20 @@ class bhqSpreadsheet {
             console.log(`  Teacher: ${teacherName}, Phone: ${phoneNumber}`);
 
             if (teacherName && phoneNumber) {
-              console.log(`  Sending reminder...`);
-              if(customerName && customerPhone){
-                await this.sendReminderToTeacher(teacherName, phoneNumber, customerName);
-                await this.sendReminderToCustomer(customerName, customerPhone, teacherName);
-              } else{
-                console.log(`  Missing customer name or phone number, skipping customer reminder`);
+              const reminderKey = `${teacherName}-${phoneNumber}-${startTime}-${moment().format('YYYY-MM-DD')}`;
+
+              if (!this.sentReminders[reminderKey]) {
+                console.log(`  Sending reminder...`);
+                if(customerName && customerPhone){
+                  await this.sendReminderToTeacher(teacherName, phoneNumber, customerName);
+                  await this.sendReminderToCustomer(customerName, customerPhone, teacherName);
+                  this.sentReminders[reminderKey] = Date.now();
+                  await this.saveSentReminders();
+                } else{
+                  console.log(`  Missing customer name or phone number, skipping customer reminder`);
+                }
+              } else {
+                console.log(`  Reminder already sent for ${teacherName} at ${startTime}`);
               }
             } else {
               console.log(`  Missing teacher name or phone number, skipping teacher sreminder`);
@@ -476,6 +508,18 @@ Thank you for your dedication to teaching this week!`;
 
     // Schedule regular refreshes
     this.scheduleRefresh('*/15 * * * *'); // Every 15 minutes
+
+    // Clear old reminders once a day
+    cron.schedule('0 0 * * *', async () => {
+      console.log('Clearing old sent reminders');
+      const oneDayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      for (const [key, timestamp] of Object.entries(this.sentReminders)) {
+        if (timestamp < oneDayAgo) {
+          delete this.sentReminders[key];
+        }
+      }
+      await this.saveSentReminders();
+    });
   }
 }
 
