@@ -116,8 +116,8 @@ async function scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, customerN
 
     for (let day = 0; day < dailyMessages.length; day++) {
         for (let i = 0; i < dailyMessages[day].length; i++) {
-            // Schedule messages every 2 hours
-            const scheduledTime = moment().add(day, 'days').add(i * 2, 'hours').set({hour: 10, minute: 0, second: 0});
+            // Schedule messages starting at 10 AM, with 2-hour intervals
+            const scheduledTime = moment().add(day, 'days').set({hour: 10 + (i * 2), minute: 0, second: 0});
             const message = dailyMessages[day][i];
             
             await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring);
