@@ -449,12 +449,12 @@ async function createUserInFirebase(userData) {
       };
 
       if (companyId == '079') {
-        contactData.branch = row['BRANCH NAME'] || null;
-        contactData.address1 = row['ADDRESS'] || null;
-        contactData.expiryDate = row['PERIOD OF COVER'] || null;
-        contactData.email = row['EMAIL'] || null;
-        contactData.vehicleNumber = row['VEH. NO'] || null;
-        contactData.ic = row['IC/PASSPORT/BUSINESS REG. NO'] || null;
+        contactData.branch = row['BRANCH NAME'] || '-';
+        contactData.address1 = row['ADDRESS'] || '-';
+        contactData.expiryDate = row['PERIOD OF COVER'] || '-';
+        contactData.email = row['EMAIL'] || '-';
+        contactData.vehicleNumber = row['VEH. NO'] || '-';
+        contactData.ic = row['IC/PASSPORT/BUSINESS REG. NO'] || '-';
       }
 
       await contactRef.set(contactData);
