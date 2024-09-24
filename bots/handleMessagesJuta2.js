@@ -2255,6 +2255,31 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client,phon
       return JSON.stringify({ error: 'Failed to tag contact', details: error.message });
     }
   }
+  async function addPointsForBottlesBought(phoneNumber, idSubstring, bottlesBought) {
+    try {
+        const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(phoneNumber);
+        const doc = await contactRef.get();
+
+        if (!doc.exists) {
+            return JSON.stringify({ error: 'Contact not found' });
+        }
+
+        const contactData = doc.data();
+        const currentPoints = contactData.points || 0;
+        const newPoints = currentPoints + (bottlesBought * 5);
+
+        await contactRef.update({ points: newPoints });
+
+        return JSON.stringify({ 
+            success: true, 
+            message: `Added ${bottlesBought * 5} points for ${bottlesBought} bottles bought.`,
+            newPoints: newPoints
+        });
+    } catch (error) {
+        console.error('Error adding points for bottles bought:', error);
+        return JSON.stringify({ error: 'Failed to add points for bottles bought' });
+    }
+}
   // Modify the handleToolCalls function to include the new tool
 async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
     console.log('Handling tool calls...');
@@ -2279,6 +2304,29 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                   });
                 }
                 break;
+                case 'addPointsForBottlesBought':
+    try {
+        console.log('Adding points for bottles bought...');
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        // Ensure all required fields are provided
+        if ( !args.bottlesBought) {
+            throw new Error('Missing required fields for adding points');
+        }
+
+        const result = await addPointsForBottlesBought(phoneNumber, "001", args.bottlesBought);
+        toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: result,
+        });
+    } catch (error) {
+        console.error('Error in handleToolCalls for addPointsForBottlesBought:', error);
+        toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: error.message }),
+        });
+    }
+    break;
             case 'registerUser':
                 try {
                     console.log('Registering user...');
@@ -3208,6 +3256,20 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                         newStatus: { type: "string", description: "New status for the task" },
                     },
                     required: ["taskIndex", "newStatus"],
+                },
+            },
+        },
+        {
+            type: "function",
+            function: {
+                name: "addPointsForBottlesBought",
+                description: "Add points to a contact for bottles bought",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        bottlesBought: { type: "number", description: "Number of bottles bought" },
+                    },
+                    required: [ "bottlesBought"],
                 },
             },
         },
