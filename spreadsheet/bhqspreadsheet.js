@@ -118,7 +118,7 @@ class bhqSpreadsheet {
 
   async loadSentReminders() {
     try {
-      const data = await fs.readFile(this.remindersFile, 'utf8');
+      const data = await fs.promises.readFile(this.remindersFile, 'utf8');
       this.sentReminders = JSON.parse(data);
     } catch (error) {
       if (error.code === 'ENOENT') {
@@ -129,10 +129,10 @@ class bhqSpreadsheet {
       }
     }
   }
-
+  
   async saveSentReminders() {
     try {
-      await fs.writeFile(this.remindersFile, JSON.stringify(this.sentReminders, null, 2));
+      await fs.promises.writeFile(this.remindersFile, JSON.stringify(this.sentReminders, null, 2));
     } catch (error) {
       console.error('Error saving reminders:', error);
     }
