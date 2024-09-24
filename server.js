@@ -90,18 +90,20 @@ wss.on('connection', (ws,req) => {
 });
   
   
-  function broadcastProgress(botName, action, progress) {
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify({
-          type: 'progress',
-          botName,
-          action,
-          progress
-        }));
-      }
-    });
-  }
+function broadcastProgress(botName, action, progress, phoneIndex) {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN && client.companyId === botName) {
+      client.send(JSON.stringify({
+        type: 'progress',
+        botName,
+        action,
+        progress,
+        phoneIndex
+      }));
+    }
+  });
+}
+
   const botStatusMap = new Map();
   function broadcastAuthStatus(botName, status, qrCode = null, i = 1) {
 
@@ -701,7 +703,7 @@ async function createUserInFirebase(userData) {
 // New route for syncing contacts
 app.post('/api/sync-contacts/:companyId', async (req, res) => {
   const { companyId } = req.params;
-  const { phoneIndex } = req.body; // Optional parameter to specify which phone to sync
+  const { phoneIndex } = req.body;
   
   try {
     const botData = botMap.get(companyId);
@@ -712,14 +714,12 @@ app.post('/api/sync-contacts/:companyId', async (req, res) => {
     let syncPromises = [];
 
     if (botData.length === 1) {
-      // If there's only one client, use it directly
       const client = botData[0].client;
       if (!client) {
         return res.status(404).json({ error: 'WhatsApp client not found for this company' });
       }
       syncPromises.push(syncContacts(client, companyId, 0));
     } else if (phoneIndex !== undefined) {
-      // Sync specific phone if phoneIndex is provided
       if (phoneIndex < 0 || phoneIndex >= botData.length) {
         return res.status(400).json({ error: 'Invalid phone index' });
       }
@@ -729,12 +729,11 @@ app.post('/api/sync-contacts/:companyId', async (req, res) => {
       }
       syncPromises.push(syncContacts(client, companyId, phoneIndex));
     } else {
-      // Sync all phones if no specific index is provided and there are multiple clients
       syncPromises = botData.map((data, index) => {
         if (data.client) {
           return syncContacts(data.client, companyId, index);
         }
-      }).filter(Boolean); // Remove any undefined promises
+      }).filter(Boolean);
     }
 
     if (syncPromises.length === 0) {
@@ -742,43 +741,60 @@ app.post('/api/sync-contacts/:companyId', async (req, res) => {
     }
 
     // Start syncing process for all applicable clients
-    Promise.all(syncPromises).then(() => {
-      console.log(`Contact synchronization completed for company ${companyId}`);
-    }).catch(error => {
-      console.error(`Error during contact sync for company ${companyId}:`, error);
+    syncPromises.forEach((promise, index) => {
+      promise.then(() => {
+        console.log(`Contact synchronization completed for company ${companyId}, phone ${index}`);
+      }).catch(error => {
+        console.error(`Error during contact sync for company ${companyId}, phone ${index}:`, error);
+      });
     });
     
-    res.json({ success: true, message: 'Contact synchronization started' });
+    res.json({ success: true, message: 'Contact synchronization started', phonesToSync: syncPromises.length });
   } catch (error) {
     console.error(`Error starting contact sync for ${companyId}:`, error);
     res.status(500).json({ error: 'Failed to start contact synchronization' });
   }
 });
 
-  async function syncContacts(client, companyId, phoneIndex = 1) {
-    try {
-      const chats = await client.getChats();
-      const totalChats = chats.length;
-      let processedChats = 0;
-      console.log('Found ' + totalChats + ' chats');
-      for (const chat of chats) {
-        if (chat.isGroup) {
-          console.log(`group chat: ${chat.name}`);
-        }
+async function syncContacts(client, companyId, phoneIndex = 0) {
+  try {
+    const chats = await client.getChats();
+    const totalChats = chats.length;
+    let processedChats = 0;
+    console.log(`Found ${totalChats} chats for company ${companyId}, phone ${phoneIndex}`);
+
+    for (const chat of chats) {
+      try {
+        
+
         const contact = await chat.getContact();
         await saveContactWithRateLimit(companyId, contact, chat, phoneIndex);
         processedChats++;
-        console.log(`Processed ${processedChats} chats out of ${totalChats}`);
-        // Send overall progress update
-        broadcastProgress(companyId, 'syncing_contacts', processedChats / totalChats);
+
+        // Send progress update for this specific phone
+        broadcastProgress(companyId, 'syncing_contacts', processedChats / totalChats, phoneIndex);
+
+        // Log progress less frequently to reduce console clutter
+        if (processedChats % 10 === 0 || processedChats === totalChats) {
+          console.log(`Processed ${processedChats} out of ${totalChats} chats for company ${companyId}, phone ${phoneIndex}`);
+        }
+
+        // Add a small delay to avoid overwhelming the system
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (chatError) {
+        console.error(`Error processing chat for company ${companyId}, phone ${phoneIndex}:`, chatError);
+        // Continue with the next chat even if there's an error
       }
-      console.log(`Finished syncing contacts for company ${companyId}`);
-      broadcastProgress(companyId, 'syncing_contacts', 1); // 100% complete
-    } catch (error) {
-      console.error(`Error syncing contacts for company ${companyId}:`, error);
-      broadcastProgress(companyId, 'syncing_contacts', -1); // Indicate error
     }
+
+    console.log(`Finished syncing contacts for company ${companyId}, phone ${phoneIndex}`);
+    broadcastProgress(companyId, 'syncing_contacts', 1, phoneIndex); // 100% complete for this phone
+  } catch (error) {
+    console.error(`Error syncing contacts for company ${companyId}, phone ${phoneIndex}:`, error);
+    broadcastProgress(companyId, 'syncing_contacts', -1, phoneIndex); // Indicate error for this phone
   }
+}
+
   function getMillisecondsForUnit(unit) {
     switch(unit) {
       case 'minutes': return 60 * 1000;
@@ -1281,223 +1297,195 @@ async function storeVideoData(videoData, filename) {
 }
 console.log('Server starting - version 2'); // Add this line at the beginning of the file
 
-async function saveContactWithRateLimit(botName, contact, chat, phoneIndex,retryCount = 0) {
-    
-
-    try {
-        let phoneNumber = contact.number;
-        let contactID = contact.id._serialized;
-        const msg = chat.lastMessage || {};
-        if(msg == {}){
-          return;
-        }
-
-
-        let idsuffix = '@c.us'
-        if(chat.isGroup){
-          idsuffix = '@g.us'
-          phoneNumber = (contactID).split('@')[0]
-        }
-
-        console.log('Saving contact: ' + phoneNumber + ' with contactID: ' + contactID);
-        let tags;
-        if(contactID == '0@c.us'){
-          return;
-        }
-        const extractedNumber = '+'+(contactID).split('@')[0];
-        const existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
-        if(existingContact){
-          console.log('Found existing contact for: ' + extractedNumber);
-          if(existingContact.tags){
-            tags = existingContact.tags;
-            console.log('Found existing tags: ' + tags);
-          } else{
-            tags = ['stop bot']
-          }
-        } else{
-          tags = ['stop bot']
-        }
-
-        let type = ''
-        if(msg.type == 'chat'){
-          type ='text'
-        }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
-          return;
-        }else{
-          type = msg.type;
-        }
-        if(phoneNumber == 'status'){
-          return;
-        }
-        const contactData = {
-            additionalEmails: [],
-            address1: null,
-            assignedTo: null,
-            businessId: null,
-            phone: extractedNumber,
-            tags:tags,
-            chat: {
-                contact_id: '+'+phoneNumber,
-                id: contactID || contact.id.user + idsuffix,
-                name: contact.name || contact.pushname || chat.name || phoneNumber,
-                not_spam: true,
-                tags: tags, // You might want to populate this with actual tags if available
-                timestamp: chat.timestamp || Date.now(),
-                type: 'contact',
-                unreadCount: chat.unreadCount || 0,
-                last_message: {
-                    chat_id:contact.id.user + idsuffix ,
-                    from: msg.from || contact.id.user + idsuffix,
-                    from_me: msg.fromMe || false,
-                    id: msg._data?.id?.id || '',
-                    source: chat.deviceType || '',
-                    status: "delivered",
-                    text: {
-                      body:msg.body || ''
-                    },
-                    timestamp: chat.timestamp || Date.now(),
-                    type: type || '',
-                },
-            },
-            chat_id: contact.id.user + idsuffix,
-            city: null,
-            companyName: null,
-            contactName: contact.name || contact.pushname || chat.name || phoneNumber,
-            unreadCount: chat.unreadCount || 0,
-            threadid: '', // You might want to generate or retrieve this
-            phoneIndex: phoneIndex,
-            last_message: {
-                chat_id:contact.id.user + idsuffix,
-                from: msg.from || contact.id.user + idsuffix,
-                from_me: msg.fromMe || false,
-                id: msg._data?.id?.id || '',
-                source: chat.deviceType || '',
-                status: "delivered",
-                text: {
-                  body:msg.body || ''
-                },
-                timestamp: chat.timestamp || Date.now(),
-                type: type || '',
-            },
-        };
-        let pf = await contact.getProfilePicUrl();
-        if (pf) {
-            try {
-                contactData.profilePicUrl = pf;
-            } catch (error) {
-                console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
-                contactData.profilePicUrl = "";
-            }
-        }
-        const contactRef = db.collection('companies').doc(botName).collection('contacts').doc('+' + phoneNumber);
-        await contactRef.set(contactData, { merge: true });
-        const messages = await chat.fetchMessages({ limit: 20 });
-
-        // Save messages
-        if (messages && messages.length > 0) {
-            const sortedMessages = messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-            const messagesRef = contactRef.collection('messages');
-            let batch = db.batch();
-            let count = 0;
-          
-            for (const message of sortedMessages) {
-            let type2 = message.type === 'chat' ? 'text' : message.type;
-            
-            //console.log(message);
-            const messageData = {
-              chat_id: message.from,
-              from: message.from ?? "",
-              from_me: message.fromMe ?? false,
-              id: message.id._serialized ?? "",
-              source: message.deviceType ?? "",
-              status: "delivered",
-              timestamp: message.timestamp ?? 0,
-              type: type2,
-              ack: message.ack ?? 0,
-            };
-
-            if(chat.isGroup){
-              if(msg.author){
-                messageData.author = msg.author;
-              }
-            }
-
-            
-
-            // Handle different message types
-            switch (type2) {
-              case 'text':
-                messageData.text = { body: message.body ?? "" };
-                break;
-              case 'image':
-              case 'video':
-              case 'document':
-                if (message.hasMedia && message.type !== 'audio') {
-                  try {
-                    const media = await message.downloadMedia();
-                    if (media) {
-                      
-                      const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${type2}.${media.mimetype.split('/')[1]}`);
-                      messageData[type2] = {
-                        mimetype: media.mimetype,
-                        url: url,
-                        filename: media.filename ?? "",
-                        caption: message.body ?? "",
-                      };
-                      if (type2 === 'image') {
-                        messageData[type2].width = message._data.width;
-                        messageData[type2].height = message._data.height;
-                      }
-                    } else {
-                        console.log(`Failed to download media for message: ${message.id._serialized}`);
-                        messageData.text = { body: "Media not available" };
-                    }
-                } catch (error) {
-                    console.error(`Error handling media for message ${message.id._serialized}:`, error);
-                    messageData.text = { body: "Error handling media" };
-                }
-                } else {
-                  messageData.text = { body: "Media not available" };
-                }
-                break;
-              default:
-                messageData.text = { body: message.body ?? "" };
-            }
-
-            const messageDoc = messagesRef.doc(message.id._serialized);
-            batch.set(messageDoc, messageData, { merge: true });
-
-            count++;
-            if (count >= 500) {
-              // Firestore batches are limited to 500 operations
-              await batch.commit();
-              batch = db.batch();
-              count = 0;
-            }
-
-            // Send progress update after each message
-            broadcastProgress(botName, 'saving_messages', count / sortedMessages.length);
-          }
-        
-          if (count > 0) {
-            await batch.commit();
-          }
-          
-          console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
-        }
-        
-        // Send final progress update for this contact
-        broadcastProgress(botName, 'saving_messages', 1);
-
-        //console.log(`Saved contact ${phoneNumber} for bot ${botName}`);
-        
-        // Delay before next operation
-        console.log(`Succesfully saved contact ${extractedNumber} for bot ${botName}`);
-    } catch (error) {
-        console.error(`Error saving contact for bot ${botName}:`, error);
-        
-        
+async function saveContactWithRateLimit(botName, contact, chat, phoneIndex, retryCount = 0) {
+  try {
+    let phoneNumber = contact.number;
+    let contactID = contact.id._serialized;
+    const msg = chat.lastMessage || {};
+    if (Object.keys(msg).length === 0) {
+      return; // Skip if there's no last message
     }
+
+    let idsuffix = chat.isGroup ? '@g.us' : '@c.us';
+    if (chat.isGroup) {
+      phoneNumber = contactID.split('@')[0];
+    }
+
+    if (contactID === '0@c.us' || phoneNumber === 'status') {
+      return; // Skip system contacts
+    }
+
+    const extractedNumber = '+' + contactID.split('@')[0];
+    console.log(`Saving contact: ${extractedNumber} with contactID: ${contactID}`);
+
+    // Fetch existing contact data
+    const existingContact = await getContactDataFromDatabaseByPhone(extractedNumber, botName);
+    let tags = existingContact?.tags || ['stop bot'];
+
+    let type = msg.type === 'chat' ? 'text' : 
+               (msg.type === 'e2e_notification' || msg.type === 'notification_template') ? null : 
+               msg.type;
+
+    if (!type) return; // Skip if message type is not valid
+
+    const contactData = {
+      additionalEmails: [],
+      address1: null,
+      assignedTo: null,
+      businessId: null,
+      phone: extractedNumber,
+      tags: tags,
+      chat: {
+        contact_id: '+' + phoneNumber,
+        id: contactID || contact.id.user + idsuffix,
+        name: contact.name || contact.pushname || chat.name || phoneNumber,
+        not_spam: true,
+        tags: tags,
+        timestamp: chat.timestamp || Date.now(),
+        type: 'contact',
+        unreadCount: chat.unreadCount || 0,
+        last_message: {
+          chat_id: contact.id.user + idsuffix,
+          from: msg.from || contact.id.user + idsuffix,
+          from_me: msg.fromMe || false,
+          id: msg._data?.id?.id || '',
+          source: chat.deviceType || '',
+          status: "delivered",
+          text: {
+            body: msg.body || ''
+          },
+          timestamp: chat.timestamp || Date.now(),
+          type: type,
+        },
+      },
+      chat_id: contact.id.user + idsuffix,
+      city: null,
+      companyName: null,
+      contactName: contact.name || contact.pushname || chat.name || phoneNumber,
+      unreadCount: chat.unreadCount || 0,
+      threadid: '',
+      phoneIndex: phoneIndex,
+      last_message: {
+        chat_id: contact.id.user + idsuffix,
+        from: msg.from || contact.id.user + idsuffix,
+        from_me: msg.fromMe || false,
+        id: msg._data?.id?.id || '',
+        source: chat.deviceType || '',
+        status: "delivered",
+        text: {
+          body: msg.body || ''
+        },
+        timestamp: chat.timestamp || Date.now(),
+        type: type,
+      },
+    };
+
+    // Fetch profile picture URL
+    try {
+      contactData.profilePicUrl = await contact.getProfilePicUrl() || "";
+    } catch (error) {
+      console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
+      contactData.profilePicUrl = "";
+    }
+
+    // Save contact data
+    const contactRef = db.collection('companies').doc(botName).collection('contacts').doc(extractedNumber);
+    await contactRef.set(contactData, { merge: true });
+
+    // Fetch and save messages
+    const messages = await chat.fetchMessages({ limit: 20 });
+    if (messages && messages.length > 0) {
+      await saveMessages(botName, extractedNumber, messages, chat.isGroup);
+    }
+
+    console.log(`Successfully saved contact ${extractedNumber} for bot ${botName}`);
+  } catch (error) {
+    console.error(`Error saving contact for bot ${botName}:`, error);
+    if (retryCount < 3) {
+      console.log(`Retrying... (Attempt ${retryCount + 1})`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+      await saveContactWithRateLimit(botName, contact, chat, phoneIndex, retryCount + 1);
+    } else {
+      console.error(`Failed to save contact after 3 attempts`);
+    }
+  }
+}
+
+async function saveMessages(botName, phoneNumber, messages, isGroup) {
+  const contactRef = db.collection('companies').doc(botName).collection('contacts').doc(phoneNumber);
+  const messagesRef = contactRef.collection('messages');
+  const sortedMessages = messages.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  
+  let batch = db.batch();
+  let count = 0;
+
+  for (const message of sortedMessages) {
+    const type = message.type === 'chat' ? 'text' : message.type;
+    
+    const messageData = {
+      chat_id: message.from,
+      from: message.from ?? "",
+      from_me: message.fromMe ?? false,
+      id: message.id._serialized ?? "",
+      source: message.deviceType ?? "",
+      status: "delivered",
+      timestamp: message.timestamp ?? 0,
+      type: type,
+      ack: message.ack ?? 0,
+    };
+
+    if (isGroup && message.author) {
+      messageData.author = message.author;
+    }
+
+    // Handle different message types
+    if (type === 'text') {
+      messageData.text = { body: message.body ?? "" };
+    } else if (['image', 'video', 'document'].includes(type) && message.hasMedia) {
+      try {
+        const media = await message.downloadMedia();
+        if (media) {
+          const url = await saveMediaLocally(media.data, media.mimetype, media.filename || `${type}.${media.mimetype.split('/')[1]}`);
+          messageData[type] = {
+            mimetype: media.mimetype,
+            url: url,
+            filename: media.filename ?? "",
+            caption: message.body ?? "",
+          };
+          if (type === 'image') {
+            messageData[type].width = message._data.width;
+            messageData[type].height = message._data.height;
+          }
+        } else {
+          messageData.text = { body: "Media not available" };
+        }
+      } catch (error) {
+        console.error(`Error handling media for message ${message.id._serialized}:`, error);
+        messageData.text = { body: "Error handling media" };
+      }
+    } else {
+      messageData.text = { body: message.body ?? "" };
+    }
+
+    const messageDoc = messagesRef.doc(message.id._serialized);
+    batch.set(messageDoc, messageData, { merge: true });
+
+    count++;
+    if (count >= 500) {
+      await batch.commit();
+      batch = db.batch();
+      count = 0;
+    }
+
+    broadcastProgress(botName, 'saving_messages', count / sortedMessages.length);
+  }
+
+  if (count > 0) {
+    await batch.commit();
+  }
+
+  console.log(`Saved ${sortedMessages.length} messages for contact ${phoneNumber}`);
+  broadcastProgress(botName, 'saving_messages', 1);
 }
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
