@@ -661,26 +661,35 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});   
             if (contactData !== null) {
+                console.log('Existing contact, no assignment needed');
 
             }else{
                 
+                // New contact, check if already assigned
+            const assignmentRef = db.collection('companies').doc(idSubstring).collection('assignments').doc(extractedNumber);
+            const assignmentDoc = await assignmentRef.get();
+
+            if (!assignmentDoc.exists) {
+                // Contact not yet assigned, proceed with assignment
                 await customWait(2500); 
 
                 contactID = extractedNumber;
                 contactName = contact.pushname || contact.name || extractedNumber;
                 
-                const thread = await createThread();
-                threadID = thread.id;
-                console.log(threadID);
-                await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                console.log('sent new contact to create new contact');
-
+                
 
                 const assignmentResult = await assignNewContactToEmployee(contactID, idSubstring, client);
                 let assigned = assignmentResult.assigned;
                 let number = assignmentResult.number;
                 
-               // Capitalize the first letter of the assigned name
+                // Save the assignment
+                await assignmentRef.set({
+                    assigned: assigned,
+                    number: number,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                // Capitalize the first letter of the assigned name
                
                const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Farah. 😃\n\n` +
                `Team farah akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
@@ -753,7 +762,14 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                await addMessagetoFirebase(msg2, idSubstring, number, assigned);
                
                  // Create the data object
-                console.log('sent new contact to create new contact');
+                console.log('New contact assigned and messages sent');
+            } else{
+                console.log('Contact already assigned, skipping reassignment');
+
+            }
+                
+                
+               
             }    
             return;
             if (msg.fromMe){
