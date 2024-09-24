@@ -1192,7 +1192,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
             },
             chat_id: msg.from,
             city: null,
-            companyName: null,
+            companyName: contact.companyName||null,
             contactName: contactName || contact.name || contact.pushname || extractedNumber,
             unreadCount: unreadCount + 1,
             threadid: threadID ?? "",
