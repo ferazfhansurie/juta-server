@@ -491,7 +491,6 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
                             firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
                         }
                         if(!firebaseTags.includes('replied') && firebaseTags.includes('5 Days Follow Up')){
-                            await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
                         }
 
                         if(!firebaseTags.includes('replied')){
@@ -512,7 +511,6 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
                 if ((sender.to).includes('@g.us')) {
                     firebaseTags = ['stop bot']
                 }else{
-                    await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
                 }
                 
             }   
@@ -938,7 +936,7 @@ async function handleConfirmedAppointment(client, msg, idSubstring) {
     try {
         const result = await client.createGroup(groupTitle, participants);
         console.log('Group created:', result);
-
+        
         await addContactToFirebase(result.gid._serialized, groupTitle, idSubstring);
 
         // Send appointment details to the new group
@@ -1064,6 +1062,7 @@ function extractAppointmentInfo(messageBody) {
         if (line.includes('Vehicle No Plate:')) info.vehiclePlate = line.split('Vehicle No Plate:')[1].trim();
         if (line.includes('Client:')) info.clientName = line.split('Client:')[1].trim();
         if (line.includes('Contact:')) info.clientPhone = line.split('Contact:')[1].trim().replace('wa.me/', '');
+        if (line.includes('Language:')) info.language = line.split('Language:')[1].trim();
         if (line.includes('Site Add:')) {
             info.siteAddress = line.split('Site Add:')[1].trim();
             // Capture multi-line address
