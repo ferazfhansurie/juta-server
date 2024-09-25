@@ -33,8 +33,8 @@ async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-async function addNotificationToUser(companyId, message) {
-    console.log('noti');
+async function addNotificationToUser(companyId, message, contactName) {
+    console.log('Adding notification and sending FCM');
     try {
         // Find the user with the specified companyId
         const usersRef = db.collection('user');
@@ -45,22 +45,63 @@ async function addNotificationToUser(companyId, message) {
             return;
         }
 
-        // Filter out undefined values from the message object
+        // Filter out undefined values and reserved keys from the message object
         const cleanMessage = Object.fromEntries(
-            Object.entries(message).filter(([_, value]) => value !== undefined)
+            Object.entries(message)
+                .filter(([key, value]) => value !== undefined && !['from', 'notification', 'data'].includes(key))
+                .map(([key, value]) => {
+                    if (key === 'text' && typeof value === 'string') {
+                        return [key, { body: value }];
+                    }
+                    return [key, typeof value === 'object' ? JSON.stringify(value) : String(value)];
+                })
         );
 
-        // Add the new message to the notifications subcollection of the user's document
-        querySnapshot.forEach(async (doc) => {
+        // Add sender information to cleanMessage
+        cleanMessage.senderName = contactName;
+     // Filter out undefined values from the message object
+     const cleanMessage2 = Object.fromEntries(
+        Object.entries(message).filter(([_, value]) => value !== undefined)
+    );  
+        let text;
+        if(cleanMessage2.hasMedia){
+            text = "Media"
+        }
+        text = cleanMessage2.text?.body || 'New message received';
+        // Prepare the FCM message
+        const fcmMessage = {
+            notification: {
+                title: `${contactName}`,
+                body: cleanMessage2.text?.body || 'New message received'
+            },
+            data: {
+                ...cleanMessage,
+                text: JSON.stringify(cleanMessage.text), // Stringify the text object for FCM
+                click_action: 'FLUTTER_NOTIFICATION_CLICK',
+                sound: 'default'
+            },
+            topic: '001' // Specify the topic here
+        };
+
+        // Add the new message to Firestore for each user
+        const promises = querySnapshot.docs.map(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...cleanMessage, read: false };
+            const updatedMessage = { ...cleanMessage2, read: false, from: contactName };
         
             await notificationsRef.add(updatedMessage);
-            console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
+            console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
+            console.log('Notification content:');
         });
+
+        await Promise.all(promises);
+
+        // Send FCM message to the topic
+        await admin.messaging().send(fcmMessage);
+        console.log(`FCM notification sent to topic '001'`);
+
     } catch (error) {
-        console.error('Error adding notification: ', error);
+        console.error('Error adding notification or sending FCM: ', error);
     }
 }
 
@@ -560,7 +601,7 @@ async function handleNewMessagesTemplateWweb(client, msg, botName, phoneIndex) {
             const messageDoc = messagesRef.doc(msg.id._serialized);
             await messageDoc.set(messageData, { merge: true });
             console.log(msg);
-            await addNotificationToUser(idSubstring, messageData);
+            await addNotificationToUser(idSubstring, messageData, contactName);
 
             // Add the data to Firestore
             await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
