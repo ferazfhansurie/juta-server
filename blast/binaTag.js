@@ -43,7 +43,7 @@ async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
 async function handleBinaTag(req, res) {
     console.log('bina webhook');
     console.log(req.body);
-    const idSubstring = '001';
+    const idSubstring = '002';
 
     await fetchConfigFromDatabase(idSubstring);
 
