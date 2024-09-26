@@ -80,7 +80,7 @@ async function addNotificationToUser(companyId, message, contactName) {
                 click_action: 'FLUTTER_NOTIFICATION_CLICK',
                 sound: 'default'
             },
-            topic: '001' // Specify the topic here
+            topic: companyId // Specify the topic here
         };
 
         // Add the new message to Firestore for each user
