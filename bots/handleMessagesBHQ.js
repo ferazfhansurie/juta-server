@@ -603,7 +603,7 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                     
                     
                     
-                    if(msg.body.toLowerCase().includes('ya') || msg.body.toLowerCase().includes('yes')){
+                    if(msg.body.toLowerCase() === 'ya' || msg.body.toLowerCase() === 'yes' ){
                         // Call the method to update the spreadsheet
                         const spreadsheet = new bhqSpreadsheet(this.botMap);
                         await spreadsheet.updateAttendance(extractedNumber, true);
