@@ -114,7 +114,7 @@ class bhqSpreadsheet {
       const rowIndex = contactData.row - 1; // Subtract 1 because spreadsheet rows are 1-indexed, but array is 0-indexed
   
       // Update the KEHADIRAN column
-      const attendanceColumn = dayIndex + 6; // KEHADIRAN column is 6 columns after the day column
+      const attendanceColumn = dayIndex + 7; // KEHADIRAN column is 6 columns after the day column
       const updateRange = `${this.sheetName}!${this.columnToLetter(attendanceColumn)}${rowIndex + 1}`;
       
       await this.sheets.spreadsheets.values.update({
