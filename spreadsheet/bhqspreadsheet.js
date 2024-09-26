@@ -41,21 +41,40 @@ class bhqSpreadsheet {
     this.loadSentReminders();
   }
 
+  columnToLetter(column) {
+    let temp, letter = '';
+    while (column > 0) {
+      temp = (column - 1) % 26;
+      letter = String.fromCharCode(temp + 65) + letter;
+      column = (column - temp - 1) / 26;
+    }
+    return letter;
+  }
+
   async updateAttendance(phoneNumber, isAttending) {
     try {
       console.log(`Updating attendance for ${phoneNumber}`);
       const phoneWithoutPlus = phoneNumber.replace('+', '');
+      
+      // Get contact data from the database
+      const contactData = await this.getContactDataFromDatabaseByPhone(phoneNumber, this.botName);
+      
+      if (!contactData || !contactData.row) {
+        console.log(`No contact data or row information found for ${phoneNumber}`);
+        return;
+      }
+  
       const response = await this.sheets.spreadsheets.values.get({
         spreadsheetId: this.spreadsheetId,
         range: this.range,
       });
-
+  
       const rows = response.data.values;
       if (!rows || rows.length === 0) {
         console.log('No data found in the spreadsheet.');
         return;
       }
-
+  
       const currentDate = moment().format('dddd').toUpperCase();
       let currentDateMalay;
       switch(currentDate){
@@ -90,16 +109,12 @@ class bhqSpreadsheet {
         console.log(`Column for ${currentDateMalay} (${currentDate}) not found.`);
         return;
       }
-
-      // Find the row with the matching phone number
-      const rowIndex = rows.findIndex(row => row[dayIndex + 1] === phoneWithoutPlus);
-      if (rowIndex === -1) {
-        console.log(`No matching phone number found for ${phoneWithoutPlus}`);
-        return;
-      }
-
+  
+      // Use the row from contact data
+      const rowIndex = contactData.row - 1; // Subtract 1 because spreadsheet rows are 1-indexed, but array is 0-indexed
+  
       // Update the KEHADIRAN column
-      const attendanceColumn = dayIndex + 7; // KEHADIRAN column is 7 columns after the day column
+      const attendanceColumn = dayIndex + 6; // KEHADIRAN column is 6 columns after the day column
       const updateRange = `${this.sheetName}!${this.columnToLetter(attendanceColumn)}${rowIndex + 1}`;
       
       await this.sheets.spreadsheets.values.update({
@@ -110,8 +125,8 @@ class bhqSpreadsheet {
           values: [[isAttending ? 'TRUE' : 'FALSE']]
         }
       });
-
-      console.log(`Attendance updated for ${phoneNumber}`);
+  
+      console.log(`Attendance updated for ${phoneNumber} in row ${rowIndex + 1}`);
     } catch (error) {
       console.error('Error updating attendance:', error);
     }
@@ -234,7 +249,7 @@ class bhqSpreadsheet {
               if (!this.sentReminders[reminderKey]) {
                 console.log(`  Sending reminder...`);
                 if(customerName && customerPhone){
-                  await this.sendReminderToTeacher(teacherName, phoneNumber, customerName);
+                  await this.sendReminderToTeacher(teacherName, phoneNumber, customerName, i);
                   await this.sendReminderToCustomer(customerName, customerPhone, teacherName);
                   this.sentReminders[reminderKey] = Date.now();
                   await this.saveSentReminders();
@@ -402,9 +417,40 @@ class bhqSpreadsheet {
     console.log(messageData);  
   }
 
-  async sendReminderToTeacher(teacherName, phoneNumber, customerName) {
-    const message = `Hai ${teacherName}, kelas anda dengan ${customerName} akan bermula dalam 2 jam. Sila sahkan kehadiran anda dengan membalas 'Ya' atau maklumkan jika ada sebarang perubahan.`;
+  async getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
+    try {
+        // Check if phoneNumber is defined
+        if (!phoneNumber) {
+            throw new Error("Phone number is undefined or null");
+        }
+  
+        // Initial fetch of config
+        //await fetchConfigFromDatabase(idSubstring);
+  
+        let threadID;
+        let contactName;
+        let bot_status;
+        const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+        const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+  
+        if (querySnapshot.empty) {
+            console.log('No matching documents.');
+            return null;
+        } else {
+            const doc = querySnapshot.docs[0];
+            const contactData = doc.data();
+            
+            return { ...contactData};
+        }
+    } catch (error) {
+        console.error('Error fetching or updating document:', error);
+        throw error;
+    }
+  }
 
+  async sendReminderToTeacher(teacherName, phoneNumber, customerName, rowName) {
+    const message = `Hai ${teacherName}, kelas anda dengan ${customerName} akan bermula dalam 2 jam. Sila sahkan kehadiran anda dengan membalas 'Ya' atau maklumkan jika ada sebarang perubahan.`;
+  
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
       console.log(`WhatsApp client not found for bot ${this.botName}`);
@@ -412,15 +458,131 @@ class bhqSpreadsheet {
     }
     const client = botData[0].client;
     const extractedNumber = '+'+phoneNumber.split('@')[0];
+    let contactID;
+    let contactName;
+    let threadID;
+    let stopTag;
+    let unreadCount;
     try {
+      const contactData = await this.getContactDataFromDatabaseByPhone(extractedNumber, this.botName);
+      if (contactData !== null) {
+        stopTag = contactData.tags;
+        console.log(stopTag);
+        unreadCount = contactData.unreadCount ?? 0;
+        contactID = extractedNumber;
+        contactName = contactData.contactName ?? teacherName ?? extractedNumber;
+        
+        if (contactData.threadid) {
+          threadID = contactData.threadid;
+        } else {
+          const thread = await createThread();
+          threadID = thread.id;
+          await saveThreadIDFirebase(contactID, threadID, this.botName);
+        }
+      } else {
+        await customWait(2500); 
+  
+        contactID = extractedNumber;
+        contactName = teacherName || extractedNumber;
+        
+        const thread = await createThread();
+        threadID = thread.id;
+        console.log(threadID);
+        await saveThreadIDFirebase(contactID, threadID, this.botName);
+        console.log('sent new contact to create new contact');
+      }
+      
+      let firebaseTags = ['']
+      if (contactData) {
+        firebaseTags = contactData.tags ?? [];
+        // Remove 'snooze' tag if present
+        if(firebaseTags.includes('snooze')){
+          firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+        }
+      }
+  
       const sentMessage = await client.sendMessage(`${phoneNumber}@c.us`, message);
       await this.addMessagetoFirebase(sentMessage, this.botName, extractedNumber);
       console.log(`Reminder sent to ${teacherName} (${phoneNumber})`);
-      // You can add additional logging or processing here if needed
+  
+      const data = {
+        additionalEmails: [],
+        address1: null,
+        assignedTo: null,
+        businessId: null,
+        phone: extractedNumber,
+        tags: firebaseTags,
+        chat: {
+          contact_id: extractedNumber,
+          id: sentMessage.from,
+          name: contactName,
+          not_spam: true,
+          tags: firebaseTags,
+          timestamp: sentMessage.timestamp || Date.now(),
+          type: 'contact',
+          unreadCount: 0,
+          last_message: {
+            chat_id: sentMessage.from,
+            from: sentMessage.from,
+            from_me: true,
+            id: sentMessage.id._serialized,
+            source: "WhatsApp",
+            status: "sent",
+            text: {
+              body: message
+            },
+            timestamp: sentMessage.timestamp || Date.now(),
+            type: 'chat',
+          },
+        },
+        chat_id: sentMessage.from,
+        city: null,
+        companyName: null,
+        contactName: contactName,
+        unreadCount: unreadCount + 1,
+        threadid: threadID ?? "",
+        phoneIndex: 0,  // Assuming this is the default value
+        last_message: {
+          chat_id: sentMessage.from,
+          from: sentMessage.from,
+          from_me: true,
+          id: sentMessage.id._serialized,
+          source: "WhatsApp",
+          status: "sent",
+          text: {
+            body: message
+          },
+          timestamp: sentMessage.timestamp || Date.now(),
+          type: 'chat',
+        },
+        row: rowNumber, // Add the row number to the data structure
+      };
+  
+      if (!contactData) {
+        data.createdAt = admin.firestore.Timestamp.now();
+      }
+  
+      let profilePicUrl = "";
+      if (client.getProfilePicUrl) {
+        try {
+          profilePicUrl = await client.getProfilePicUrl(`${phoneNumber}@c.us`) || "";
+        } catch (error) {
+          console.error(`Error getting profile picture URL for ${phoneNumber}:`, error);
+        }
+      }
+      data.profilePicUrl = profilePicUrl;
+  
+      // Update or create contact in Firebase
+      const contactRef = db.collection('companies').doc(this.botName).collection('contacts').doc(extractedNumber);
+      await contactRef.set(data, { merge: true });
+  
+      console.log(`Contact data updated for ${teacherName} (${phoneNumber})`);
+  
     } catch (error) {
       console.error(`Error sending reminder to ${teacherName} (${phoneNumber}):`, error);
     }
   }
+
   async sendWeeklyReport() {
     try {
       console.log('Preparing weekly report...');
