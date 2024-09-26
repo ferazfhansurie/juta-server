@@ -555,7 +555,7 @@ class bhqSpreadsheet {
           timestamp: sentMessage.timestamp || Date.now(),
           type: 'chat',
         },
-        row: rowNumber, // Add the row number to the data structure
+        row: rowNumber + 1, // Add the row number to the data structure
       };
   
       if (!contactData) {
