@@ -531,6 +531,7 @@ async function handleNewMessagesExtremeFitness(client, msg, botName, phoneIndex)
                         const part = parts[i].trim();   
                         const check = part.toLowerCase();
                         if (part) {
+                            
                             const sentMessage = await client.sendMessage(msg.from, part);
                             
 
@@ -554,6 +555,7 @@ async function handleNewMessagesExtremeFitness(client, msg, botName, phoneIndex)
     
                             await messageDoc.set(sentMessageData, { merge: true });
 
+                          
                             if(check.includes('helped over 1000 people')){
                                 console.log("check")
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/extremefitness.jpg?alt=media&token=4a8e6e55-dc29-40f3-b3ac-f955aa5d65ed'; // Update this URL to your image URL
@@ -592,12 +594,13 @@ async function handleNewMessagesExtremeFitness(client, msg, botName, phoneIndex)
                             }
 
                             if(check.includes('let me get someone from our team to assist you with that ')){
-                                await addtagbookedFirebase(extractedNumber,'bot stop',idSubstring);
+                                await addtagbookedFirebase(extractedNumber,'stop bot',idSubstring);
                                 await assignNewContactToEmployee(extractedNumber,idSubstring);
 
                             }
                             if (check.includes('patience')) {
                             } 
+                            
                             if(check.includes('get back to you as soon as possible')){
                                 console.log('check includes');
                             

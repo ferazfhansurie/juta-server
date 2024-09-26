@@ -344,7 +344,6 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                 }
             } else {
                 if ((sender.to).includes('@g.us')) {
-                    firebaseTags = ['stop bot']
                 }
             }
 
@@ -571,10 +570,7 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                 }
                 return;
             }
-            if(stopTag.includes('stop bot')){
-                console.log('Bot stopped for this message');
-                return;
-            }
+            
 
             //reset bot command
             if (msg.body.includes('/resetbot')) {
@@ -597,12 +593,7 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                     return;
                 }
             }
-            if(firebaseTags !== undefined){
-                if(firebaseTags.includes('stop bot')){
-                    console.log('bot stop');
-                return;
-                }
-            }
+            
 
             currentStep = userState.get(sender.to) || steps.START;
             switch (currentStep) {
