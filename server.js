@@ -399,10 +399,10 @@ async function createUserInFirebase(userData) {
     const sixMonthsAgoTimeStamp = sixMonthsAgo.getTime();
     if (!name) {
       name = phone;
+      console.log("Saving contact with no name and phone ", phone)
     }else{
       console.log("Saving contact with name ", name, " and phone ", phone)
     }
-    console.log("Saving contact with no name and phone ", phone)
     let phoneWithPlus;
     if(phone.startsWith('+')){
       phoneWithPlus = phone;
