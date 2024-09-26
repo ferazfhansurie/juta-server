@@ -1395,6 +1395,7 @@ async function saveContactWithRateLimit(botName, contact, chat, phoneIndex, retr
     // Fetch and save messages
     const messages = await chat.fetchMessages({ limit: 20 });
     if (messages && messages.length > 0) {
+      console.log("SAVING MESSAGES")
       await saveMessages(botName, extractedNumber, messages, chat.isGroup);
     }
 
