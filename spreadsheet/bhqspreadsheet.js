@@ -448,7 +448,7 @@ class bhqSpreadsheet {
     }
   }
 
-  async sendReminderToTeacher(teacherName, phoneNumber, customerName, rowName) {
+  async sendReminderToTeacher(teacherName, phoneNumber, customerName, rowNumber) {
     const message = `Hai ${teacherName}, kelas anda dengan ${customerName} akan bermula dalam 2 jam. Sila sahkan kehadiran anda dengan membalas 'Ya' atau maklumkan jika ada sebarang perubahan.`;
   
     const botData = this.botMap.get(this.botName);
