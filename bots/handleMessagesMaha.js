@@ -774,7 +774,7 @@ async function handleNewMessagesMaha(client, msg, botName, phoneIndex) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 
                                 // Generate and send the special report
-                                const report = await generateSpecialReport(threadID);
+                                const report = await generateSpecialReport(threadID, ghlConfig.assistantId);
                                 const sentMessage2 = await client.sendMessage('120363318433286839@g.us', report)
                                 await addMessagetoFirebase(sentMessage2,idSubstring,'+120363318433286839')
 
@@ -860,7 +860,7 @@ async function updateGoogleSheet(report) {
       throw err;
     }
   }
-async function generateSpecialReport(threadID) {
+async function generateSpecialReport(threadID, assistantId) {
     try {
         const reportInstruction = `Please generate a report in the following format based on our conversation:
 
@@ -885,7 +885,7 @@ Fill in the information in square brackets with the relevant details from our co
         });
 
         const assistantResponse = await openai.beta.threads.runs.create(threadID, {
-            assistant_id: process.env.OPENAI_ASSISTANT_ID
+            assistant_id: assistantId
         });
 
         // Wait for the assistant to complete the task
