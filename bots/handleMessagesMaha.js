@@ -862,11 +862,12 @@ async function updateGoogleSheet(report) {
   }
 async function generateSpecialReport(threadID, assistantId) {
     try {
+        const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
         const reportInstruction = `Please generate a report in the following format based on our conversation:
 
 New Enquiry Has Been Submitted
 
-Date : [Current Date]
+Date : ${currentDate}
 First Name : [Extract from conversation]
 Last Name : [Extract from conversation]
 Birth Date : [Extract from conversation]
@@ -877,7 +878,7 @@ Courses : [Extract from conversation]
 Sponsor : [Extract from conversation]
 How Did You Hear About HM Aerospace : [Extract from conversation]
 
-Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank.`;
+Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. Do not change the Date field.`;
 
         const response = await openai.beta.threads.messages.create(threadID, {
             role: "user",
