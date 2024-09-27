@@ -159,6 +159,7 @@ const { handleNewMessagesVista } = require('./bots/handleMessagesVista.js');
 const { handleNewMessagesHappyProjects } = require('./bots/handleMessagesHappyProjects.js');
 const { handleNewMessagesBINA } = require('./bots/handleMessagesBINA.js');
 const { handleBinaTag } = require('./blast/binaTag.js');
+const { handleNewMessagesMaha } = require('./bots/handleMessagesMaha.js');
 
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -254,6 +255,7 @@ const customHandlers = {
   '072': handleNewMessagesBillert,
   '074': handleNewMessagesExtremeFitness,
   '075': handleNewMessagesBHQ,
+  '080': handleNewMessagesMaha,
 };
 
 
