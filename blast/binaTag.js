@@ -423,52 +423,30 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
 
   async function removeScheduledMessages(chatId, idSubstring) {
     try {
-        const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
+      const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
+      
+      const snapshot = await scheduledMessagesRef
+        .where('chatIds', 'array-contains', chatId)
+        .where('status', '!=', 'completed')
+        .get();
+      
+      for (const doc of snapshot.docs) {
+        const messageId = doc.id;
         
-        const snapshot = await scheduledMessagesRef
-            .where('chatIds', 'array-contains', chatId)
-            .where('status', '!=', 'completed')
-            .get();
-        
-        for (const doc of snapshot.docs) {
-            const messageId = doc.id;
-            const messageData = doc.data();
-            
-            // Prepare the updated message data
-            const updatedMessage = {
-                ...messageData,
-                status: 'completed',
-                chatIds: messageData.chatIds.filter(id => id !== chatId)
-            };
-            
-            // Ensure scheduledTime is properly formatted
-            if (updatedMessage.scheduledTime && typeof updatedMessage.scheduledTime === 'object') {
-                updatedMessage.scheduledTime = {
-                    seconds: Math.floor(updatedMessage.scheduledTime.seconds),
-                    nanoseconds: updatedMessage.scheduledTime.nanoseconds || 0
-                };
-            } else {
-                // If scheduledTime is missing or invalid, use the current time
-                updatedMessage.scheduledTime = {
-                    seconds: Math.floor(Date.now() / 1000),
-                    nanoseconds: 0
-                };
-            }
-            
-            // Call the API to update the message
-            try {
-                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
-                console.log(`Updated scheduled message ${messageId} for chatId: ${chatId}`);
-            } catch (error) {
-                console.error(`Error updating scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
-            }
+        // Call the API to delete the message
+        try {
+          await axios.delete(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`);
+          console.log(`Deleted scheduled message ${messageId} for chatId: ${chatId}`);
+        } catch (error) {
+          console.error(`Error deleting scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
         }
-        
-        console.log(`Updated ${snapshot.size} scheduled messages for chatId: ${chatId}`);
+      }
+      
+      console.log(`Deleted ${snapshot.size} scheduled messages for chatId: ${chatId}`);
     } catch (error) {
-        console.error('Error removing scheduled messages:', error);
+      console.error('Error removing scheduled messages:', error);
     }
-}
+  }
 
 
 
