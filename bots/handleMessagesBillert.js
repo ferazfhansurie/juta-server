@@ -81,18 +81,50 @@ async function storeAssignmentState(idSubstring) {
     console.log('Assignment state stored in Firebase:', stateToStore);
 }
 
-async function assignNewContactToEmployee(contactID, idSubstring, client) {
-    const employeeList = [
-        { name: 'Hilmi', fullName: 'Hilmi Sales', phone: '+60146531563', status: 'ON', weight: 12 },
-        { name: 'Zara', fullName: 'Isha Sales', phone: '+60143407573', status: 'OFF', weight: 12 },
-        { name: 'Stanie', fullName: 'Stanie Sales', phone: '+60167104128', status: 'ON', weight: 16 },
-        { name: 'Qayyim', fullName: 'Qayyim Billert', phone: '+60167009798', status: 'ON', weight: 12 },
-        { name: 'Bazilah', fullName: 'Bazilah Agent Sales', phone: '+601126926822', status: 'ON', weight: 12 },
-        { name: 'Ida', fullName: 'Chloe Agent Sales', phone: '+60168308240', status: 'ON', weight: 10 },
-        { name: 'Siti', fullName: 'Eugen Agent Sales', phone: '+601162333411', status: 'ON', weight: 10 },
-        { name: 'Teha', fullName: 'Teha Sales', phone: '+60174787003', status: 'ON', weight: 12 },
-        { name: 'Alin', fullName: 'Alin Sales', phone: '+60102806459', status: 'OFF', weight: 0 },
-    ];
+let employeeList = [];
+
+function setupEmployeeListListener(idSubstring) {
+    const employeesRef = db.collection('companies').doc(idSubstring).collection('employees');
+
+    employeesRef.onSnapshot(snapshot => {
+        employeeList = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            employeeList.push({
+                name: data.name,
+                fullName: data.fullName,
+                phone: data.phone,
+                status: data.status,
+                weight: data.weight
+            });
+        });
+
+        console.log('Updated employee list:', employeeList);
+    });
+}
+
+async function assignNewContactToEmployee(contactID, idSubstring, client, newEmployeeDetails = null) {
+    // Fetch the latest employees from Firebase
+    await fetchEmployeesFromFirebase(idSubstring);
+
+    // Add new employee to the list if provided
+    if (newEmployeeDetails) {
+        const newEmployee = {
+            name: newEmployeeDetails.name,
+            email: newEmployeeDetails.email,
+            phoneNumber: newEmployeeDetails.phoneNumber,
+            assignedContacts: 0,
+            status: 'ON',
+            weight: newEmployeeDetails.weight || 1
+        };
+        employeeList.push(newEmployee);
+        console.log('New employee added:', newEmployee);
+
+        // Optionally, add the new employee to Firebase
+        const employeesRef = db.collection('companies').doc(idSubstring).collection('employees');
+        await employeesRef.add(newEmployee);
+        console.log('New employee added to Firebase:', newEmployee);
+    }
 
     // Filter out employees who are OFF
     const availableEmployees = employeeList.filter(emp => emp.status === 'ON');
@@ -130,7 +162,7 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     const employeeID = assignedEmployee.phone.replace(/\s+/g, '').split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
 
-    // You may want to update the assignment state in Firebase here
+    // Update the assignment state in Firebase
     await storeAssignmentState(idSubstring, assignedEmployee);
 
     return {
@@ -138,6 +170,9 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
         number: employeeID
     };
 }
+
+// Call this function when initializing your bot or application
+setupEmployeeListListener('yourCompanyId');
 
 const steps = {
     START: 'start',
