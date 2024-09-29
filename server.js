@@ -160,6 +160,8 @@ const { handleNewMessagesHappyProjects } = require('./bots/handleMessagesHappyPr
 const { handleNewMessagesBINA } = require('./bots/handleMessagesBINA.js');
 const { handleBinaTag } = require('./blast/binaTag.js');
 const { handleNewMessagesMaha } = require('./bots/handleMessagesMaha.js');
+const { handleNewMessagesMuhibbah } = require('./bots/handleNewMessagesMuhibbah.js');
+
 
 
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -256,6 +258,8 @@ const customHandlers = {
   '074': handleNewMessagesExtremeFitness,
   '075': handleNewMessagesBHQ,
   '080': handleNewMessagesMaha,
+  '067': handleNewMessagesMuhibbah,
+
 };
 
 
