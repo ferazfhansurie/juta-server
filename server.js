@@ -160,7 +160,7 @@ const { handleNewMessagesHappyProjects } = require('./bots/handleMessagesHappyPr
 const { handleNewMessagesBINA } = require('./bots/handleMessagesBINA.js');
 const { handleBinaTag } = require('./blast/binaTag.js');
 const { handleNewMessagesMaha } = require('./bots/handleMessagesMaha.js');
-const { handleNewMessagesMuhibbah } = require('./bots/handleNewMessagesMuhibbah.js');
+const { handleNewMessagesMuhibbah } = require('./bots/handleMessagesMuhibbah.js');
 
 
 
