@@ -933,38 +933,108 @@ async function handleConfirmedAppointment(client, msg, idSubstring) {
     const groupTitle = `${appointmentInfo.clientPhone}  ${appointmentInfo.clientName}`;
     const participants = [(appointmentInfo.clientPhone+'@c.us'), '60186688766@c.us', '60193668776@c.us'];
 
+
     try {
         const result = await client.createGroup(groupTitle, participants);
         console.log('Group created:', result);
-        
+        let initialMessage = "";
+        let finalMessage = "";
+        console.log('detected language: '+appointmentInfo.language);
+            
         await addContactToFirebase(result.gid._serialized, groupTitle, idSubstring);
+        if(appointmentInfo.language == 'Malay'){
+            
+            initialMessage = `Hi En/Pn👋, Saya Mr Kelvern (wa.me/601111393111) 
+\ndari BINA Pasifik Sdn Bhd (Nombor Pejabat: 03-2770 9111)
+\nSaya telah menjalankan pemeriksaan tapak di rumah anda hari itu.
+\nKumpulan ini diwujudkan khusus untuk menguruskan kes bumbung rumah anda.
 
-        // Send appointment details to the new group
-        // Send the initial message
-        const initialMessage = `Hi 👋, Im Mr Kelvern(wa.me/601111393111)
-        \nfrom BINA Pasifik Sdn Bhd (Office No: 03-2770 9111)
-        \nAnd I've conducted the site inspection at your house that day.
-        \nThis group has been created specifically to manage your house roofing case.
-        \n\nBelow is our BINA group's department personnel:
-        
-        \n\n1. Operation/ Job Arrangement (Ms Sheue Lih - 60186688766)
-        \n2. Manager (Mr Lim - 60193868776)
-        
-        \n\nThe functions of this group are to provide:
-        \n* Quotations, Invoices, Receipts, Warranty Certificate & Job arrangement
-        
-        \n\n* Send pictures of job updates from time to time
-        
-        \n\n* Or if you have any confirmation/bank slip or feedbacks/complaints you may speak out in this group also
-        \n\n⬇Our Facebook page⬇
-        \nhttps://www.facebook.com/BINApasifik
-        
-        \n\n⬇Our Website⬇
-        \nwww.BINApasifik.com
-        
-        \n\nWe are committed to providing you with our very best services 😃
-        
-        \n\nThank you.`;
+\n\nBerikut adalah jabatan-jabatan dari Group BINA:
+
+\n\n1️⃣ Operation/Work Arrangement (Ms Sheue Lih - 018-668 8766)
+\n2️⃣ Manager (Mr Lim - 019-386 8776)
+
+\n\nFungsi kumpulan ini adalah untuk:
+
+\n\n- Menghantar quotation, invois, resi, dan sijil waranti
+\n- Mengatur jadual kerja
+\n- Berikan gambar update tentang kemajuan kerja
+
+\n\nJika anda mempunyai sebarang confirmation, slip bank, maklum balas atau aduan, sila sampaikan di dalam kumpulan ini.
+
+\n\n⬇️Facebook Kami⬇️
+\nhttps://www.facebook.com/BINApasifik
+
+\n\n⬇️Website Kami⬇️
+\nwww.BINApasifik.com
+
+\n\nKami komited untuk memberikan perkhidmatan terbaik kepada anda. 😃`;
+            
+
+            finalMessage = `Quotation akan send dalam group ini dalam 3 hingga 5 waktu kerja ya 👍`;
+    
+        } else if (appointmentInfo.language == 'Mandarin'){
+            
+            initialMessage = `
+您好 👋, 我是 Mr Kelvern (wa.me/601111393111) ，
+\n来自 BINA Pasifik Sdn Bhd (办公室电话: 03-2770 9111)
+\n那天进行了您家的现场检查。
+\n这个群组是专门为管理您家的屋顶案件而创建的。
+
+\n\n以下是我们 BINA 团队的部门联系方式：
+
+\n\n1️⃣ 运营/安排：Ms. Sheue Lih - 018-668 8766
+\n2️⃣ Manager：Mr Lim - 019-366 8776
+
+\n\n此群组的功能是：
+\n- 发送报价单、收据和保修证书, 安排工作日程
+\n- 发送照片的工作现况
+
+\n\n如果您有任何 确认、银行单据 或 反馈/投诉，也可以在这个群组里发言。
+
+\n\n⬇️面子书｜Facebook⬇️
+\nhttps://www.facebook.com/BINApasifik
+
+\n\n⬇️网站｜Website⬇️ 
+\nwww.BINApasifik.com
+
+\n\n我们致力于为您提供最好的服务。😃
+`;
+            
+
+            finalMessage = `你的报价会在 3 至 5 天的工作日发送到这个群组里 👌`;
+            
+        } else {
+            
+            initialMessage = `Hi 👋, Im Mr Kelvern(wa.me/601111393111)
+            \nfrom BINA Pasifik Sdn Bhd (Office No: 03-2770 9111)
+            \nAnd I've conducted the site inspection at your house that day.
+            \nThis group has been created specifically to manage your house roofing case.
+            \n\nBelow is our BINA group's department personnel:
+            
+            \n\n1. Operation/ Job Arrangement (Ms Sheue Lih - 60186688766)
+            \n2. Manager (Mr Lim - 60193868776)
+            
+            \n\nThe functions of this group are to provide:
+            \n* Quotations, Invoices, Receipts, Warranty Certificate & Job arrangement
+            
+            \n\n* Send pictures of job updates from time to time
+            
+            \n\n* Or if you have any confirmation/bank slip or feedbacks/complaints you may speak out in this group also
+            \n\n⬇Our Facebook page⬇
+            \nhttps://www.facebook.com/BINApasifik
+            
+            \n\n⬇Our Website⬇
+            \nwww.BINApasifik.com
+            
+            \n\nWe are committed to providing you with our very best services 😃
+            
+            \n\nThank you.`;
+            
+
+            finalMessage = `Your detail quotation will be prepared and sent out to this group in 3 to 5 working days ya 👌`;
+        }
+
         const message = await client.sendMessage(result.gid._serialized, initialMessage)
         await addMessagetoFirebase(message, idSubstring,'+'+((result.gid._serialized).split('@')[0]), groupTitle);
         
@@ -978,10 +1048,9 @@ async function handleConfirmedAppointment(client, msg, idSubstring) {
         const documentMessage2 = await client.sendMessage(result.gid._serialized, media2);
         await addMessagetoFirebase(documentMessage2, idSubstring,'+'+((result.gid._serialized).split('@')[0]), groupTitle);
 
-        const finalMessage = `Your detail quotation will be prepared and sent out to this group in 3 to 5 working days ya 👌`;
         const message2 = await client.sendMessage(result.gid._serialized, finalMessage)
         await addMessagetoFirebase(message2, idSubstring,'+'+((result.gid._serialized).split('@')[0]), groupTitle);
-    } catch (error) {
+    } catch (error) { 
         console.error('Error creating group:', error);
     }
 }
