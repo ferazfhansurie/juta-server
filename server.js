@@ -2373,6 +2373,67 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
   }
 });
 
+app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
+  console.log('send audio message');
+  const companyId = req.params.companyId;
+  const chatId = req.params.chatId;
+  const { audioUrl, caption, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
+  console.log(req.body);
+
+  const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
+  const userName = requestedUserName !== undefined ? requestedUserName : '';
+  
+  try {
+    let client;
+    // 1. Get the client for this company from botMap
+    const botData = botMap.get(companyId);
+    if (!botData) {
+      return res.status(404).send('WhatsApp client not found for this company');
+    }
+    client = botData[phoneIndex].client;
+    
+    if (!client) {
+      return res.status(404).send('No active WhatsApp client found for this company');
+    }
+
+    // 2. Use wwebjs to send the audio message
+    const media = await MessageMedia.fromUrl(audioUrl);
+    const sentMessage = await client.sendMessage(chatId, media, { sendAudioAsVoice: true });
+
+    console.log(sentMessage);
+    let phoneNumber = '+'+(chatId).split('@')[0];
+
+    // 3. Save the message to Firebase
+    const messageData = {
+      chat_id: sentMessage.from,
+      from: sentMessage.from ?? "",
+      from_me: true,
+      id: sentMessage.id._serialized ?? "",
+      source: sentMessage.deviceType ?? "",
+      status: "delivered",
+      audio: {
+        mimetype: media.mimetype,
+        link: audioUrl,
+      },
+      timestamp: sentMessage.timestamp ?? 0,
+      userName: userName,
+      type: 'audio',
+      ack: sentMessage.ack ?? 0,
+    };
+    
+    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
+    const messagesRef = contactRef.collection('messages');
+
+    const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+
+    res.json({ success: true, messageId: sentMessage.id._serialized });
+  } catch (error) {
+    console.error('Error sending audio message:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
 app.post('/api/messages/image/:token', async (req, res) => {
     const { chatId, imageUrl, caption } = req.body;
     const token = req.params.token;
