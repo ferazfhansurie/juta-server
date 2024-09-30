@@ -2470,6 +2470,14 @@ app.post('/api/request-pairing-code/:botName', async (req, res) => {
     return res.status(400).json({ error: 'Phone number is required' });
   }
 
+  // Remove any non-digit characters from the phone number
+  const cleanedPhoneNumber = phoneNumber.replace(/\D/g, '');
+
+  // Check if the cleaned phone number starts with a '+' and remove it
+  const formattedPhoneNumber = cleanedPhoneNumber.startsWith('+') 
+    ? cleanedPhoneNumber.slice(1) 
+    : cleanedPhoneNumber;
+
   try {
     const botData = botMap.get(botName);
     if (!botData || !Array.isArray(botData) || !botData[phoneIndex]) {
@@ -2481,8 +2489,8 @@ app.post('/api/request-pairing-code/:botName', async (req, res) => {
       return res.status(404).json({ error: 'WhatsApp client not initialized' });
     }
 
-    // Request the pairing code
-    const pairingCode = await client.requestPairingCode(phoneNumber);
+    // Request the pairing code with the formatted phone number
+    const pairingCode = await client.requestPairingCode(formattedPhoneNumber);
 
     // Update the bot status
     botData[phoneIndex] = { 
