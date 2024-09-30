@@ -2373,8 +2373,6 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
   }
 });
 
-const { MessageMedia } = require('whatsapp-web.js');
-
 app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
   console.log('send audio message');
   const companyId = req.params.companyId;
