@@ -2377,8 +2377,8 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
   console.log('send audio message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const { audioUrl, caption, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
-  console.log(req.body);
+  const { audioData, caption, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
+  console.log('Request body:', { ...req.body, audioData: audioData ? 'Audio data present' : 'No audio data' });
 
   const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
   const userName = requestedUserName !== undefined ? requestedUserName : '';
@@ -2396,11 +2396,17 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       return res.status(404).send('No active WhatsApp client found for this company');
     }
 
-    // 2. Use wwebjs to send the audio message
-    const media = await MessageMedia.fromUrl(audioUrl);
-    const sentMessage = await client.sendMessage(chatId, media, { sendAudioAsVoice: true });
+    if (!audioData) {
+      return res.status(400).send('No audio data provided');
+    }
 
-    console.log(sentMessage);
+    // 2. Create MessageMedia object from audio data
+    const media = new MessageMedia('audio/ogg', audioData, 'audio.ogg');
+
+    console.log('Sending audio message');
+    const sentMessage = await client.sendMessage(chatId, media, { sendAudioAsVoice: true });
+    console.log('Audio message sent successfully');
+
     let phoneNumber = '+'+(chatId).split('@')[0];
 
     // 3. Save the message to Firebase
@@ -2412,25 +2418,27 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       source: sentMessage.deviceType ?? "",
       status: "delivered",
       audio: {
-        mimetype: media.mimetype,
-        link: audioUrl,
+        mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+        data: audioData,
       },
       timestamp: sentMessage.timestamp ?? 0,
       userName: userName,
-      type: 'audio',
+      type: 'ptt', // Changed to 'ptt' for consistency with your existing code
       ack: sentMessage.ack ?? 0,
     };
     
     const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
     const messagesRef = contactRef.collection('messages');
 
+    console.log('Saving message to Firebase');
     const messageDoc = messagesRef.doc(sentMessage.id._serialized);
     await messageDoc.set(messageData, { merge: true });
+    console.log('Message saved to Firebase');
 
     res.json({ success: true, messageId: sentMessage.id._serialized });
   } catch (error) {
     console.error('Error sending audio message:', error);
-    res.status(500).send('Internal Server Error');
+    res.status(500).send(`Internal Server Error: ${error.message}`);
   }
 });
 
