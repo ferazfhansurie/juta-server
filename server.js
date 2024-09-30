@@ -2461,6 +2461,48 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
     res.status(500).send(`Internal Server Error: ${error.message}`);
   }
 });
+
+app.post('/api/request-pairing-code/:botName', async (req, res) => {
+  const { botName } = req.params;
+  const { phoneNumber, phoneIndex = 0 } = req.body;
+
+  if (!phoneNumber) {
+    return res.status(400).json({ error: 'Phone number is required' });
+  }
+
+  try {
+    const botData = botMap.get(botName);
+    if (!botData || !Array.isArray(botData) || !botData[phoneIndex]) {
+      return res.status(404).json({ error: 'Bot or phone not found' });
+    }
+
+    const { client } = botData[phoneIndex];
+    if (!client) {
+      return res.status(404).json({ error: 'WhatsApp client not initialized' });
+    }
+
+    // Request the pairing code
+    const pairingCode = await client.requestPairingCode(phoneNumber);
+
+    // Update the bot status
+    botData[phoneIndex] = { 
+      ...botData[phoneIndex], 
+      status: 'pairing_code', 
+      pairingCode 
+    };
+    botMap.set(botName, botData);
+
+    // Broadcast the new status
+    broadcastAuthStatus(botName, 'pairing_code', pairingCode, phoneIndex);
+
+    // Send the pairing code back to the client
+    res.json({ pairingCode });
+  } catch (error) {
+    console.error(`Error requesting pairing code for ${botName}:`, error);
+    res.status(500).json({ error: 'Failed to request pairing code', details: error.message });
+  }
+});
+
 app.post('/api/messages/image/:token', async (req, res) => {
     const { chatId, imageUrl, caption } = req.body;
     const token = req.params.token;
