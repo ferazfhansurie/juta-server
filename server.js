@@ -2405,7 +2405,18 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       return res.status(400).send('No audio data provided');
     }
 
-    
+    // Validate base64 string
+    const isBase64 = (str) => {
+      try {
+        return Buffer.from(str, 'base64').toString('base64') === str;
+      } catch (err) {
+        return false;
+      }
+    };
+
+    if (!isBase64(audioData)) {
+      return res.status(400).send('Invalid base64 audio data');
+    }
 
     // 2. Create MessageMedia object from audio data
     console.log('Creating MessageMedia object');
