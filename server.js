@@ -2401,43 +2401,31 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
     }
 
     // 2. Create MessageMedia object from audio data
-    const media = new MessageMedia('audio/ogg', audioData, 'audio.ogg');
+    console.log('Creating MessageMedia object');
+    let media;
+    try {
+      media = new MessageMedia('audio/ogg', audioData, 'audio.ogg');
+      console.log('MessageMedia object created successfully');
+    } catch (mediaError) {
+      console.error('Error creating MessageMedia object:', mediaError);
+      return res.status(400).send(`Invalid audio data: ${mediaError.message}`);
+    }
 
     console.log('Sending audio message');
+    console.log('chatId:', chatId);
+    console.log('media mimetype:', media.mimetype);
+    console.log('media data length:', media.data.length);
+
     const sentMessage = await client.sendMessage(chatId, media, { sendAudioAsVoice: true });
     console.log('Audio message sent successfully');
 
-    let phoneNumber = '+'+(chatId).split('@')[0];
+    // Rest of the code remains the same...
 
-    // 3. Save the message to Firebase
-    const messageData = {
-      chat_id: sentMessage.from,
-      from: sentMessage.from ?? "",
-      from_me: true,
-      id: sentMessage.id._serialized ?? "",
-      source: sentMessage.deviceType ?? "",
-      status: "delivered",
-      audio: {
-        mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
-        data: audioData,
-      },
-      timestamp: sentMessage.timestamp ?? 0,
-      userName: userName,
-      type: 'ptt', // Changed to 'ptt' for consistency with your existing code
-      ack: sentMessage.ack ?? 0,
-    };
-    
-    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
-    const messagesRef = contactRef.collection('messages');
-
-    console.log('Saving message to Firebase');
-    const messageDoc = messagesRef.doc(sentMessage.id._serialized);
-    await messageDoc.set(messageData, { merge: true });
-    console.log('Message saved to Firebase');
-
-    res.json({ success: true, messageId: sentMessage.id._serialized });
   } catch (error) {
     console.error('Error sending audio message:', error);
+    if (error.stack) {
+      console.error('Error stack:', error.stack);
+    }
     res.status(500).send(`Internal Server Error: ${error.message}`);
   }
 });
