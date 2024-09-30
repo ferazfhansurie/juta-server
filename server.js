@@ -2373,16 +2373,21 @@ app.post('/api/v2/messages/image/:companyId/:chatId', async (req, res) => {
   }
 });
 
+const { MessageMedia } = require('whatsapp-web.js');
+
 app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
   console.log('send audio message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
   const { audioData, caption, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
-  console.log('Request body:', { ...req.body, audioData: audioData ? 'Audio data present' : 'No audio data' });
+  console.log('Request body:', {
+    ...req.body,
+    audioData: audioData ? 'Audio data present' : 'No audio data'
+  });
 
   const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
   const userName = requestedUserName !== undefined ? requestedUserName : '';
-  
+
   try {
     let client;
     // 1. Get the client for this company from botMap
@@ -2391,20 +2396,37 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       return res.status(404).send('WhatsApp client not found for this company');
     }
     client = botData[phoneIndex].client;
-    
+
     if (!client) {
       return res.status(404).send('No active WhatsApp client found for this company');
+    }
+
+    if (!client.info || !client.info.isConnected) {
+      return res.status(503).send('WhatsApp client is not ready');
     }
 
     if (!audioData) {
       return res.status(400).send('No audio data provided');
     }
 
+    // Validate base64 string
+    const isBase64 = (str) => {
+      try {
+        return Buffer.from(str, 'base64').toString('base64') === str;
+      } catch (err) {
+        return false;
+      }
+    };
+
+    if (!isBase64(audioData)) {
+      return res.status(400).send('Invalid base64 audio data');
+    }
+
     // 2. Create MessageMedia object from audio data
     console.log('Creating MessageMedia object');
     let media;
     try {
-      media = new MessageMedia('audio/ogg', audioData, 'audio.ogg');
+      media = new MessageMedia('audio/ogg; codecs=opus', audioData, 'audio.ogg');
       console.log('MessageMedia object created successfully');
     } catch (mediaError) {
       console.error('Error creating MessageMedia object:', mediaError);
@@ -2419,8 +2441,35 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
     const sentMessage = await client.sendMessage(chatId, media, { sendAudioAsVoice: true });
     console.log('Audio message sent successfully');
 
-    // Rest of the code remains the same...
+    let phoneNumber = '+' + chatId.split('@')[0];
 
+    // 3. Save the message to Firebase
+    const messageData = {
+      chat_id: sentMessage.from,
+      from: sentMessage.from ?? "",
+      from_me: true,
+      id: sentMessage.id._serialized ?? "",
+      source: sentMessage.deviceType ?? "",
+      status: "delivered",
+      audio: {
+        mimetype: media.mimetype,
+        data: audioData, // Store base64 data
+      },
+      timestamp: sentMessage.timestamp ?? 0,
+      userName: userName,
+      type: 'ptt', // Changed to 'ptt' for Push To Talk (voice message)
+      ack: sentMessage.ack ?? 0,
+    };
+
+    const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phoneNumber);
+    const messagesRef = contactRef.collection('messages');
+
+    console.log('Saving message to Firebase');
+    const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+    await messageDoc.set(messageData, { merge: true });
+    console.log('Message saved to Firebase');
+
+    res.json({ success: true, messageId: sentMessage.id._serialized });
   } catch (error) {
     console.error('Error sending audio message:', error);
     if (error.stack) {
