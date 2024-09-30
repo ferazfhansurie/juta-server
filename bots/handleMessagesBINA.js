@@ -1045,6 +1045,7 @@ async function handleConfirmedAppointment(client, msg, idSubstring) {
 
         const documentUrl2 = `https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Your%20Roofing's%20Doctor.pdf?alt=media&token=7c72f8e4-72cd-4da1-bb3d-387ffeb8ab91`;
         const media2 = await MessageMedia.fromUrl(documentUrl2);
+        media2.filename = "Your Roofing's Doctor.pdf"; 
         const documentMessage2 = await client.sendMessage(result.gid._serialized, media2);
         // await addMessagetoFirebase(documentMessage2, idSubstring,'+'+((result.gid._serialized).split('@')[0]), groupTitle);
 
