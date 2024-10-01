@@ -2417,7 +2417,7 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       url: audioUrl,
       responseType: 'arraybuffer'
     });
-    await fs.writeFile(tempWebmPath, response.data);
+    await fs.promises.writeFile(tempWebmPath, response.data);
 
     // 3. Convert WebM to MP4 using FFmpeg
     console.log('Converting WebM to MP4');
