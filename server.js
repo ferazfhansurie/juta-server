@@ -2446,8 +2446,8 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
     console.log('Audio message sent successfully');
 
     // Clean up temporary files
-    await fs.unlink(tempWebmPath);
-    await fs.unlink(tempMp4Path);
+    await fs.promises.unlink(tempWebmPath);
+    await fs.promises.unlink(tempMp4Path);
 
     let phoneNumber = '+' + chatId.split('@')[0];
 
