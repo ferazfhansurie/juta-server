@@ -31,6 +31,8 @@ const pipeline = promisify(stream.pipeline)
 const os = require('os');
 const { exec } = require('child_process');
 const url = require('url');
+const ffmpeg = require('ffmpeg-static');
+
 const botMap = new Map();
 // Redis connection
 const connection = new Redis(process.env.REDIS_URL || 'redis://redis:6379', {
@@ -2407,7 +2409,7 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
 
     // 2. Download the WebM file
     const tempWebmPath = path.join(os.tmpdir(), `temp_${Date.now()}.webm`);
-    const tempOggPath = path.join(os.tmpdir(), `temp_${Date.now()}.ogg`);
+    const tempMp4Path = path.join(os.tmpdir(), `temp_${Date.now()}.mp4`);
 
     console.log('Downloading WebM file');
     const response = await axios({
@@ -2415,12 +2417,12 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       url: audioUrl,
       responseType: 'arraybuffer'
     });
-    await fs.promises.writeFile(tempWebmPath, response.data);
+    await fs.writeFile(tempWebmPath, response.data);
 
-    // 3. Convert WebM to OGG using FFmpeg
-    console.log('Converting WebM to OGG');
+    // 3. Convert WebM to MP4 using FFmpeg
+    console.log('Converting WebM to MP4');
     await new Promise((resolve, reject) => {
-      exec(`ffmpeg -i ${tempWebmPath} -c:a libopus -b:a 128k ${tempOggPath}`, (error, stdout, stderr) => {
+      exec(`${ffmpeg} -i ${tempWebmPath} -c:a aac -b:a 128k ${tempMp4Path}`, (error, stdout, stderr) => {
         if (error) {
           console.error(`FFmpeg error: ${error.message}`);
           reject(error);
@@ -2430,10 +2432,10 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       });
     });
 
-    // 4. Create MessageMedia object from converted OGG file
-    console.log('Creating MessageMedia object from converted OGG file');
-    const media = MessageMedia.fromFilePath(tempOggPath);
-    media.mimetype = 'audio/ogg; codecs=opus';
+    // 4. Create MessageMedia object from converted MP4 file
+    console.log('Creating MessageMedia object from converted MP4 file');
+    const media = MessageMedia.fromFilePath(tempMp4Path);
+    media.mimetype = 'audio/mp4';
 
     console.log('Sending audio message');
     console.log('chatId:', chatId);
@@ -2445,7 +2447,7 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
 
     // Clean up temporary files
     await fs.unlink(tempWebmPath);
-    await fs.unlink(tempOggPath);
+    await fs.unlink(tempMp4Path);
 
     let phoneNumber = '+' + chatId.split('@')[0];
 
