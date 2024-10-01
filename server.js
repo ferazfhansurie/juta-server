@@ -2377,10 +2377,10 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
   console.log('send audio message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const { audioUrl, caption, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
+  const { audioBase64, caption, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
   console.log('Request body:', {
     ...req.body,
-    audioUrl: audioUrl ? 'Audio URL present' : 'No audio URL'
+    audioBase64: audioBase64 ? 'Audio base64 present' : 'No audio base64'
   });
 
   const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
@@ -2399,21 +2399,19 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       return res.status(404).send('No active WhatsApp client found for this company');
     }
 
-
-    if (!audioUrl) {
-      return res.status(400).send('No audio URL provided');
+    if (!audioBase64) {
+      return res.status(400).send('No audio base64 provided');
     }
 
-    // 2. Create MessageMedia object from audio URL
-    console.log('Creating MessageMedia object from URL');
+    // 2. Create MessageMedia object from base64 audio
+    console.log('Creating MessageMedia object from base64');
     let media;
     try {
-      media = await MessageMedia.fromUrl(audioUrl);
-      media.mimetype = 'audio/ogg; codecs=opus';
+      media = new MessageMedia('audio/ogg; codecs=opus', audioBase64, 'audio.ogg');
       console.log('MessageMedia object created successfully');
     } catch (mediaError) {
       console.error('Error creating MessageMedia object:', mediaError);
-      return res.status(400).send(`Invalid audio URL: ${mediaError.message}`);
+      return res.status(400).send(`Invalid audio base64: ${mediaError.message}`);
     }
 
     console.log('Sending audio message');
@@ -2436,7 +2434,7 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       status: "delivered",
       audio: {
         mimetype: media.mimetype,
-        url: audioUrl, // Store the URL instead of the data
+        // We don't store the base64 data in Firebase to save space
       },
       timestamp: sentMessage.timestamp ?? 0,
       userName: userName,
