@@ -2407,8 +2407,7 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
     console.log('Creating MessageMedia object from URL');
     let media;
     try {
-      media = await MessageMedia.fromUrl(audioUrl);
-      media.mimetype = 'audio/ogg; codecs=opus';
+      media = await MessageMedia.fromUrl(audioUrl, { unsafeMime: true });
       console.log('MessageMedia object created successfully');
     } catch (mediaError) {
       console.error('Error creating MessageMedia object:', mediaError);
