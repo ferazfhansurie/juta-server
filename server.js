@@ -28,6 +28,8 @@ const path = require('path');
 const stream = require('stream');
 const { promisify } = require('util');
 const pipeline = promisify(stream.pipeline)
+const os = require('os');
+const { exec } = require('child_process');
 const url = require('url');
 const botMap = new Map();
 // Redis connection
@@ -2403,16 +2405,35 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       return res.status(400).send('No audio URL provided');
     }
 
-    // 2. Create MessageMedia object from audio URL
-    console.log('Creating MessageMedia object from URL');
-    let media;
-    try {
-      media = await MessageMedia.fromUrl(audioUrl, { unsafeMime: true });
-      console.log('MessageMedia object created successfully');
-    } catch (mediaError) {
-      console.error('Error creating MessageMedia object:', mediaError);
-      return res.status(400).send(`Invalid audio URL: ${mediaError.message}`);
-    }
+    // 2. Download the WebM file
+    const tempWebmPath = path.join(os.tmpdir(), `temp_${Date.now()}.webm`);
+    const tempOggPath = path.join(os.tmpdir(), `temp_${Date.now()}.ogg`);
+
+    console.log('Downloading WebM file');
+    const response = await axios({
+      method: 'get',
+      url: audioUrl,
+      responseType: 'arraybuffer'
+    });
+    await fs.writeFile(tempWebmPath, response.data);
+
+    // 3. Convert WebM to OGG using FFmpeg
+    console.log('Converting WebM to OGG');
+    await new Promise((resolve, reject) => {
+      exec(`ffmpeg -i ${tempWebmPath} -c:a libopus -b:a 128k ${tempOggPath}`, (error, stdout, stderr) => {
+        if (error) {
+          console.error(`FFmpeg error: ${error.message}`);
+          reject(error);
+        } else {
+          resolve();
+        }
+      });
+    });
+
+    // 4. Create MessageMedia object from converted OGG file
+    console.log('Creating MessageMedia object from converted OGG file');
+    const media = MessageMedia.fromFilePath(tempOggPath);
+    media.mimetype = 'audio/ogg; codecs=opus';
 
     console.log('Sending audio message');
     console.log('chatId:', chatId);
@@ -2422,9 +2443,13 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
     const sentMessage = await client.sendMessage(chatId, media, { sendAudioAsVoice: true });
     console.log('Audio message sent successfully');
 
+    // Clean up temporary files
+    await fs.unlink(tempWebmPath);
+    await fs.unlink(tempOggPath);
+
     let phoneNumber = '+' + chatId.split('@')[0];
 
-    // 3. Save the message to Firebase
+    // 5. Save the message to Firebase
     const messageData = {
       chat_id: sentMessage.from,
       from: sentMessage.from ?? "",
@@ -2434,7 +2459,7 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
       status: "delivered",
       audio: {
         mimetype: media.mimetype,
-        url: audioUrl, // Store the URL instead of the data
+        url: audioUrl, // Store the original URL
       },
       timestamp: sentMessage.timestamp ?? 0,
       userName: userName,
