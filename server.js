@@ -2699,17 +2699,16 @@ async function initializeBot(botName, phoneCount = 1) {
               puppeteer: { 
                   headless: true,
                   executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
+                  ignoreHTTPSErrors: true,
                   args: [
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-web-security',
-                    '--disable-gpu',
-                    '--hide-scrollbars',
-                    '--disable-cache',
-                    '--disable-application-cache',
-                    '--disable-gpu-driver-bug-workarounds',
-                    '--disable-accelerated-2d-canvas',
+                    "--no-sandbox",
+                    "--disable-setuid-sandbox",
+                    "--disable-extensions",
+                    '--disable-gpu', 
+                    "--disable-accelerated-2d-canvas",
+                    "--no-first-run",
+                    "--no-zygote",
+                    '--disable-dev-shm-usage'
                 ],
               }
           });
