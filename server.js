@@ -2697,7 +2697,7 @@ async function initializeBot(botName, phoneCount = 1) {
                   clientId: clientName,
               }),
               puppeteer: { 
-                  headless: false,
+                  headless: true,
                   executablePath: process.env.CHROME_PATH || '/usr/bin/google-chrome',
                   ignoreHTTPSErrors: true,
                   args: [
