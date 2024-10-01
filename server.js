@@ -2419,7 +2419,7 @@ app.post('/api/v2/messages/audio/:companyId/:chatId', async (req, res) => {
     console.log('media mimetype:', media.mimetype);
     console.log('media data length:', media.data.length);
 
-    const sentMessage = await client.sendMessage(chatId, media, { sendMediaAsDocument: true });
+    const sentMessage = await client.sendMessage(chatId, media, { sendAudioAsVoice: true });
     console.log('Audio message sent successfully');
 
     let phoneNumber = '+' + chatId.split('@')[0];
