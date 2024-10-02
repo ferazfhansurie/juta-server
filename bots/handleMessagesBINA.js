@@ -493,14 +493,7 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
                         if(!firebaseTags.includes('replied') && firebaseTags.includes('5 Days Follow Up')){
                         }
 
-                        if(!firebaseTags.includes('replied')){
-                            await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
-                            await removeScheduledMessages(msg.from, idSubstring);
-                        }
-
-                        if(firebaseTags.includes('replied')){
-                            await removeScheduledMessages(msg.from, idSubstring);
-                        }
+                        
                     }
             }else{
                 
