@@ -81,7 +81,7 @@ async function handleBinaTag(req, res) {
                 res.json({ success: true });
                 break;
             case 'removeBeforeQuote':
-                await removeScheduledMessages(chatId, idSubstring);
+                await removeScheduledMessages('60135186862@c.us', idSubstring);
                 res.json({ success: true });
                 break;
             case 'removeAfterQuote':
