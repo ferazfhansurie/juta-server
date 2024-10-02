@@ -166,6 +166,7 @@ const { handleBinaTag } = require('./blast/binaTag.js');
 const { handleNewMessagesMaha } = require('./bots/handleMessagesMaha.js');
 const { handleNewMessagesMuhibbah } = require('./bots/handleMessagesMuhibbah.js');
 const { handleNewMessagesNewTown } = require('./bots/handleMessagesNewTown.js');
+const { handleNewMessagesDMAI } = require('./bots/handleMessagesDMAI.js');
 
 
 
@@ -266,6 +267,7 @@ const customHandlers = {
   '080': handleNewMessagesMaha,
   '067': handleNewMessagesMuhibbah,
   '088': handleNewMessagesNewTown,
+  '088': handleNewMessagesDMAI,
 
 };
 
