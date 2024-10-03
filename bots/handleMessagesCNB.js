@@ -716,6 +716,26 @@ const extractProductName = (str) => {
     return match ? match.trim() : null;
 };
 
+async function storeVideoData(videoData, filename) {
+    const bucket = admin.storage().bucket();
+    const uniqueFilename = `${uuidv4()}_${filename}`;
+    const file = bucket.file(`videos/${uniqueFilename}`);
+
+    await file.save(Buffer.from(videoData, 'base64'), {
+        metadata: {
+            contentType: 'video/mp4', // Adjust this based on the actual video type
+        },
+    });
+
+    const [url] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2500', // Adjust expiration as needed
+    });
+
+    return url;
+}
+
+
 
 async function removeTagFirebase(contactID, tag, idSubstring) {
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
