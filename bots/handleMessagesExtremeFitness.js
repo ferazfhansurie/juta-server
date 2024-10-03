@@ -66,6 +66,100 @@ async function fetchEmployeesFromFirebase(idSubstring) {
     await loadAssignmentState(idSubstring);
 }
 
+async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
+    try {
+      console.log('Checking for conflicts before creating appointment...');
+      const conflictCheck = await checkScheduleConflicts(startDateTime, endDateTime);
+  
+      if (conflictCheck.conflict) {
+        if (conflictCheck.error) {
+          return { error: `Failed to check for conflicts: ${conflictCheck.error}` };
+        }
+        return { 
+          error: 'Scheduling conflict detected', 
+          conflictingAppointments: conflictCheck.conflictingAppointments 
+        };
+      }
+  
+      console.log('Creating appointment...');
+
+      const userRef = db.collection('user').doc('cryan@fitpropella.com');
+      const appointmentsCollectionRef = userRef.collection('appointments');
+      const newAppointmentRef = appointmentsCollectionRef.doc(); 
+  
+      const newAppointment = {
+        id: newAppointmentRef.id,
+        title: summary,
+        startTime: startDateTime,
+        endTime: endDateTime,
+        address: description || "",
+        appointmentStatus: 'new',
+        staff: ["Conor"],
+        color: "#1F3A8A", // Default color
+        packageId: "",
+        dateAdded: new Date().toISOString(),
+        contacts: contactPhone && contactName ? [{
+          id: contactPhone,
+          name: contactName,
+          session: null
+        }] : [],
+      };
+  
+      await newAppointmentRef.set(newAppointment);
+  
+      console.log('Appointment created successfully:', newAppointment);
+
+      console.log('Appointment created successfully in Firebase:', newAppointment);
+
+        // Create event in Google Calendar
+        const auth = new google.auth.GoogleAuth({
+            keyFile: './service_account.json', // Update this path
+            scopes: ['https://www.googleapis.com/auth/calendar'],
+        });
+
+        const calendar = google.calendar({ version: 'v3', auth });
+
+        const event = {
+            summary: summary,
+            description: `${description}\n\nContact: ${contactName} (${contactPhone})`,
+            start: {
+                dateTime: startDateTime,
+                timeZone: 'Asia/Kuala_Lumpur', // Adjust timezone as needed
+            },
+            end: {
+                dateTime: endDateTime,
+                timeZone: 'Asia/Kuala_Lumpur', // Adjust timezone as needed
+            },
+        };
+
+        const calendarResponse = await calendar.events.insert({
+            calendarId: 'faeezree@gmail.com', // Use 'primary' for the user's primary calendar
+            resource: event,
+        });
+
+        // Format the date and time for better readability
+        const startDate = new Date(startDateTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        const startTime = new Date(startDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        const endTime = new Date(endDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+        return {
+        success: true,
+        message: 'Appointment created successfully',
+        appointmentDetails: {
+            title: summary,
+            date: startDate,
+            time: `${startTime} - ${endTime}`,
+            description: description || "No description provided",
+            contact: contactName ? `${contactName} (${contactPhone})` : "No contact information provided",
+            staff: newAppointment.staff.join(", ")
+        }
+        };
+    } catch (error) {
+      console.error('Error in createCalendarEvent:', error);
+      return { error: `Failed to create appointment: ${error.message}` };
+    }
+  }
+
 async function loadAssignmentState(idSubstring) {
     const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
     const doc = await stateRef.get();
@@ -78,6 +172,81 @@ async function loadAssignmentState(idSubstring) {
         currentEmployeeIndex = 0;
     }
 }
+
+async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
+    console.log('Handling tool calls...');
+    const toolOutputs = [];
+    for (const toolCall of toolCalls) {
+        console.log(`Processing tool call: ${toolCall.function.name}`);
+        switch (toolCall.function.name) {
+            case 'createCalendarEvent':
+                try {
+                    console.log('Parsing arguments for createCalendarEvent...');
+                    const args = JSON.parse(toolCall.function.arguments);
+                    console.log('Arguments:', args);
+                    
+                    console.log('Calling createCalendarEvent...');
+                    const result = await createCalendarEvent(
+                        args.summary, 
+                        args.description, 
+                        args.startDateTime, 
+                        args.endDateTime,
+                        args.contactPhone,
+                        args.contactName
+                    );
+                    
+                    if (result.error) {
+                        if (result.error === 'Scheduling conflict detected') {
+                            console.log('Scheduling conflict detected, preparing conflict information...');
+                            toolOutputs.push({
+                                tool_call_id: toolCall.id,
+                                output: JSON.stringify({
+                                    error: result.error,
+                                    conflictingAppointments: result.conflictingAppointments
+                                }),
+                            });
+                        } else {
+                            console.error('Error creating event:', result.error);
+                            toolOutputs.push({
+                                tool_call_id: toolCall.id,
+                                output: JSON.stringify({ error: result.error }),
+                            });
+                        }
+                    } else {
+                        console.log('Event created successfully, preparing tool output...');
+                        toolOutputs.push({
+                            tool_call_id: toolCall.id,
+                            output: JSON.stringify(result),
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error in handleToolCalls for createCalendarEvent:');
+                    console.error(error);
+                    toolOutputs.push({
+                        tool_call_id: toolCall.id,
+                        output: JSON.stringify({ error: error.message }),
+                    });
+                }      
+                break;
+            case 'getTodayDate':
+                console.log('Getting today\'s date...');
+                const todayDate = getTodayDate();
+                toolOutputs.push({
+                    tool_call_id: toolCall.id,
+                    output: JSON.stringify({ date: todayDate }),
+                });
+                break;
+            default:
+                console.warn(`Unknown function called: ${toolCall.function.name}`);
+        }
+    }
+    console.log('Finished handling tool calls');
+    return toolOutputs;
+}
+
+function getTodayDate() {
+    return moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD');
+  }
 
 async function storeAssignmentState(idSubstring) {
     const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
@@ -523,7 +692,7 @@ async function handleNewMessagesExtremeFitness(client, msg, botName, phoneIndex)
                     query = `${msg.body} user_name: ${contactName} `;
                     
                     
-                    answer= await handleOpenAIAssistant(query,threadID);
+                    answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client);
                     parts = answer.split(/\s*\|\|\s*/);
                     
                     await customWait(10000);
@@ -986,49 +1155,120 @@ async function checkingStatus(threadId, runId) {
     return null; // Return null if not completed
 }
 
-async function waitForCompletion(threadId, runId) {
-    return new Promise((resolve, reject) => {
-        const maxAttempts = 30; // Maximum number of attempts
-        let attempts = 0;
-        const pollingInterval = setInterval(async () => {
-            attempts++;
-            try {
-                const answer = await checkingStatus(threadId, runId);
-                if (answer) {
-                    clearInterval(pollingInterval);
-                    resolve(answer);
-                } else if (attempts >= maxAttempts) {
-                    clearInterval(pollingInterval);
-                    reject(new Error("Timeout: Assistant did not complete in time"));
-                }
-            } catch (error) {
-                clearInterval(pollingInterval);
-                reject(error);
-            }
-        }, 2000); // Poll every 2 seconds
-    });
-}
+async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0,phoneNumber) {
+    const maxDepth = 5; // Maximum recursion depth
+    const maxAttempts = 30;
+    const pollingInterval = 2000; // 2 seconds
+  
+    console.log(`Waiting for completion (depth: ${depth}, runId: ${runId})...`);
+  
+    if (depth >= maxDepth) {
+      console.error(`Max recursion depth reached for runId: ${runId}`);
+      return "I apologize, but I'm having trouble completing this task. Could you please try rephrasing your request?";
+    }
+  
+    for (let attempts = 0; attempts < maxAttempts; attempts++) {
+      try {
+        const runObject = await openai.beta.threads.runs.retrieve(threadId, runId);
+        console.log(`Run status: ${runObject.status} (attempt ${attempts + 1})`);
+  
+        if (runObject.status === 'completed') {
+          const messagesList = await openai.beta.threads.messages.list(threadId);
+          const latestMessage = messagesList.data[0].content[0].text.value;
+          return latestMessage;
+        } else if (runObject.status === 'requires_action') {
+          console.log('Run requires action, handling tool calls...');
+          const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
+          const toolOutputs = await handleToolCalls(toolCalls, idSubstring, client,phoneNumber);
+          console.log('Submitting tool outputs...');
+          await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
+          console.log('Tool outputs submitted, restarting wait for completion...');
+          return await waitForCompletion(threadId, runId, idSubstring, client, depth + 1);
+        } else if (['failed', 'cancelled', 'expired'].includes(runObject.status)) {
+          console.error(`Run ${runId} ended with status: ${runObject.status}`);
+          return `I encountered an error (${runObject.status}). Please try your request again.`;
+        }
+  
+        await new Promise(resolve => setTimeout(resolve, pollingInterval));
+      } catch (error) {
+        console.error(`Error in waitForCompletion (depth: ${depth}, runId: ${runId}): ${error}`);
+        return "I'm sorry, but I encountered an error while processing your request. Please try again.";
+      }
+    }
+  
+    console.error(`Timeout: Assistant did not complete in time (depth: ${depth}, runId: ${runId})`);
+    return "I'm sorry, but it's taking longer than expected to process your request. Please try again or rephrase your question.";
+  }
 
-async function runAssistant(assistantID,threadId) {
+async function runAssistant(assistantID,threadId, tools, idSubstring, client, phoneNumber) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
         threadId,
         {
-            assistant_id: assistantID
+            assistant_id: assistantID,
+            tools: tools,
         }
     );
 
     const runId = response.id;
 
-    const answer = await waitForCompletion(threadId, runId);
+    const answer = await waitForCompletion(threadId, runId,idSubstring,client, 0,phoneNumber);
     return answer;
 }
 
-async function handleOpenAIAssistant(message, threadID) {
+async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client) {
     console.log(ghlConfig.assistantId);
-    const assistantId = ghlConfig.assistantId;
+    let assistantId = ghlConfig.assistantId;
+    if (tags !== undefined && tags.includes('team')) { 
+        assistantId = ghlConfig.assistantIdTeam;
+    } else if (tags !== undefined && tags.includes('demo')) {
+        const contactData = await getContactDataFromDatabaseByPhone(phoneNumber, idSubstring);
+        if (contactData && contactData.assistantId) {
+            assistantId = contactData.assistantId;
+        } else {
+            console.warn(`Demo assistant not found for company: ${contactData?.companyName}`);
+            // Fallback to default assistant if no matching demo assistant is found
+            assistantId = ghlConfig.assistantIdTeam;
+        }
+    }
+   
     await addMessage(threadID, message);
-    const answer = await runAssistant(assistantId,threadID);
+    
+
+    const tools = [
+        {
+            type: "function",
+            function: {
+                name: "createCalendarEvent",
+                description: "Schedule a meeting in Calendar. Always call getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
+                parameters: {
+                    type: "object",
+                    properties: {
+                        summary: { type: "string", description: "Title of the event" },
+                        description: { type: "string", description: "Description or address of the event" },
+                        startDateTime: { type: "string", description: "Start date and time in ISO 8601 format" },
+                        endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
+                        contactPhone: { type: "string", description: "Phone number of the contact" },
+                        contactName: { type: "string", description: "Name of the contact" },
+                    },
+                    required: ["summary", "startDateTime", "endDateTime","contactName"],
+                },
+            },
+        },
+        {
+            type: "function",
+            function: {
+                name: "getTodayDate",
+                description: "Get today's date in YYYY-MM-DD format",
+                parameters: {
+                    type: "object",
+                    properties: {},
+                },
+            },
+        },
+    ];
+  
+    const answer = await runAssistant(assistantId, threadID, tools, idSubstring, client,phoneNumber);
     return answer;
 }
 
