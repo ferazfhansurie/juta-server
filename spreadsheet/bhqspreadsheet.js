@@ -143,7 +143,7 @@ class bhqSpreadsheet {
       } else {
         console.error('Error loading reminders:', error);
       }
-    }yes
+    }
   }
   
   async saveSentReminders() {
