@@ -17,7 +17,9 @@ const fs = require('fs');
 const cron = require('node-cron');
 const schedule = require('node-schedule');
 const { v4: uuidv4 } = require('uuid');
-
+const { exec } = require('child_process');
+const ffmpeg = require('ffmpeg-static');
+const execPromise = util.promisify(exec);
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
 const db = admin.firestore();
@@ -692,6 +694,8 @@ async function handleNewMessagesDMAI(client, msg, botName, phoneIndex) {
             console.log(msg);
             return;
         }
+
+        
             
         let contactID;
         let contactName;
@@ -1034,34 +1038,35 @@ if (!contactData) {
                     const part = parts[i].trim();   
                     const check = part.toLowerCase();
                     if (part) {
-                        const sentMessage = await client.sendMessage(msg.from, part);
+                        let sentMessage = null;
+                        if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+                            // Generate audio file
+                            const audioFilePath = await generateAudioFromText(part);
+                            
+                            // Send audio message
+                            const media = MessageMedia.fromFilePath(audioFilePath);
+                            media.mimetype = 'audio/mp4';
+                            sentMessage = await client.sendMessage(msg.from, media, { sendAudioAsVoice: true });
 
-                        // Save the message to Firebase
-                        const sentMessageData = {
-                            chat_id: sentMessage.from,
-                            from: sentMessage.from ?? "",
-                            from_me: true,
-                            id: sentMessage.id._serialized ?? "",
-                            source: sentMessage.deviceType ?? "",
-                            status: "delivered",
-                            text: {
-                                body: part
-                            },
-                            timestamp: sentMessage.timestamp ?? 0,
-                            type: 'text',
-                            ack: sentMessage.ack ?? 0,
-                        };
 
-                        const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+                            // Clean up the audio file
+                            await fs.promises.unlink(audioFilePath);
+                            
+                        }else{
+                            sentMessage = await client.sendMessage(msg.from, part);
+                            
+                            if (check.includes('patience')) {
+                            } 
+                            if(check.includes('get back to you as soon as possible')){
+                                console.log('check includes');
+                            
+                            await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
+                            }
 
-                        await messageDoc.set(sentMessageData, { merge: true });
-                        if (check.includes('patience')) {
-                        } 
-                        if(check.includes('get back to you as soon as possible')){
-                            console.log('check includes');
-                        
-                           await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                         }
+                        await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber, contactName);
+
+                        
                     }
                 }
              }
@@ -1084,6 +1089,30 @@ if (!contactData) {
         return(e.message);
     }
 }
+
+async function generateAudioFromText(text) {
+    const mp3 = await openai.audio.speech.create({
+        model: "tts-1",
+        voice: "alloy",
+        input: text,
+    });
+
+    const buffer = Buffer.from(await mp3.arrayBuffer());
+    const mp3FileName = `speech_${Date.now()}.mp3`;
+    const mp3FilePath = path.join(MEDIA_DIR, mp3FileName);
+    const oggFileName = `speech_${Date.now()}.ogg`;
+    const oggFilePath = path.join(MEDIA_DIR, oggFileName);
+    
+    await fs.promises.writeFile(mp3FilePath, buffer);
+    // Convert MP3 to OGG/Opus
+    await execPromise(`${ffmpeg} -i ${mp3FilePath} -c:a aac -b:a 128k ${oggFilePath}`);
+
+    // Remove the temporary MP3 file
+    await fs.promises.unlink(mp3FilePath);
+    
+    return oggFilePath;
+}
+
 function formatPhoneNumber(phoneNumber) {
   console.log('Formatting phone number:', phoneNumber);
   // Remove all non-digit characters
