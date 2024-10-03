@@ -164,7 +164,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
         };
 
         const calendarResponse = await calendar.events.insert({
-            calendarId: 'faeezree@gmail.com', // Use 'primary' for the user's primary calendar
+            calendarId: '8a46c8b8bae4bbf8732bc6b613272a6b3fcc79507e66de49bfc51a18b1aa146d@group.calendar.google.com', // Use 'primary' for the user's primary calendar
             resource: event,
         });
 
