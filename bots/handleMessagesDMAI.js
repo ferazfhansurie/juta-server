@@ -6,6 +6,7 @@
 //3. CHANGE all <assistant> to openai assistant id
 //4. CHANGE all Template to your <YourBotName>
 
+const os = require('os');
 const OpenAI = require('openai');
 const axios = require('axios');
 const { google } = require('googleapis');
