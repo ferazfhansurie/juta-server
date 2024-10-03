@@ -451,9 +451,9 @@ class bhqSpreadsheet {
   async sendReminderToTeacher(teacherName, phoneNumber, customerName, rowNumber) {
     const message = `Assalamualaikum ${teacherName}, 
     
-    \n\nKelas anda bersama ${customerName} akan bermula dalam 2 jam. 
+    \nKelas anda bersama ${customerName} akan bermula dalam 2 jam. 
 
-    \n\nSila ingatkan ${customerName} untuk mengesahkan kehadiran anda.`;
+    \nSila ingatkan ${customerName} untuk mengesahkan kehadiran anda.`;
   
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
@@ -643,9 +643,9 @@ class bhqSpreadsheet {
   async sendReminderToCustomer(customerName, phoneNumber, teacherName) {
     const message = `Assalamualaikum ${customerName}, 
     
-    \n\nKelas bersama ${teacherName} akan bermula dalam 2 jam. 
+    \nKelas bersama ${teacherName} akan bermula dalam 2 jam. 
 
-    \n\nSila sahkan kehadiran ${teacherName} dengan membalas 'Ya'`;
+    \nSila sahkan kehadiran ${teacherName} dengan membalas 'Ya'`;
 
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
