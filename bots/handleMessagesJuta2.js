@@ -387,6 +387,34 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
   
       console.log('Appointment created successfully:', newAppointment);
 
+      console.log('Appointment created successfully in Firebase:', newAppointment);
+
+        // Create event in Google Calendar
+        const auth = new google.auth.GoogleAuth({
+            keyFile: './service_account.json', // Update this path
+            scopes: ['https://www.googleapis.com/auth/calendar'],
+        });
+
+        const calendar = google.calendar({ version: 'v3', auth });
+
+        const event = {
+            summary: summary,
+            description: `${description}\n\nContact: ${contactName} (${contactPhone})`,
+            start: {
+                dateTime: startDateTime,
+                timeZone: 'Asia/Kuala_Lumpur', // Adjust timezone as needed
+            },
+            end: {
+                dateTime: endDateTime,
+                timeZone: 'Asia/Kuala_Lumpur', // Adjust timezone as needed
+            },
+        };
+
+        const calendarResponse = await calendar.events.insert({
+            calendarId: 'primary', // Use 'primary' for the user's primary calendar
+            resource: event,
+        });
+
         // Format the date and time for better readability
         const startDate = new Date(startDateTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const startTime = new Date(startDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
