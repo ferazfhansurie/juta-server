@@ -321,6 +321,8 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                         await saveThreadIDFirebase(contactID, threadID, idSubstring)
                         //await saveThreadIDGHL(contactID,threadID);
                     }
+                    
+                    
                 
             }else{
                 
@@ -603,7 +605,7 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                     
                     
                     
-                    if(msg.body.toLowerCase() === 'ya' || msg.body.toLowerCase() === 'yes' ){
+                    if((msg.body.toLowerCase() === 'ya' || msg.body.toLowerCase() === 'yes') && (contactData.customer == true)){
                         // Call the method to update the spreadsheet
                         const spreadsheet = new bhqSpreadsheet(this.botMap);
                         await spreadsheet.updateAttendance(extractedNumber, true);

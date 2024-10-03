@@ -559,7 +559,6 @@ class bhqSpreadsheet {
           timestamp: sentMessage.timestamp || Date.now(),
           type: 'chat',
         },
-        row: rowNumber + 1, // Add the row number to the data structure
       };
   
       if (!contactData) {
@@ -655,13 +654,129 @@ class bhqSpreadsheet {
     }
     const client = botData[0].client;
     const extractedNumber = '+'+phoneNumber.split('@')[0];
+    let contactID;
+    let contactName;
+    let threadID;
+    let stopTag;
+    let unreadCount;
     try {
+      const contactData = await this.getContactDataFromDatabaseByPhone(extractedNumber, this.botName);
+      if (contactData !== null) {
+        stopTag = contactData.tags;
+        console.log(stopTag);
+        unreadCount = contactData.unreadCount ?? 0;
+        contactID = extractedNumber;
+        contactName = contactData.contactName ?? teacherName ?? extractedNumber;
+        
+        if (contactData.threadid) {
+          threadID = contactData.threadid;
+        } else {
+          const thread = await createThread();
+          threadID = thread.id;
+          await saveThreadIDFirebase(contactID, threadID, this.botName);
+        }
+      } else {
+        await customWait(2500); 
+  
+        contactID = extractedNumber;
+        contactName = teacherName || extractedNumber;
+        
+        const thread = await createThread();
+        threadID = thread.id;
+        console.log(threadID);
+        await saveThreadIDFirebase(contactID, threadID, this.botName);
+        console.log('sent new contact to create new contact');
+      }
+      
+      let firebaseTags = ['']
+      if (contactData) {
+        firebaseTags = contactData.tags ?? [];
+        // Remove 'snooze' tag if present
+        if(firebaseTags.includes('snooze')){
+          firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+        }
+      }
+  
       const sentMessage = await client.sendMessage(`${phoneNumber}@c.us`, message);
       await this.addMessagetoFirebase(sentMessage, this.botName, extractedNumber);
-      console.log(`Reminder sent to ${customerName} (${phoneNumber})`);
-      // You can add additional logging or processing here if needed
+      console.log(`Reminder sent to ${teacherName} (${phoneNumber})`);
+  
+      const data = {
+        additionalEmails: [],
+        address1: null,
+        assignedTo: null,
+        businessId: null,
+        phone: extractedNumber,
+        tags: firebaseTags,
+        chat: {
+          contact_id: extractedNumber,
+          id: sentMessage.from,
+          name: contactName,
+          not_spam: true,
+          tags: firebaseTags,
+          timestamp: sentMessage.timestamp || Date.now(),
+          type: 'contact',
+          unreadCount: 0,
+          last_message: {
+            chat_id: sentMessage.from,
+            from: sentMessage.from,
+            from_me: true,
+            id: sentMessage.id._serialized,
+            source: "WhatsApp",
+            status: "sent",
+            text: {
+              body: message
+            },
+            timestamp: sentMessage.timestamp || Date.now(),
+            type: 'chat',
+          },
+        },
+        chat_id: sentMessage.from,
+        city: null,
+        companyName: null,
+        contactName: contactName,
+        unreadCount: unreadCount + 1,
+        threadid: threadID ?? "",
+        phoneIndex: 0,  // Assuming this is the default value
+        last_message: {
+          chat_id: sentMessage.from,
+          from: sentMessage.from,
+          from_me: true,
+          id: sentMessage.id._serialized,
+          source: "WhatsApp",
+          status: "sent",
+          text: {
+            body: message
+          },
+          timestamp: sentMessage.timestamp || Date.now(),
+          type: 'chat',
+        },
+        row: rowNumber + 1, // Add the row number to the data structure
+        customer: true,
+      };
+  
+      if (!contactData) {
+        data.createdAt = admin.firestore.Timestamp.now();
+      }
+  
+      let profilePicUrl = "";
+      if (client.getProfilePicUrl) {
+        try {
+          profilePicUrl = await client.getProfilePicUrl(`${phoneNumber}@c.us`) || "";
+        } catch (error) {
+          console.error(`Error getting profile picture URL for ${phoneNumber}:`, error);
+        }
+      }
+      data.profilePicUrl = profilePicUrl;
+  
+      // Update or create contact in Firebase
+      const contactRef = db.collection('companies').doc(this.botName).collection('contacts').doc(extractedNumber);
+      await contactRef.set(data, { merge: true });
+  
+      console.log(`Contact data updated for ${teacherName} (${phoneNumber})`);
+  
     } catch (error) {
-      console.error(`Error sending reminder to ${customerName} (${phoneNumber}):`, error);
+      console.error(`Error sending reminder to ${teacherName} (${phoneNumber}):`, error);
     }
   }
 
