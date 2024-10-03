@@ -1039,7 +1039,10 @@ if (!contactData) {
                     const check = part.toLowerCase();
                     if (part) {
                         let sentMessage = null;
-                        if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+                        console.log(msg.type);
+                        
+                        if (msg.type === 'audio' || msg.type === 'ptt') {
+                            console.log('audio or ptt');
                             // Generate audio file
                             const audioFilePath = await generateAudioFromText(part);
                             
