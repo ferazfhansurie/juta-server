@@ -143,7 +143,7 @@ class bhqSpreadsheet {
       } else {
         console.error('Error loading reminders:', error);
       }
-    }
+    }yes
   }
   
   async saveSentReminders() {
@@ -236,10 +236,10 @@ class bhqSpreadsheet {
           // Process all teachers for this time slot
           let j = i;
           while (j < rows.length && rows[j][0] === startTime) {
-            const teacherName = rows[j][dayIndex];
-            const phoneNumber = rows[j][dayIndex + 1];
-            const customerName = rows[j][dayIndex + 2];
-            const customerPhone = rows[j][dayIndex + 3];
+            const customerName = rows[j][dayIndex];
+            const customerPhone = rows[j][dayIndex + 1];
+            const teacherName = rows[j][dayIndex + 2];
+            const phoneNumber = rows[j][dayIndex + 3];
 
             console.log(`  Teacher: ${teacherName}, Phone: ${phoneNumber}`);
 
@@ -449,7 +449,11 @@ class bhqSpreadsheet {
   }
 
   async sendReminderToTeacher(teacherName, phoneNumber, customerName, rowNumber) {
-    const message = `Hai ${teacherName}, kelas anda dengan ${customerName} akan bermula dalam 2 jam. Sila sahkan kehadiran anda dengan membalas 'Ya' atau maklumkan jika ada sebarang perubahan.`;
+    const message = `Assalamualaikum ${teacherName}, 
+    
+    \n\nKelas anda bersama ${customerName} akan bermula dalam 2 jam. 
+
+    \n\nSila ingatkan ${customerName} untuk mengesahkan kehadiran anda.`;
   
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
@@ -638,7 +642,11 @@ class bhqSpreadsheet {
 
 
   async sendReminderToCustomer(customerName, phoneNumber, teacherName) {
-    const message = `Hai ${customerName}, kelas anda dengan ${teacherName} akan bermula dalam 2 jam. Sila sahkan kehadiran anda dengan membalas 'Ya' atau maklumkan jika ada sebarang perubahan.`;
+    const message = `Assalamualaikum ${customerName}, 
+    
+    \n\nKelas bersama ${teacherName} akan bermula dalam 2 jam. 
+
+    \n\nSila sahkan kehadiran ${teacherName} dengan membalas 'Ya'`;
 
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
