@@ -9,7 +9,8 @@
 const OpenAI = require('openai');
 const axios = require('axios').default;
 const { Client } = require('whatsapp-web.js');
-
+const { google } = require('googleapis');
+const moment = require('moment-timezone');
 const { MessageMedia } = require('whatsapp-web.js');
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
@@ -65,6 +66,36 @@ async function fetchEmployeesFromFirebase(idSubstring) {
     // Load the previous assignment state
     await loadAssignmentState(idSubstring);
 }
+
+async function checkScheduleConflicts(startDateTime, endDateTime) {
+    try {
+      console.log('Checking for scheduling conflicts...');
+      
+      const userRef = db.collection('user').doc('cryan@fitpropella.com');
+      const appointmentsCollectionRef = userRef.collection('appointments');
+  
+      const conflictingAppointments = await appointmentsCollectionRef
+            .where('startTime', '<', endDateTime)
+            .where('endTime', '>', startDateTime)
+            .get();
+    
+  
+      if (!conflictingAppointments.empty) {
+        console.log('Scheduling conflict found');
+        return { 
+          conflict: true, 
+          conflictingAppointments: conflictingAppointments.docs.map(doc => doc.data())
+        };
+      }
+  
+      console.log('No scheduling conflicts found');
+      return { conflict: false };
+    } catch (error) {
+      console.error('Error checking for scheduling conflicts:', error);
+      return { conflict: true, error: error.message };
+    }
+  }
+
 
 async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
     try {
