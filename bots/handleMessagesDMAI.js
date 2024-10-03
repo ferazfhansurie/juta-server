@@ -1102,18 +1102,18 @@ async function generateAudioFromText(text) {
 
     const buffer = Buffer.from(await mp3.arrayBuffer());
     const mp3FileName = `speech_${Date.now()}.mp3`;
-    const mp3FilePath = path.join(MEDIA_DIR, mp3FileName);
-    const oggFileName = `speech_${Date.now()}.ogg`;
-    const oggFilePath = path.join(MEDIA_DIR, oggFileName);
+    const mp3FilePath = path.join(os.tmpdir(), mp3FileName);
+    const mp4FileName = `speech_${Date.now()}.mp4`;
+    const mp4FilePath = path.join(os.tmpdir(), mp4FileName);
     
     await fs.promises.writeFile(mp3FilePath, buffer);
     // Convert MP3 to OGG/Opus
-    await execPromise(`${ffmpeg} -i ${mp3FilePath} -c:a aac -b:a 128k ${oggFilePath}`);
+    await execPromise(`${ffmpeg} -i ${mp3FilePath} -c:a aac -b:a 128k ${mp4FilePath}`);
 
     // Remove the temporary MP3 file
     await fs.promises.unlink(mp3FilePath);
     
-    return oggFilePath;
+    return mp4FilePath;
 }
 
 function formatPhoneNumber(phoneNumber) {
