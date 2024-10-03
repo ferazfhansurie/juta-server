@@ -640,7 +640,7 @@ class bhqSpreadsheet {
 }
 
 
-  async sendReminderToCustomer(customerName, phoneNumber, teacherName) {
+  async sendReminderToCustomer(customerName, phoneNumber, teacherName, rowNumber) {
     const message = `Assalamualaikum ${customerName}, 
     
     \nKelas bersama ${teacherName} akan bermula dalam 2 jam. 
