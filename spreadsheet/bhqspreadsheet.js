@@ -250,7 +250,7 @@ class bhqSpreadsheet {
                 console.log(`  Sending reminder...`);
                 if(customerName && customerPhone){
                   await this.sendReminderToTeacher(teacherName, phoneNumber, customerName, j);
-                  await this.sendReminderToCustomer(customerName, customerPhone, teacherName);
+                  await this.sendReminderToCustomer(customerName, customerPhone, teacherName, j);
                   this.sentReminders[reminderKey] = Date.now();
                   await this.saveSentReminders();
                 } else{
