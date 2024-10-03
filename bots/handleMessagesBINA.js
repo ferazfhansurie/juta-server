@@ -834,6 +834,30 @@ async function handleNewMessagesBINA(client, msg, botName, phoneIndex) {
     }
 }
 
+async function transcribeAudio(audioData) {
+    try {
+        const formData = new FormData();
+        formData.append('file', Buffer.from(audioData, 'base64'), {
+            filename: 'audio.ogg',
+            contentType: 'audio/ogg',
+        });
+        formData.append('model', 'whisper-1');
+        formData.append('response_format', 'json');
+
+        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+            headers: {
+                ...formData.getHeaders(),
+                'Authorization': `Bearer ${process.env.OPENAIKEY}`,
+            },
+        });
+
+        return response.data.text;
+    } catch (error) {
+        console.error('Error transcribing audio:', error);
+        return '';
+    }
+}
+
 async function addtagbookedFirebase(contactID, tag, idSubstring) {
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
     const contactRef = db.doc(docPath);
