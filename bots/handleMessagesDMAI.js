@@ -22,6 +22,7 @@ const { exec } = require('child_process');
 const ffmpeg = require('ffmpeg-static');
 const execPromise = util.promisify(exec);
 const { URLSearchParams } = require('url');
+const { MessageMedia } = require('whatsapp-web.js');
 const admin = require('../firebase.js');
 const db = admin.firestore();
 const { doc, collection, query, where, getDocs } = db;
