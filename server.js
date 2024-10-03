@@ -266,9 +266,8 @@ const customHandlers = {
   '075': handleNewMessagesBHQ,
   '080': handleNewMessagesMaha,
   '067': handleNewMessagesMuhibbah,
+  '081': handleNewMessagesDMAI,
   '088': handleNewMessagesNewTown,
-  '088': handleNewMessagesDMAI,
-
 };
 
 
