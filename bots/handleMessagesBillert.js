@@ -1214,3 +1214,5 @@ async function fetchConfigFromDatabase(idSubstring) {
         throw error;
     }
 }
+
+module.exports = { handleNewMessagesBillert };
