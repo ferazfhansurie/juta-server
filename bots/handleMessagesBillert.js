@@ -27,9 +27,9 @@ const openai = new OpenAI({
 async function fetchEmployeesFromFirebase(idSubstring) {
     const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
     const snapshot = await employeesRef.get();
-    
+
     employees = [];
-    
+
     console.log(`Total documents in employee collection: ${snapshot.size}`);
 
     snapshot.forEach(doc => {
@@ -81,50 +81,18 @@ async function storeAssignmentState(idSubstring) {
     console.log('Assignment state stored in Firebase:', stateToStore);
 }
 
-let employeeList = [];
-
-function setupEmployeeListListener(idSubstring) {
-    const employeesRef = db.collection('companies').doc(idSubstring).collection('employees');
-
-    employeesRef.onSnapshot(snapshot => {
-        employeeList = [];
-        snapshot.forEach(doc => {
-            const data = doc.data();
-            employeeList.push({
-                name: data.name,
-                fullName: data.fullName,
-                phone: data.phone,
-                status: data.status,
-                weight: data.weight
-            });
-        });
-
-        console.log('Updated employee list:', employeeList);
-    });
-}
-
-async function assignNewContactToEmployee(contactID, idSubstring, client, newEmployeeDetails = null) {
-    // Fetch the latest employees from Firebase
-    await fetchEmployeesFromFirebase(idSubstring);
-
-    // Add new employee to the list if provided
-    if (newEmployeeDetails) {
-        const newEmployee = {
-            name: newEmployeeDetails.name,
-            email: newEmployeeDetails.email,
-            phoneNumber: newEmployeeDetails.phoneNumber,
-            assignedContacts: 0,
-            status: 'ON',
-            weight: newEmployeeDetails.weight || 1
-        };
-        employeeList.push(newEmployee);
-        console.log('New employee added:', newEmployee);
-
-        // Optionally, add the new employee to Firebase
-        const employeesRef = db.collection('companies').doc(idSubstring).collection('employees');
-        await employeesRef.add(newEmployee);
-        console.log('New employee added to Firebase:', newEmployee);
-    }
+async function assignNewContactToEmployee(contactID, idSubstring, client) {
+    const employeeList = [
+        { name: 'Hilmi', fullName: 'Hilmi Sales', phone: '+60146531563', status: 'ON', weight: 12 },
+        { name: 'Zara', fullName: 'Isha Sales', phone: '+60143407573', status: 'OFF', weight: 12 },
+        { name: 'Stanie', fullName: 'Stanie Sales', phone: '+60167104128', status: 'ON', weight: 16 },
+        { name: 'Qayyim', fullName: 'Qayyim Billert', phone: '+60167009798', status: 'ON', weight: 12 },
+        { name: 'Bazilah', fullName: 'Bazilah Agent Sales', phone: '+601126926822', status: 'ON', weight: 12 },
+        { name: 'Ida', fullName: 'Chloe Agent Sales', phone: '+60168308240', status: 'ON', weight: 10 },
+        { name: 'Siti', fullName: 'Eugen Agent Sales', phone: '+601162333411', status: 'ON', weight: 10 },
+        { name: 'Teha', fullName: 'Teha Sales', phone: '+60174787003', status: 'ON', weight: 12 },
+        { name: 'Alin', fullName: 'Alin Sales', phone: '+60102806459', status: 'OFF', weight: 0 },
+    ];
 
     // Filter out employees who are OFF
     const availableEmployees = employeeList.filter(emp => emp.status === 'ON');
@@ -162,7 +130,7 @@ async function assignNewContactToEmployee(contactID, idSubstring, client, newEmp
     const employeeID = assignedEmployee.phone.replace(/\s+/g, '').split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
 
-    // Update the assignment state in Firebase
+    // You may want to update the assignment state in Firebase here
     await storeAssignmentState(idSubstring, assignedEmployee);
 
     return {
@@ -170,9 +138,6 @@ async function assignNewContactToEmployee(contactID, idSubstring, client, newEmp
         number: employeeID
     };
 }
-
-// Call this function when initializing your bot or application
-setupEmployeeListListener('yourCompanyId');
 
 const steps = {
     START: 'start',
@@ -236,7 +201,7 @@ async function addNotificationToUser(companyId, message) {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
             const updatedMessage = { ...cleanMessage, read: false };
-        
+
             await notificationsRef.add(updatedMessage);
             console.log(`Notification ${updatedMessage} added to user with companyId: ${companyId}`);
         });
@@ -270,13 +235,13 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
     }else{
         type = msg.type;
     }
-    
+
     if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
         console.log('Voice message detected');
         const media = await msg.downloadMedia();
         const transcription = await transcribeAudio(media.data);
         console.log('Transcription:', transcription);
-                
+
         messageBody = transcription;
         audioData = media.data;
         console.log(msg);
@@ -365,7 +330,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
                       caption: msg._data.caption || "",
                   };
               }
-  
+
               // Add thumbnail information if available
               if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
                   messageData[msg.type].thumbnail = {
@@ -373,13 +338,13 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
                       width: msg._data.thumbnailWidth,
                   };
               }
-  
+
               // Add media key if available
               if (msg.mediaKey) {
                   messageData[msg.type].mediaKey = msg.mediaKey;
               }
 
-              
+
             }  else {
                 console.log(`Failed to download media for message: ${msg.id._serialized}`);
                 messageData.text = { body: "Media not available" };
@@ -447,7 +412,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 name:msg.notifyName,
             };
 
-            
+
             let contactID;
             let contactName;
             let threadID;
@@ -463,7 +428,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
             const contact = await chat.getContact()
 
             console.log(contactData);
-            
+
             let firebaseTags = ['']
             if (contactData) {
                 firebaseTags = contactData.tags ?? [];
@@ -475,11 +440,11 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 if ((sender.to).includes('@g.us')) {
                     firebaseTags = ['stop bot']
                 }
-                
+
             }
 
-            
-                
+
+
             let type = '';
             if(msg.type == 'chat'){
                 type ='text'
@@ -488,7 +453,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
             }else{
                 type = msg.type;
             }
-                
+
             if(extractedNumber.includes('status')){
                 return;
             }
@@ -502,12 +467,12 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 const media = await msg.downloadMedia();
                 const transcription = await transcribeAudio(media.data);
                 console.log('Transcription:', transcription);
-                    
+
                 messageBody = transcription;
                 audioData = media.data;
                 console.log(msg);
             }
-            
+
             const data = {
                 additionalEmails: [],
                 address1: null,
@@ -573,7 +538,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
             }
             data.profilePicUrl = profilePicUrl;
 
-            
+
 
             const messageData = {
                 chat_id: msg.from,
@@ -602,7 +567,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
             const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
             messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
         }
-                
+
             if((sender.to).includes('@g.us')){
                 const authorNumber = '+'+(msg.author).split('@')[0];
 
@@ -660,7 +625,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                             caption: msg._data.caption || "",
                         };
                     }
-        
+
                     // Add thumbnail information if available
                     if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
                         messageData[msg.type].thumbnail = {
@@ -668,13 +633,13 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                             width: msg._data.thumbnailWidth,
                         };
                     }
-        
+
                     // Add media key if available
                     if (msg.mediaKey) {
                         messageData[msg.type].mediaKey = msg.mediaKey;
                     }
 
-                    
+
                 } else {
                     console.log(`Failed to download media for message: ${msg.id._serialized}`);
                     messageData.text = { body: "Media not available" };
@@ -699,7 +664,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 console.log('Existing contact, no assignment needed');
 
             }else{
-                
+
                 // New contact, check if already assigned
             const assignmentRef = db.collection('companies').doc(idSubstring).collection('assignments').doc(extractedNumber);
             const assignmentDoc = await assignmentRef.get();
@@ -710,13 +675,13 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
 
                 contactID = extractedNumber;
                 contactName = contact.pushname || contact.name || extractedNumber;
-                
-                
+
+
 
                 const assignmentResult = await assignNewContactToEmployee(contactID, idSubstring, client);
                 let assigned = assignmentResult.assigned;
                 let number = assignmentResult.number;
-                
+
                 // Save the assignment
                 await assignmentRef.set({
                     assigned: assigned,
@@ -725,14 +690,14 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 });
 
                 // Capitalize the first letter of the assigned name
-               
+
                const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Farah. 😃\n\n` +
                `Team farah akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
                `Sebentar lagi team farah nama dia _*${assigned.toUpperCase()}*_ akan whatsapp cik, atau cik boleh terus whatsapp ${assigned} dengan segera di nombor *${number.split('@')[0]}* 👩🏻‍💼`;
-               
+
                const msg =await client.sendMessage(sender.to, message);
                await addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName);
-               
+
                if(assigned == 'Hilmi'){
                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Hilmi%20Intro%20Picture.png?alt=media&token=52947d47-30a3-4d5b-aaef-b67f9637eea9';
                    const media = await MessageMedia.fromUrl(imagePath);
@@ -779,7 +744,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                 }
-                
+
                function getCurrentDate() {
                 const date = new Date();
                 const options = { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: '2-digit', year: 'numeric' };
@@ -795,16 +760,16 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                `Good Luck !`;
                const msg2 =await client.sendMessage(number, message2);
                await addMessagetoFirebase(msg2, idSubstring, number, assigned);
-               
+
                  // Create the data object
                 console.log('New contact assigned and messages sent');
             } else{
                 console.log('Contact already assigned, skipping reassignment');
 
             }
-                
-                
-               
+
+
+
             }    
             return;
             if (msg.fromMe){
@@ -828,7 +793,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
 
             //test bot command
             if (msg.body.includes('/hello')) {
-                
+
                 client.sendMessage(msg.from, 'tested.');
                 return;
             }
@@ -851,18 +816,18 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                     var context = "";
 
                     query = `${msg.body} user_name: ${contactName} `;
-                    
-                    
+
+
                     answer= await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
-                    
+
                     await customWait(10000);
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();   
                         const check = part.toLowerCase();
                         if (part) {
                             const sentMessage = await client.sendMessage(msg.from, part);
-    
+
                             // Save the message to Firebase
                             const sentMessageData = {
                                 chat_id: sentMessage.from,
@@ -878,19 +843,19 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                                 type: 'text',
                                 ack: sentMessage.ack ?? 0,
                             };
-    
+
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
-    
+
                             await messageDoc.set(sentMessageData, { merge: true });
                             if (check.includes('patience')) {
                             } 
                             if(check.includes('get back to you as soon as possible')){
                                 console.log('check includes');
-                            
+
                                await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                             }
                         }
-                    }
+                    }
                     console.log('Response sent.');
                     userState.set(sender.to, steps.START);
                     break;
@@ -1171,7 +1136,7 @@ async function saveThreadIDGHL(contactID,threadID){
 }
 
 async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
-    
+
     // Construct the Firestore document path
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
 
@@ -1224,7 +1189,7 @@ async function getContact(number) {
           Accept: 'application/json'
         }
     };
-  
+
     try {
       const response = await axios.request(options);
       return(response.data.contact);
@@ -1249,5 +1214,3 @@ async function fetchConfigFromDatabase(idSubstring) {
         throw error;
     }
 }
-
-module.exports = { handleNewMessagesBillert };
