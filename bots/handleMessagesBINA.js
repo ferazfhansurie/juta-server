@@ -959,7 +959,7 @@ async function handleConfirmedAppointment(client, msg, idSubstring) {
         console.log('detected language: '+appointmentInfo.language);
             
         await addContactToFirebase(result.gid._serialized, groupTitle, idSubstring);
-        if(appointmentInfo.language == 'Malay'){
+        if(appointmentInfo.language == 'BM'){
             
             initialMessage = `Hi En/Pn👋, Saya Mr Kelvern (wa.me/601111393111) 
 \ndari BINA Pasifik Sdn Bhd (Nombor Pejabat: 03-2770 9111)
@@ -990,7 +990,7 @@ async function handleConfirmedAppointment(client, msg, idSubstring) {
 
             finalMessage = `Quotation akan send dalam group ini dalam 3 hingga 5 waktu kerja ya 👍`;
     
-        } else if (appointmentInfo.language == 'Mandarin'){
+        } else if (appointmentInfo.language == 'CN'){
             
             initialMessage = `
 您好 👋, 我是 Mr Kelvern (wa.me/601111393111) ，
