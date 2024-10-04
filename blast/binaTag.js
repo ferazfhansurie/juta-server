@@ -214,6 +214,7 @@ async function resumeFollowUpMessages(chatId, idSubstring, type) {
             const updatedMessage = {
                 ...messageData,
                 status: 'scheduled',
+                messages: [messageData.message],
                 scheduledTime: {
                     seconds: Math.floor(newScheduledTime.getTime() / 1000),
                     nanoseconds: 0
