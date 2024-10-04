@@ -887,7 +887,7 @@ async function sendScheduledMessage(message) {
         await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/image/${message.companyId}/${chatId}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageUrl: message.mediaUrl, caption: individualMessage })
+          body: JSON.stringify({ imageUrl: message.mediaUrl, caption: individualMessage, phoneIndex: message.phoneIndex })
         });
       } else if (message.documentUrl != '') {
         await fetch(`https://mighty-dane-newly.ngrok-free.app/api/v2/messages/document/${message.companyId}/${chatId}`, {
@@ -896,7 +896,8 @@ async function sendScheduledMessage(message) {
           body: JSON.stringify({ 
             documentUrl: message.documentUrl, 
             filename: message.fileName, 
-            caption: individualMessage 
+            caption: individualMessage,
+            phoneIndex: message.phoneIndex
           })
         });
       } else if (individualMessage) {
