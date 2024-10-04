@@ -199,28 +199,33 @@ async function resumeFollowUpMessages(chatId, idSubstring, type) {
             return;
         }
 
-        const today = moment().startOf('day');
+        const today = new Date();
 
         // 2. Update and reschedule each paused message
         for (const doc of snapshot.docs) {
+            const messageId = doc.id;
             const messageData = doc.data();
             
             // Calculate new scheduled time
             const dayIndex = messageData.batchIndex || 0;
-            const newScheduledTime = today.clone().add(dayIndex, 'days').set({hour: 10, minute: 0, second: 0});
+            const newScheduledTime = new Date(today.getFullYear(), today.getMonth(), today.getDate() + dayIndex, 10, 0, 0);
             
+            // Prepare the updated message data
             const updatedMessage = {
                 ...messageData,
                 status: 'scheduled',
-                scheduledTime: admin.firestore.Timestamp.fromDate(newScheduledTime.toDate())
+                scheduledTime: {
+                    seconds: Math.floor(newScheduledTime.getTime() / 1000),
+                    nanoseconds: 0
+                }
             };
-
-            // Use the API route to update the message
+            
+            // Call the API to update the message
             try {
-                const response = await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${doc.id}`, updatedMessage);
-                console.log(`Message ${doc.id} resumed and rescheduled successfully:`, response.data);
+                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
+                console.log(`Resumed and rescheduled message ${messageId} for chatId: ${chatId}`);
             } catch (error) {
-                console.error(`Error resuming and rescheduling message ${doc.id}:`, error.response ? error.response.data : error.message);
+                console.error(`Error resuming and rescheduling message ${messageId}:`, error.response ? error.response.data : error.message);
             }
         }
 
