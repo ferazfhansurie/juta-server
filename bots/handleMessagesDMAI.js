@@ -1098,7 +1098,7 @@ if (!contactData) {
 async function generateAudioFromText(text) {
     const mp3 = await openai.audio.speech.create({
         model: "tts-1",
-        voice: "alloy",
+        voice: "nova",
         input: text,
     });
 
