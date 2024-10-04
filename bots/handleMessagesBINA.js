@@ -901,11 +901,14 @@ async function addAppointmentToSpreadsheet(appointmentInfo) {
 
     const sheets = google.sheets({ version: 'v4', auth });
 
+    const formattedTime = formatTimeForExcel(appointmentInfo.time);
+
+
     const values = [
         [
             '', // No. (auto-increment in spreadsheet)
             appointmentInfo.date,
-            appointmentInfo.time,
+            formattedTime,
             appointmentInfo.clientPhone,
             appointmentInfo.clientName,
             '', // Assuming the client is always the owner
@@ -938,6 +941,32 @@ async function addAppointmentToSpreadsheet(appointmentInfo) {
     } catch (error) {
         console.error('Error adding appointment to spreadsheet:', error);
     }
+}
+
+function formatTimeForExcel(timeString) {
+    // Remove any leading/trailing whitespace
+    timeString = timeString.trim();
+    
+    // Convert "5:00 pm" to "17:00:00"
+    const parts = timeString.split(' ');
+    const time = parts[0];
+    const period = parts[1] ? parts[1].toLowerCase() : ''; // Handle case where period might be missing
+    
+    let [hours, minutes] = time.split(':');
+    
+    hours = parseInt(hours);
+    
+    if (period === 'pm' && hours !== 12) {
+        hours += 12;
+    } else if (period === 'am' && hours === 12) {
+        hours = 0;
+    }
+    
+    // Pad hours and minutes with zeros if needed
+    hours = hours.toString().padStart(2, '0');
+    minutes = (minutes || '00').padStart(2, '0'); // Handle case where minutes might be missing
+    
+    return `${hours}:${minutes}:00`;
 }
 
 async function handleConfirmedAppointment(client, msg, idSubstring) {
