@@ -141,42 +141,61 @@ async function pauseFollowUpMessages(chatId, idSubstring, type) {
 
         // 2. Update each scheduled message to 'paused' status
         for (const doc of snapshot.docs) {
-            const messageId = doc.id;
-            const messageData = doc.data();
-            
-            // Prepare the updated message data
-            const updatedMessage = {
-                ...messageData,
-                status: 'paused'
-            };
-            
-            // Ensure scheduledTime is properly formatted
-            if (updatedMessage.scheduledTime && typeof updatedMessage.scheduledTime === 'object') {
-                updatedMessage.scheduledTime = {
-                    seconds: Math.floor(updatedMessage.scheduledTime.seconds),
-                    nanoseconds: updatedMessage.scheduledTime.nanoseconds || 0
-                };
-            } else {
-                // If scheduledTime is missing or invalid, use the current time
-                updatedMessage.scheduledTime = {
-                    seconds: Math.floor(Date.now() / 1000),
-                    nanoseconds: 0
-                };
-            }
-            
-            // Call the API to update the message
-            try {
-                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
-                console.log(`Paused scheduled message ${messageId} for chatId: ${chatId}`);
-            } catch (error) {
-                console.error(`Error pausing scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
-            }
+            await pauseMessage(doc, idSubstring, chatId);
         }
 
         console.log(`Paused ${snapshot.size} scheduled messages for chat ${chatId}`);
+
+        // 3. If type is '5daysfollowup', pause the staff reminder
+        if (type === '5daysfollowup') {
+            const staffReminderSnapshot = await scheduledMessagesRef
+                .where('chatIds', 'array-contains', '60135186862@c.us')
+                .where('status', '!=', 'completed')
+                .where('type', '==', type)
+                .get();
+
+            for (const doc of staffReminderSnapshot.docs) {
+                await pauseMessage(doc, idSubstring, '60135186862@c.us');
+            }
+
+            console.log(`Paused ${staffReminderSnapshot.size} staff reminder messages`);
+        }
     } catch (error) {
         console.error('Error pausing follow-up messages:', error);
         throw error;
+    }
+}
+
+async function pauseMessage(doc, idSubstring, chatId) {
+    const messageId = doc.id;
+    const messageData = doc.data();
+    
+    // Prepare the updated message data
+    const updatedMessage = {
+        ...messageData,
+        status: 'paused'
+    };
+    
+    // Ensure scheduledTime is properly formatted
+    if (updatedMessage.scheduledTime && typeof updatedMessage.scheduledTime === 'object') {
+        updatedMessage.scheduledTime = {
+            seconds: Math.floor(updatedMessage.scheduledTime.seconds),
+            nanoseconds: updatedMessage.scheduledTime.nanoseconds || 0
+        };
+    } else {
+        // If scheduledTime is missing or invalid, use the current time
+        updatedMessage.scheduledTime = {
+            seconds: Math.floor(Date.now() / 1000),
+            nanoseconds: 0
+        };
+    }
+    
+    // Call the API to update the message
+    try {
+        await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
+        console.log(`Paused scheduled message ${messageId} for chatId: ${chatId}`);
+    } catch (error) {
+        console.error(`Error pausing scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
     }
 }
 
@@ -184,7 +203,6 @@ async function resumeFollowUpMessages(chatId, idSubstring, type) {
     try {
         console.log(`Resuming follow-up messages for chat ${chatId}`);
 
-        // 1. Fetch paused messages from Firebase
         const scheduledMessagesRef = db.collection('companies').doc(idSubstring)
             .collection('scheduledMessages');
         
@@ -192,6 +210,7 @@ async function resumeFollowUpMessages(chatId, idSubstring, type) {
             .where('chatIds', 'array-contains', chatId)
             .where('status', '==', 'paused')
             .where('type', '==', type)
+            .orderBy('scheduledTime', 'asc')
             .get();
 
         if (snapshot.empty) {
@@ -200,39 +219,74 @@ async function resumeFollowUpMessages(chatId, idSubstring, type) {
         }
 
         const today = new Date();
+        today.setHours(0, 0, 0, 0);  // Set to start of day
+        const messages = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const firstScheduledTime = messages[0].scheduledTime.toDate();
+        const timeDifference = today.getTime() - firstScheduledTime.getTime();
 
-        // 2. Update and reschedule each paused message
-        for (const doc of snapshot.docs) {
-            const messageId = doc.id;
-            const messageData = doc.data();
-            
-            // Calculate new scheduled time
-            const dayIndex = messageData.batchIndex || 0;
-            const newScheduledTime = new Date(today.getFullYear(), today.getMonth(), today.getDate() + dayIndex, 10, 0, 0);
-            
-            // Prepare the updated message data
+        for (const message of messages) {
+            const originalTime = message.scheduledTime.toDate();
+            const newScheduledTime = new Date(originalTime.getTime() + timeDifference);
+
             const updatedMessage = {
-                ...messageData,
-                messages: messageData.chatIds.map(chatId => ({
+                ...message,
+                messages: message.chatIds.map(chatId => ({
                     chatId,
-                    message: messageData.message
-                })),
+                    message: message.message // You might want to replace this with actual contact names if available
+                  })),
                 scheduledTime: {
                     seconds: Math.floor(newScheduledTime.getTime() / 1000),
-                    nanoseconds: 0
+                    nanoseconds: (newScheduledTime.getTime() % 1000) * 1e6
                 },
                 status: 'scheduled',
-              };
-            // Call the API to update the message
+            };
+
             try {
-                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
-                console.log(`Resumed and rescheduled message ${messageId} for chatId: ${chatId}`);
+                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${message.id}`, updatedMessage);
+                console.log(`Resumed and rescheduled message ${message.id} for chatId: ${chatId}`);
             } catch (error) {
-                console.error(`Error resuming and rescheduling message ${messageId}:`, error.response ? error.response.data : error.message);
+                console.error(`Error resuming and rescheduling message ${message.id}:`, error.response ? error.response.data : error.message);
             }
         }
 
-        console.log(`Resumed and rescheduled ${snapshot.size} messages for chat ${chatId}`);
+        console.log(`Resumed and rescheduled ${messages.length} messages for chat ${chatId}`);
+
+        // Handle staff reminder
+        if (type === '5daysfollowup') {
+            const staffReminderSnapshot = await scheduledMessagesRef
+                .where('chatIds', 'array-contains', '60135186862@c.us')
+                .where('status', '==', 'paused')
+                .where('type', '==', type)
+                .orderBy('scheduledTime', 'desc')
+                .limit(1)
+                .get();
+
+            if (!staffReminderSnapshot.empty) {
+                const staffReminder = staffReminderSnapshot.docs[0];
+                const originalStaffReminderTime = staffReminder.data().scheduledTime.toDate();
+                const newStaffReminderTime = new Date(originalStaffReminderTime.getTime() + timeDifference);
+
+                const updatedStaffReminder = {
+                    ...staffReminder.data(),
+                    messages: currentScheduledMessage.chatIds.map(chatId => ({
+                        chatId,
+                        message: staffReminder.data().message // You might want to replace this with actual contact names if available
+                      })),
+                    scheduledTime: {
+                        seconds: Math.floor(newStaffReminderTime.getTime() / 1000),
+                        nanoseconds: (newStaffReminderTime.getTime() % 1000) * 1e6
+                    },
+                    status: 'scheduled',
+                };
+
+                try {
+                    await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${staffReminder.id}`, updatedStaffReminder);
+                    console.log(`Resumed and rescheduled staff reminder message ${staffReminder.id}`);
+                } catch (error) {
+                    console.error(`Error resuming and rescheduling staff reminder message ${staffReminder.id}:`, error.response ? error.response.data : error.message);
+                }
+            }
+        }
     } catch (error) {
         console.error('Error resuming follow-up messages:', error);
         throw error;
@@ -578,11 +632,32 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
       }
       
       console.log(`Deleted ${snapshot.size} scheduled messages for chatId: ${chatId}`);
+  
+      // If type is '5daysfollowup', remove the staff reminder
+      if (type === '5daysfollowup') {
+        const staffReminderSnapshot = await scheduledMessagesRef
+          .where('chatIds', 'array-contains', '60135186862@c.us')
+          .where('status', '!=', 'completed')
+          .where('type', '==', type)
+          .get();
+  
+        for (const doc of staffReminderSnapshot.docs) {
+          const messageId = doc.id;
+          
+          try {
+            await axios.delete(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`);
+            console.log(`Deleted staff reminder message ${messageId}`);
+          } catch (error) {
+            console.error(`Error deleting staff reminder message ${messageId}:`, error.response ? error.response.data : error.message);
+          }
+        }
+  
+        console.log(`Deleted ${staffReminderSnapshot.size} staff reminder messages`);
+      }
     } catch (error) {
       console.error('Error removing scheduled messages:', error);
     }
   }
-
 
 
 
