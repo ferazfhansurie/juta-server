@@ -418,7 +418,7 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
     const scheduledTime = moment().add(numberOfDays - 1, 'days')
                                   .set({hour: 10 + (lastDay.length * 2), minute: 0, second: 0});
     const staffReminder = `Day ${numberOfDays} last follow up ${customerName}, ${chatId.split('@')[0]}`;
-    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), '60135186862@c.us', idSubstring);
+    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), '60135186862@c.us', idSubstring, '5daysfollowup');
 }
 
 async function scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, customerName, language) {
