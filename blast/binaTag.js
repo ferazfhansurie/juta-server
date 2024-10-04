@@ -141,18 +141,35 @@ async function pauseFollowUpMessages(chatId, idSubstring, type) {
 
         // 2. Update each scheduled message to 'paused' status
         for (const doc of snapshot.docs) {
+            const messageId = doc.id;
             const messageData = doc.data();
+            
+            // Prepare the updated message data
             const updatedMessage = {
                 ...messageData,
                 status: 'paused'
             };
-
-            // Use the API route to update the message
+            
+            // Ensure scheduledTime is properly formatted
+            if (updatedMessage.scheduledTime && typeof updatedMessage.scheduledTime === 'object') {
+                updatedMessage.scheduledTime = {
+                    seconds: Math.floor(updatedMessage.scheduledTime.seconds),
+                    nanoseconds: updatedMessage.scheduledTime.nanoseconds || 0
+                };
+            } else {
+                // If scheduledTime is missing or invalid, use the current time
+                updatedMessage.scheduledTime = {
+                    seconds: Math.floor(Date.now() / 1000),
+                    nanoseconds: 0
+                };
+            }
+            
+            // Call the API to update the message
             try {
-                const response = await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${doc.id}`, updatedMessage);
-                console.log(`Message ${doc.id} paused successfully:`, response.data);
+                await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
+                console.log(`Paused scheduled message ${messageId} for chatId: ${chatId}`);
             } catch (error) {
-                console.error(`Error pausing message ${doc.id}:`, error.response ? error.response.data : error.message);
+                console.error(`Error pausing scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
             }
         }
 
@@ -327,7 +344,7 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
             const message = messagesForDay[i];
             
             if (typeof message === 'object' && message.type === 'image') {
-                await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring);
+                await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup');
             } else {
                 await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup');
             }
