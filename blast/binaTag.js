@@ -81,11 +81,15 @@ async function handleBinaTag(req, res) {
                 res.json({ success: true });
                 break;
             case 'removeBeforeQuote':
-                await removeScheduledMessages('60135186862@c.us', idSubstring);
+                await removeScheduledMessages('60135186862@c.us', idSubstring, 'followUpBeforeQuote');
                 res.json({ success: true });
                 break;
             case 'removeAfterQuote':
-                await removeScheduledMessages(chatId, idSubstring);
+                await removeScheduledMessages(chatId, idSubstring, 'followUpAfterQuote');
+                res.json({ success: true });
+                break;
+            case 'remove5DaysFollowUp':
+                await removeScheduledMessages(chatId, idSubstring, '5daysfollowup');
                 res.json({ success: true });
                 break;
             case '5DaysFollowUpEnglish':
@@ -100,6 +104,14 @@ async function handleBinaTag(req, res) {
                 await scheduleFollowUpMessages(chatId, idSubstring, first_name, 'malay');
                 res.json({ success: true });
                 break;
+            case 'pauseFollowUp':
+                await pauseFollowUpMessages(chatId, idSubstring, '5daysfollowup');
+                res.json({ success: true });
+                break;
+            case 'resumeFollowUp':
+                await resumeFollowUpMessages(chatId, idSubstring, '5daysfollowup');
+                res.json({ success: true });
+                break;
             default:
                 res.status(400).json({ error: 'Invalid request type' });
         }
@@ -107,6 +119,101 @@ async function handleBinaTag(req, res) {
         res.status(500).json({ phone: phoneWithPlus, first_name, success: false, error: error.message });
     }
 }
+
+async function pauseFollowUpMessages(chatId, idSubstring, type) {
+    try {
+        console.log(`Pausing follow-up messages for chat ${chatId}`);
+
+        // 1. Fetch scheduled messages from Firebase
+        const scheduledMessagesRef = db.collection('companies').doc(idSubstring)
+            .collection('scheduledMessages');
+        
+        const snapshot = await scheduledMessagesRef
+            .where('chatIds', 'array-contains', chatId)
+            .where('status', '!=', 'completed')
+            .where('type', '==', type)
+            .get();
+
+        if (snapshot.empty) {
+            console.log('No scheduled messages found to pause.');
+            return;
+        }
+
+        // 2. Update each scheduled message to 'paused' status
+        for (const doc of snapshot.docs) {
+            const messageData = doc.data();
+            const updatedMessage = {
+                ...messageData,
+                status: 'paused'
+            };
+
+            // Use the API route to update the message
+            try {
+                const response = await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${doc.id}`, updatedMessage);
+                console.log(`Message ${doc.id} paused successfully:`, response.data);
+            } catch (error) {
+                console.error(`Error pausing message ${doc.id}:`, error.response ? error.response.data : error.message);
+            }
+        }
+
+        console.log(`Paused ${snapshot.size} scheduled messages for chat ${chatId}`);
+    } catch (error) {
+        console.error('Error pausing follow-up messages:', error);
+        throw error;
+    }
+}
+
+async function resumeFollowUpMessages(chatId, idSubstring, type) {
+    try {
+        console.log(`Resuming follow-up messages for chat ${chatId}`);
+
+        // 1. Fetch paused messages from Firebase
+        const scheduledMessagesRef = db.collection('companies').doc(idSubstring)
+            .collection('scheduledMessages');
+        
+        const snapshot = await scheduledMessagesRef
+            .where('chatIds', 'array-contains', chatId)
+            .where('status', '==', 'paused')
+            .where('type', '==', type)
+            .get();
+
+        if (snapshot.empty) {
+            console.log('No scheduled messages found to resume.');
+            return;
+        }
+
+        const today = moment().startOf('day');
+
+        // 2. Update and reschedule each paused message
+        for (const doc of snapshot.docs) {
+            const messageData = doc.data();
+            
+            // Calculate new scheduled time
+            const dayIndex = messageData.batchIndex || 0;
+            const newScheduledTime = today.clone().add(dayIndex, 'days').set({hour: 10, minute: 0, second: 0});
+            
+            const updatedMessage = {
+                ...messageData,
+                status: 'scheduled',
+                scheduledTime: admin.firestore.Timestamp.fromDate(newScheduledTime.toDate())
+            };
+
+            // Use the API route to update the message
+            try {
+                const response = await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${doc.id}`, updatedMessage);
+                console.log(`Message ${doc.id} resumed and rescheduled successfully:`, response.data);
+            } catch (error) {
+                console.error(`Error resuming and rescheduling message ${doc.id}:`, error.response ? error.response.data : error.message);
+            }
+        }
+
+        console.log(`Resumed and rescheduled ${snapshot.size} messages for chat ${chatId}`);
+    } catch (error) {
+        console.error('Error resuming follow-up messages:', error);
+        throw error;
+    }
+}
+
 
 async function scheduleFollowUpMessages(chatId, idSubstring, customerName, language) {
     let dailyMessages;
@@ -222,7 +329,7 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
             if (typeof message === 'object' && message.type === 'image') {
                 await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring);
             } else {
-                await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring);
+                await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup');
             }
         }
     }
@@ -320,7 +427,7 @@ async function scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, customerN
             const scheduledTime = moment().add(day, 'days').set({hour: 10 + (i * 2), minute: 0, second: 0});
             const message = dailyMessages[day][i];
             
-            await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring);
+            await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, 'followUpAfterQuote');
             }
         }
 }
@@ -333,11 +440,11 @@ async function scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, customer
     for (let day = 1; day <= 10; day++) {
         const message = `Day ${day} ${baseMessage}`;
         const scheduledTime = moment().add(day, 'days').set({hour: 10, minute: 0, second: 0}); // Set to 10:00 AM each day
-        await scheduleReminderMessage(message, scheduledTime.toDate(), '60135186862@c.us', idSubstring);
+        await scheduleReminderMessage(message, scheduledTime.toDate(), '60135186862@c.us', idSubstring, 'followUpBeforeQuote');
     }
 }
 
-async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, idSubstring) {
+async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, idSubstring, type) {
     const scheduledTimeSeconds = Math.floor(scheduledTime.getTime() / 1000);
     
     const scheduledMessage = {
@@ -349,6 +456,7 @@ async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, id
         fileName: null,
         mediaUrl: imageUrl,
         message: caption,
+        type: type,
         messages: [
             {
               chatId: chatId,
@@ -375,7 +483,7 @@ async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, id
     }
 }
 
-async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSubstring) {
+async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSubstring, type) {
     // Convert to seconds and ensure it's an integer
     const scheduledTimeSeconds = Math.floor(startDateTime.getTime() / 1000);
   
@@ -388,6 +496,7 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
         companyId: idSubstring,
         createdAt: admin.firestore.Timestamp.now(),
         documentUrl: "",
+        type: type,
         fileName: null,
         mediaUrl: "",
         message: eventSummary,
@@ -421,13 +530,14 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
     }
   }
 
-  async function removeScheduledMessages(chatId, idSubstring) {
+  async function removeScheduledMessages(chatId, idSubstring, type) {
     try {
       const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
       
       const snapshot = await scheduledMessagesRef
         .where('chatIds', 'array-contains', chatId)
         .where('status', '!=', 'completed')
+        .where('type', '==', type)
         .get();
       
       for (const doc of snapshot.docs) {
