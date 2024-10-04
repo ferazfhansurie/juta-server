@@ -867,13 +867,16 @@ async function generateSpecialReport(threadID, assistantId) {
 
 "New Enquiry Has Been Submitted
 
-1. Name: [Extract from conversation]
-2. Email: [Extract from conversation]
-3. Contact Number: [Extract from conversation]
-4. Company Name: [Extract from conversation]
-5. Service/Product type: [Extract from conversation]
-6. Order quantity: [Extract from conversation]
-7. Delivery Address: [Extract from conversation]"
+1. Full Name: [Extract from conversation]
+2. Contact Number: [Extract from conversation]
+3. Company Name: [Extract from conversation]
+4. SSM: [Extract from conversation]
+5. Address: [Extract from conversation]
+6. Stock Receiver: [Extract from conversation]
+7. Account Payable Contact Name and Phone: [Extract from conversation]
+8. Product Order and Quantity: [Extract from conversation]
+9. Intended Usage: [Extract from conversation]
+"
 
 Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. (Send the report in the "" only))`;
 
