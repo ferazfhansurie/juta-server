@@ -943,7 +943,7 @@ async function addAppointmentToSpreadsheet(appointmentInfo) {
 async function handleConfirmedAppointment(client, msg, idSubstring) {
     // Extract information from the message
     const appointmentInfo = extractAppointmentInfo(msg.body);
-
+    console.log(appointmentInfo);
     await addAppointmentToSpreadsheet(appointmentInfo);
 
     // Create a new group
