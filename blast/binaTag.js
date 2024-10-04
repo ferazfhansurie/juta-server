@@ -213,14 +213,16 @@ async function resumeFollowUpMessages(chatId, idSubstring, type) {
             // Prepare the updated message data
             const updatedMessage = {
                 ...messageData,
-                status: 'scheduled',
-                messages: [messageData.message],
+                messages: messageData.chatIds.map(chatId => ({
+                    chatId,
+                    message: messageData.message
+                })),
                 scheduledTime: {
                     seconds: Math.floor(newScheduledTime.getTime() / 1000),
                     nanoseconds: 0
-                }
-            };
-            
+                },
+                status: 'scheduled',
+              };
             // Call the API to update the message
             try {
                 await axios.put(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`, updatedMessage);
