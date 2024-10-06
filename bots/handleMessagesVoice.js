@@ -1043,7 +1043,21 @@ if (!contactData) {
                         let sentMessage = null;
                         console.log(msg.type);
                         
-                        
+                        if (msg.type === 'audio' || msg.type === 'ptt') {
+                            console.log('audio or ptt');
+                            // Generate audio file
+                            const audioFilePath = await generateAudioFromText(part);
+                            
+                            // Send audio message
+                            const media = MessageMedia.fromFilePath(audioFilePath);
+                            media.mimetype = 'audio/mp4';
+                            sentMessage = await client.sendMessage(msg.from, media, { sendAudioAsVoice: true });
+
+
+                            // Clean up the audio file
+                            await fs.promises.unlink(audioFilePath);
+                            
+                        }else{
                             sentMessage = await client.sendMessage(msg.from, part);
                             
                             if (check.includes('patience')) {
@@ -1054,7 +1068,7 @@ if (!contactData) {
                             await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                             }
 
-                        
+                        }
                         await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber, contactName);
 
                         
