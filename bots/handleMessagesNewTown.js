@@ -713,42 +713,7 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                 client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
                 return;
             }
-            if(msg.body.includes('BT 14 Kg:')){
-                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1575272636_1574391439_14kg.png?alt=media&token=5134058b-87b0-4c39-9f08-5d14b0349c02'; // Update this URL to your image URL
-                const media = await MessageMedia.fromUrl(imagePath);
-                const imageMessage = await client.sendMessage(msg.from, media);
-                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-            }
-            if(msg.body.includes('C14 Kg and')){
-                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1574391439_14kg.png?alt=media&token=2987d8e7-994f-4ff9-a300-192ff92ac98b'; // Update this URL to your image URL
-                const media = await MessageMedia.fromUrl(imagePath);
-                const imageMessage = await client.sendMessage(msg.from, media);
-                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-            }
-            if(msg.body.includes('C12 Kg:')){
-                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1574391716_12kg.png?alt=media&token=4a74812f-60f1-48a1-b450-6af4c83eeb93'; // Update this URL to your image URL
-                const media = await MessageMedia.fromUrl(imagePath);
-                const imageMessage = await client.sendMessage(msg.from, media);
-                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-            }
-            if(msg.body.includes('C50 Kg:')){
-                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1567151606_sample_product2.jpg?alt=media&token=880b2192-a64a-4a13-8a39-0f16ec677b7c'; // Update this URL to your image URL
-                const media = await MessageMedia.fromUrl(imagePath);
-                const imageMessage = await client.sendMessage(msg.from, media);
-                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-            }
-            if(msg.body.includes('C200 Kg:')){
-                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1567151415_sample_product3.jpg?alt=media&token=9dcbd8f5-d874-4847-8fa0-d18223a0d592'; // Update this URL to your image URL
-                const media = await MessageMedia.fromUrl(imagePath);
-                const imageMessage = await client.sendMessage(msg.from, media);
-                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-            }
-            if(msg.body.includes('Bull Tank:')){
-                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1566210053_sample_product4.jpg?alt=media&token=3b0e817e-a3c1-4932-ab41-defafe605a70'; // Update this URL to your image URL
-                const media = await MessageMedia.fromUrl(imagePath);
-                const imageMessage = await client.sendMessage(msg.from, media);
-                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-            }
+        
 
             //test bot command
             if (msg.body.includes('/hello')) {
@@ -825,6 +790,42 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                             }
                             
                             
+                        }
+                        if(part.includes('BT 14 Kg:')){
+                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1575272636_1574391439_14kg.png?alt=media&token=5134058b-87b0-4c39-9f08-5d14b0349c02'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath);
+                            const imageMessage = await client.sendMessage(msg.from, media);
+                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                        }
+                        if(part.includes('C14 Kg:')){
+                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1574391439_14kg.png?alt=media&token=2987d8e7-994f-4ff9-a300-192ff92ac98b';                // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath);
+                            const imageMessage = await client.sendMessage(msg.from, media);
+                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                        }
+                        if(part.includes('C12 Kg:')){
+                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1574391716_12kg.png?alt=media&token=4a74812f-60f1-48a1-b450-6af4c83eeb93'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath);
+                            const imageMessage = await client.sendMessage(msg.from, media);
+                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                        }
+                        if(part.includes('C50 Kg:')){
+                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1567151606_sample_product2.jpg?alt=media&token=880b2192-a64a-4a13-8a39-0f16ec677b7c'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath);
+                            const imageMessage = await client.sendMessage(msg.from, media);
+                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                        }
+                        if(part.includes('C200 Kg:')){
+                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1567151415_sample_product3.jpg?alt=media&token=9dcbd8f5-d874-4847-8fa0-d18223a0d592'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath);
+                            const imageMessage = await client.sendMessage(msg.from, media);
+                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                        }
+                        if(part.includes('Bull Tank:')){
+                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/New%20Town%2F1566210053_sample_product4.jpg?alt=media&token=3b0e817e-a3c1-4932-ab41-defafe605a70'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath);
+                            const imageMessage = await client.sendMessage(msg.from, media);
+                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }
                     }
                     console.log('Response sent.');
