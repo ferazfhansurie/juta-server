@@ -812,8 +812,8 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                                 
                                 // Generate and send the special report
                                 const report = await generateSpecialReport(threadID, ghlConfig.assistantId);
-                                const sentMessage2 = await client.sendMessage('60162643891-1538824079@g.us', report)
-                                await addMessagetoFirebase(sentMessage2,idSubstring,'+60162643891-1538824079')
+                                const sentMessage2 = await client.sendMessage('120363107024888999@g.us', report)
+                                await addMessagetoFirebase(sentMessage2,idSubstring,'+120363107024888999')
 
                                 // Update Google Sheet
                                 // try {
