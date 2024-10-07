@@ -841,8 +841,6 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
                 // }
 
             }else{
-                if((msg.from).includes('@g.us')){                
-                }else{
                     const firstMessage = client.sendMessage(msg.from, `Hi ${data.contactName}! 
 
                         Thank you for showing interest in the 3-bedroom condo project in Seri Kembangan! 
@@ -856,7 +854,7 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
         
                         await addMessagetoFirebase(firstMessage,idSubstring,extractedNumber,data.contactName);
                         await scheduleFollowUpMessages(msg.from, idSubstring, data.contactName);
-                }
+                
 
                 
 
