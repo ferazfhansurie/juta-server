@@ -752,10 +752,7 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                         const check = part.toLowerCase();
                         if (part) {
                             const sentMessage = await client.sendMessage(msg.from, part);
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1574391439_14kg.png?alt=media&token=c24b9246-8dec-47f4-848d-0bb2a6f04bc1'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath);
-                            const imageMessage = await client.sendMessage(msg.from, media);
-                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            
                             // Save the message to Firebase
                             const sentMessageData = {
                                 chat_id: sentMessage.from,
@@ -776,40 +773,40 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
     
                             await messageDoc.set(sentMessageData, { merge: true });
                             if(check.includes('BT 14 Kg:')){
-                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1574391439_14kg.png?alt=media&token=c24b9246-8dec-47f4-848d-0bb2a6f04bc1'; // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath);
-                                const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                                const imagePath = './Users/faeezree/Documents/juta-server/media/newtown/1575272636_1574391439_14kg.png'; // Update this path to your local image file
+const media = await MessageMedia.fromFilePath(imagePath); // Use fromFilePath instead of fromUrl
+const imageMessage = await client.sendMessage(msg.from, media);
+await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if(check.includes('C14 Kg:')){
-                                const imagePath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1574391439_14kg.png?alt=media&token=c24b9246-8dec-47f4-848d-0bb2a6f04bc1';                // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath2);
-                                const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                                const imagePath = './Users/faeezree/Documents/juta-server/media/newtown/1575272636_1574391439_14kg.png'; // Update this path to your local image file
+const media = await MessageMedia.fromFilePath(imagePath); // Use fromFilePath instead of fromUrl
+const imageMessage = await client.sendMessage(msg.from, media);
+await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if(check.includes('C12 Kg:')){
-                                const imagePath3 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1574391716_12kg.png?alt=media&token=8ea3b5ba-c377-43a3-9f3a-40da7524bea3'; // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath3);
-                                const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                                const imagePath = '/Users/faeezree/Documents/juta-server/media/newtown/1574391716_12kg.png'; // Update this path to your local image file
+const media = await MessageMedia.fromFilePath(imagePath); // Use fromFilePath instead of fromUrl
+const imageMessage = await client.sendMessage(msg.from, media);
+await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if(check.includes('C50 Kg:')){
-                                const imagePat4 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1567151606_sample_product2.jpg?alt=media&token=ab7306d3-7edd-4c10-9a5d-d4475fe00dd8'; // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath4);
-                                const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                                const imagePath = '/Users/faeezree/Documents/juta-server/media/newtown/1567151606_sample_product2.jpg'; // Update this path to your local image file
+const media = await MessageMedia.fromFilePath(imagePath); // Use fromFilePath instead of fromUrl
+const imageMessage = await client.sendMessage(msg.from, media);
+await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if(check.includes('C200 Kg:')){
-                                const imagePath5 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1567151415_sample_product3.jpg?alt=media&token=fceb5dea-51cf-45bd-a851-548c66197f9e'; // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath5);
-                                const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                                const imagePath = '/Users/faeezree/Documents/juta-server/media/newtown/1567151415_sample_product3.jpg'; // Update this path to your local image file
+const media = await MessageMedia.fromFilePath(imagePath); // Use fromFilePath instead of fromUrl
+const imageMessage = await client.sendMessage(msg.from, media);
+await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if(check.includes('Bull Tank:')){
-                                const imagePath6 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1566210053_sample_product4.jpg?alt=media&token=e8f7e431-6d6e-4eda-99d7-c603db97ae17'; // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath6);
-                                const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                                const imagePath = '/Users/faeezree/Documents/juta-server/media/newtown/1566210053_sample_product4.jpg'; // Update this path to your local image file
+const media = await MessageMedia.fromFilePath(imagePath); // Use fromFilePath instead of fromUrl
+const imageMessage = await client.sendMessage(msg.from, media);
+await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if (check.includes('team will contact you at')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
