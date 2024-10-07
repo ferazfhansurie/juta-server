@@ -752,7 +752,10 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                         const check = part.toLowerCase();
                         if (part) {
                             const sentMessage = await client.sendMessage(msg.from, part);
-    
+                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1574391439_14kg.png?alt=media&token=c24b9246-8dec-47f4-848d-0bb2a6f04bc1'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath);
+                            const imageMessage = await client.sendMessage(msg.from, media);
+                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             // Save the message to Firebase
                             const sentMessageData = {
                                 chat_id: sentMessage.from,
