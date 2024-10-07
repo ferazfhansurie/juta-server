@@ -24,36 +24,6 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAIKEY,
 });
 
-async function fetchEmployeesFromFirebase(idSubstring) {
-    const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
-    const snapshot = await employeesRef.get();
-
-    employees = [];
-
-    console.log(`Total documents in employee collection: ${snapshot.size}`);
-
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        console.log(`Processing employee document:`, data);
-
-        if (data.name) {
-            employees.push({
-                name: data.name,
-                email: data.email,
-                phoneNumber: data.phoneNumber,
-                assignedContacts: data.assignedContacts || 0
-            });
-            console.log(`Added employee ${data.name}`);
-        } else {
-            console.log(`Skipped employee due to missing name:`, data);
-        }
-    });
-
-    console.log('Fetched employees:', employees);
-
-    // Load the previous assignment state
-    await loadAssignmentState(idSubstring);
-}
 let employees = [];
 let currentEmployeeIndex = 0;
 
@@ -82,20 +52,11 @@ async function storeAssignmentState(idSubstring) {
 }
 
 async function assignNewContactToEmployee(contactID, idSubstring, client) {
-    const employeeList = [
-        { name: 'Hilmi', fullName: 'Hilmi Sales', phone: '+60146531563', status: 'ON', weight: 12 },
-        { name: 'Zara', fullName: 'Isha Sales', phone: '+60143407573', status: 'OFF', weight: 12 },
-        { name: 'Stanie', fullName: 'Stanie Sales', phone: '+60167104128', status: 'ON', weight: 16 },
-        { name: 'Qayyim', fullName: 'Qayyim Billert', phone: '+60167009798', status: 'ON', weight: 12 },
-        { name: 'Bazilah', fullName: 'Bazilah Agent Sales', phone: '+601126926822', status: 'ON', weight: 12 },
-        { name: 'Ida', fullName: 'Chloe Agent Sales', phone: '+60168308240', status: 'ON', weight: 10 },
-        { name: 'Siti', fullName: 'Eugen Agent Sales', phone: '+601162333411', status: 'ON', weight: 10 },
-        { name: 'Teha', fullName: 'Teha Sales', phone: '+60174787003', status: 'ON', weight: 12 },
-        { name: 'Alin', fullName: 'Alin Sales', phone: '+60102806459', status: 'OFF', weight: 0 },
-    ];
+    // Fetch the latest employee list from Firebase
+    const employees = await fetchEmployeesFromFirebase(idSubstring);
 
-    // Filter out employees who are OFF
-    const availableEmployees = employeeList.filter(emp => emp.status === 'ON');
+    // Filter out employees who are inactive (assuming active employees have a weightage > 0)
+    const availableEmployees = employees.filter(emp => emp.weightage > 0);
 
     if (availableEmployees.length === 0) {
         console.log('No available employees found for assignment');
@@ -103,7 +64,7 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     }
 
     // Calculate total weight
-    const totalWeight = availableEmployees.reduce((sum, emp) => sum + emp.weight, 0);
+    const totalWeight = availableEmployees.reduce((sum, emp) => sum + emp.weightage, 0);
 
     // Generate a random number between 0 and totalWeight
     const randomValue = Math.random() * totalWeight;
@@ -113,7 +74,7 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     let assignedEmployee = null;
 
     for (const emp of availableEmployees) {
-        cumulativeWeight += emp.weight;
+        cumulativeWeight += emp.weightage;
         if (randomValue <= cumulativeWeight) {
             assignedEmployee = emp;
             break;
@@ -126,17 +87,42 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     }
 
     console.log(`Assigned employee: ${assignedEmployee.name}`);
-    await addtagbookedFirebase(contactID, assignedEmployee.fullName, idSubstring);
-    const employeeID = assignedEmployee.phone.replace(/\s+/g, '').split('+')[1] + '@c.us';
+    await addtagbookedFirebase(contactID, assignedEmployee.name, idSubstring);
+    const employeeID = assignedEmployee.phoneNumber.replace(/\s+/g, '').split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
+    const assignedName = (assignedEmployee.email).split('@')[0];
 
-    // You may want to update the assignment state in Firebase here
+    // Update the assignment state in Firebase
     await storeAssignmentState(idSubstring, assignedEmployee);
 
     return {
-        assigned: assignedEmployee.name,
+        assigned: assignedName,
         number: employeeID
     };
+}
+
+// Make sure this function is updated to return the correct employee data structure
+async function fetchEmployeesFromFirebase(idSubstring) {
+    const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
+    const snapshot = await employeesRef.get();
+
+    const employees = [];
+
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        if (data.name && data.phoneNumber) {
+            employees.push({
+                name: data.name,
+                phoneNumber: data.phoneNumber,
+                weightage: data.weightage || 0,
+                email: data.email || '',
+                // Add other fields as needed
+            });
+        }
+    });
+
+    console.log('Fetched employees:', employees);
+    return employees;
 }
 
 const steps = {
@@ -698,47 +684,47 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                const msg =await client.sendMessage(sender.to, message);
                await addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName);
 
-               if(assigned == 'Hilmi'){
+               if(assigned == 'hilmi'){
                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Hilmi%20Intro%20Picture.png?alt=media&token=52947d47-30a3-4d5b-aaef-b67f9637eea9';
                    const media = await MessageMedia.fromUrl(imagePath);
                    const imageMessage = await client.sendMessage(sender.to, media);
                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-               }else if(assigned == 'Stanie'){
+               }else if(assigned == 'stanie'){
                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Stanie%20Intro%20Picture.png?alt=media&token=65b13831-a719-4633-85c3-970127cab485';
                    const media = await MessageMedia.fromUrl(imagePath);
                    const imageMessage = await client.sendMessage(sender.to, media);
                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-               }else if(assigned == 'Zara'){
+               }else if(assigned == 'zara'){
                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Zara%20Intro%20Picture%20(2).png?alt=media&token=c1539439-539e-4e2f-8503-e5dea2b7cb1b';
                    const media = await MessageMedia.fromUrl(imagePath);
                    const imageMessage = await client.sendMessage(sender.to, media);
                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-               }else if(assigned == 'Qayyim'){
+               }else if(assigned == 'qayyim'){
                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/qayyim.jpg?alt=media&token=2a962898-13fe-4d5f-9fea-8daf00bc50c7';
                    const media = await MessageMedia.fromUrl(imagePath);
                    const imageMessage = await client.sendMessage(sender.to, media);
                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'Bazilah'){
+                }else if(assigned == 'bazilah'){
                     const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/bazilah.jpg?alt=media&token=feb8ebec-8412-4677-8775-f85069ccd667';
                     const media = await MessageMedia.fromUrl(imagePath);
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'Ida'){
+                }else if(assigned == 'ida'){
                     const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ida.jpg?alt=media&token=e415ec10-1c4b-41a2-aea3-53eb760fb645';
                     const media = await MessageMedia.fromUrl(imagePath);
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'Siti'){
+                }else if(assigned == 'siti'){
                     const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/siti.jpg?alt=media&token=cb11c599-7b1c-4b31-b9ef-60251fc673b6';
                     const media = await MessageMedia.fromUrl(imagePath);
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'Teha'){
+                }else if(assigned == 'teha'){
                     const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/teha.jpg?alt=media&token=f86e643d-a7fc-4d87-871b-d3060c511c21';
                     const media = await MessageMedia.fromUrl(imagePath);
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'Alin'){
+                }else if(assigned == 'alin'){
                     const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/alin.jpg?alt=media&token=40d378b6-e07b-4319-bde5-da2af3a1e4ab';
                     const media = await MessageMedia.fromUrl(imagePath);
                     const imageMessage = await client.sendMessage(sender.to, media);
