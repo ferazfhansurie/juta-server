@@ -25,7 +25,7 @@ class bhqSpreadsheet {
   constructor(botMap) {
     this.botName = '075';
     this.spreadsheetId = '1nrRkv4QHj_It7Dm21b4uCR7BVN6UTb_p09-8t440lKc';
-    this.sheetName = 'juta test'; // Update this to match your sheet name
+    this.sheetName = ' JADUAL AI REMINDER'; // Update this to match your sheet name
     this.range = `${this.sheetName}!A:AV`; // Update this to cover all columns
     this.botMap = botMap;
 
