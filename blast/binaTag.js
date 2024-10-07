@@ -293,6 +293,10 @@ async function resumeFollowUpMessages(chatId, idSubstring, type) {
     }
 }
 
+async function customWait(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
 
 async function scheduleFollowUpMessages(chatId, idSubstring, customerName, language) {
     let dailyMessages;
@@ -402,11 +406,12 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
         const messagesForDay = dailyMessages[day];
         for (let i = 0; i < messagesForDay.length; i++) {
             // Schedule messages starting at 10 AM, with 2-hour intervals
-            const scheduledTime = moment().add(day, 'days').set({hour: 10 + (i * 2), minute: 0, second: 0});
+            const scheduledTime = moment().add(day, 'days').set({hour: 10, minute: i * 10, second: 0});
             const message = messagesForDay[i];
             
             if (typeof message === 'object' && message.type === 'image') {
                 await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup');
+                await customWait(3000);
             } else {
                 await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup');
             }
