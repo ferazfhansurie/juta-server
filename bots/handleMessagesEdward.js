@@ -11,6 +11,7 @@ const axios = require('axios').default;
 const { Client } = require('whatsapp-web.js');
 
 const { v4: uuidv4 } = require('uuid');
+const moment = require('moment-timezone');
 
 const { URLSearchParams } = require('url');
 const admin = require('../firebase.js');
@@ -299,6 +300,191 @@ async function transcribeAudio(audioData) {
     }
 }
 
+async function scheduleFollowUpMessages(chatId, idSubstring, customerName) {
+    let dailyMessages = [
+        [
+            `Hi ${customerName}, did you know this Seri Kembangan condo comes with a direct link to the MRT and shopping mall? 🏬🚆 
+
+It is the cheapest 3 bedder DIRECTLY LINKED to MRT + SHOPPING MALL in the whole of KL & SELANGOR. Long term rentals could even cover your monthly installments! 💡(Roughly about RM1,100+ positive cashflow after installment and maintenance)
+I'll be sharing more details in my upcoming Zoom session! Make sure to reserve your spot: 🎥
+`
+        ],
+        [
+            `Sorry dear customers! I might have missed your message few days back. Just a quick reminder that there are only 5 units left at exclusive prices! (Cheaper than developer price)
+
+This is the last opportunities to secure the cheapest 3-bedder directly linked to MRT + Shopping mall at just RM390k 🏢🔥
+Join my Zoom session to get the best deals and more info. Don't miss out! 
+
+Reply "YES" and we'll get in touch with you for a Google Meet.`
+        ],
+        [
+            `I'd like to address some concerns today. Apart from the fantastic location and rental benefits, our package offers a RM35,000 cashback and 0% downpayment! 💰🔥 
+
+This is one the property that you can own with LITERALLY ZERO CAPITAL & the cashback amount can cover the whole renovation cost.
+
+Plus there's no need to pay progressive interest, as it's ready to move in!
+We're having a physical group tour to visit the actual units of this property in the coming week.
+
+If you're interested to join our physical  group tour, reply with "GROUP" to this message`
+        ],
+        [
+            `If you're looking for a property that is perfect for both investors and those looking for a great place to live. In fact, many buyers have already seen returns from their rentals that fully cover their installments. 📈
+You can be the next success story! 
+
+Reply "YES" to join my Zoom session and learn how.
+
+We'll be going through how much the installments are, and what kind of rental rates you can realistically earn from here. 
+`
+        ],
+        [
+            `Just a heads-up – the exclusive price offer is ending soon, and there's only 1 unit left! Don't miss your chance to lock in this deal before it's gone! ⏳🔥
+Join my Google Meet session and let me walk you through all the numbers & benefits.
+`
+        ],
+        [
+            `Hi ${customerName}, this is your final reminder – if you're serious about getting the best value for this condo in Seri Kembangan, now is the time! We're down to the last few units, and I would love to help you secure one. 🏡
+Join me on Zoom for a quick chat: 
+
+Reply "YES" to receive the link.
+
+💬 Looking forward to seeing you there!`
+        ]
+    ];
+
+    const numberOfDays = dailyMessages.length;
+
+    for (let day = 0; day < numberOfDays; day++) {
+        const messagesForDay = dailyMessages[day];
+        for (let i = 0; i < messagesForDay.length; i++) {
+            // Schedule messages starting from tomorrow at 10 AM, with 1-day intervals
+            const scheduledTime = moment().add(day + 1, 'days').set({hour: 10, minute: 0, second: 0});
+            const message = messagesForDay[i].replace('[first name]', customerName);
+            
+            if (typeof message === 'object' && message.type === 'image') {
+                await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring, 'edwardfollowup');
+            } else {
+                await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, 'edwardfollowup');
+            }
+        }
+    }
+
+}
+
+async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, idSubstring, type) {
+    const scheduledTimeSeconds = Math.floor(scheduledTime.getTime() / 1000);
+    
+    const scheduledMessage = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: idSubstring,
+        createdAt: admin.firestore.Timestamp.now(),
+        documentUrl: "",
+        fileName: null,
+        mediaUrl: imageUrl,
+        message: caption,
+        type: type,
+        messages: [
+            {
+              chatId: chatId,
+              message: caption
+            }
+          ],
+        mimeType: "image/jpeg", // Adjust if needed
+        repeatInterval: 0,
+        repeatUnit: "days",
+        scheduledTime: {
+            seconds: scheduledTimeSeconds,
+            nanoseconds: 0
+        },
+        status: "scheduled",
+        v2: true,
+        whapiToken: null
+    };
+
+    try {
+        const response = await axios.post(`http://localhost:8443/api/schedule-message/${idSubstring}`, scheduledMessage);
+        console.log('Image message scheduled successfully:', response.data);
+    } catch (error) {
+        console.error('Error scheduling image message:', error.response ? error.response.data : error.message);
+    }
+}
+
+async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSubstring, type) {
+    // Convert to seconds and ensure it's an integer
+    const scheduledTimeSeconds = Math.floor(startDateTime.getTime() / 1000);
+  
+    console.log('Scheduling reminder for:', moment(startDateTime).format());
+    console.log('Scheduled time in seconds:', scheduledTimeSeconds);
+    
+    const scheduledMessage = {
+        batchQuantity: 1,
+        chatIds: [chatId],
+        companyId: idSubstring,
+        createdAt: admin.firestore.Timestamp.now(),
+        documentUrl: "",
+        type: type,
+        fileName: null,
+        mediaUrl: "",
+        message: eventSummary,
+        messages: [
+            {
+              chatId: chatId,
+              message: eventSummary
+            }
+          ],        
+        mimeType: null,
+        repeatInterval: 0,
+        repeatUnit: "days",
+        scheduledTime: {
+            seconds: scheduledTimeSeconds,
+            nanoseconds: 0
+        },
+        status: "scheduled",
+        v2: true,
+        whapiToken: null
+    };
+  
+    try {
+      console.log('Sending schedule request:', JSON.stringify(scheduledMessage));
+      const response = await axios.post(`http://localhost:8443/api/schedule-message/${idSubstring}`, scheduledMessage);
+      console.log('Reminder scheduled successfully:', response.data);
+    } catch (error) {
+      console.error('Error scheduling reminder:', error.response ? error.response.data : error.message);
+      if (error.response && error.response.data) {
+        console.error('Server response:', error.response.data);
+      }
+    }
+  }
+
+  async function removeScheduledMessages(chatId, idSubstring, type) {
+    try {
+      const scheduledMessagesRef = db.collection('companies').doc(idSubstring).collection('scheduledMessages');
+      
+      const snapshot = await scheduledMessagesRef
+        .where('chatIds', 'array-contains', chatId)
+        .where('status', '!=', 'completed')
+        .where('type', '==', type)
+        .get();
+      
+      for (const doc of snapshot.docs) {
+        const messageId = doc.id;
+        
+        // Call the API to delete the message
+        try {
+          await axios.delete(`http://localhost:8443/api/schedule-message/${idSubstring}/${messageId}`);
+          console.log(`Deleted scheduled message ${messageId} for chatId: ${chatId}`);
+        } catch (error) {
+          console.error(`Error deleting scheduled message ${messageId}:`, error.response ? error.response.data : error.message);
+        }
+      }
+      
+      console.log(`Deleted ${snapshot.size} scheduled messages for chatId: ${chatId}`);
+
+    } catch (error) {
+      console.error('Error removing scheduled messages:', error);
+    }
+  }
+
 const messageQueue = new Map();
 const MAX_QUEUE_SIZE = 5;
 const RATE_LIMIT_DELAY = 5000; // 5 seconds
@@ -386,6 +572,8 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
                 if ((sender.to).includes('@g.us')) {
                     firebaseTags = ['stop bot']
                 }
+
+                firebaseTags = ['follow up']
             }
 
             
@@ -644,10 +832,30 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
                 }
             }
 
-            if(contactData){
+            if (contactData){
+                const lowerMessageBody = messageBody.toLowerCase();
+                if((lowerMessageBody.includes('yes') || lowerMessageBody.includes('ya')) && firebaseTags.includes('follow up')){
+                    await removeScheduledMessages(msg.from, idSubstring, 'edwardfollowup');
+                    await removeTagFirebase(extractedNumber, 'follow up', idSubstring);
+                    return;
+                }
 
             }else{
-                
+                const firstMessage = client.sendMessage(msg.from, `Hi ${data.contactName}! 
+
+                Thank you for showing interest in the 3-bedroom condo project in Seri Kembangan! 
+
+                🌟 I’m Edward, and I’d love to invite you to a Google Meet session where we’ll discuss how this amazing property, priced from RM394k, can meet your needs, whether for investment or personal use. 🏢
+                Secure your spot now! 
+
+                Reply “YES” to book an appointment 📅
+                Feel free to ask me any questions!"
+                `);
+
+                await addMessagetoFirebase(firstMessage,idSubstring,extractedNumber,data.contactName);
+                await scheduleFollowUpMessages(msg.from, idSubstring, data.contactName);
+
+
             }
 
     //         currentStep = userState.get(sender.to) || steps.START;
@@ -711,6 +919,25 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
     }
 }
 
+async function removeTagFirebase(contactID, tag, idSubstring) {
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
+    try {
+        const doc = await contactRef.get();
+        if (doc.exists) {
+            let currentTags = doc.data().tags || [];
+            const updatedTags = currentTags.filter(t => t !== tag);
+            
+            if (currentTags.length !== updatedTags.length) {
+                await contactRef.update({ tags: updatedTags });
+                console.log(`Tag "${tag}" removed from contact ${contactID} in Firebase`);
+            }
+        }
+    } catch (error) {
+        console.error('Error removing tag from Firebase:', error);
+    }
+}
 
 async function removeTagBookedGHL(contactID, tag) {
     const options = {

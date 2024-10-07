@@ -33,6 +33,25 @@ async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
+async function removeTagFirebase(contactID, tag, idSubstring) {
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
+    try {
+        const doc = await contactRef.get();
+        if (doc.exists) {
+            let currentTags = doc.data().tags || [];
+            const updatedTags = currentTags.filter(t => t !== tag);
+            
+            if (currentTags.length !== updatedTags.length) {
+                await contactRef.update({ tags: updatedTags });
+                console.log(`Tag "${tag}" removed from contact ${contactID} in Firebase`);
+            }
+        }
+    } catch (error) {
+        console.error('Error removing tag from Firebase:', error);
+    }
+}
 async function addNotificationToUser(companyId, message, contactName) {
     console.log('Adding notification and sending FCM');
     try {
