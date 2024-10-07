@@ -573,7 +573,7 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
                     firebaseTags = ['stop bot']
                 }
 
-                firebaseTags = ['follow up']
+                firebaseTags = ['Edward Follow Up']
             }
 
             
