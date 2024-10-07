@@ -833,12 +833,12 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
             }
 
             if (contactData){
-                const lowerMessageBody = messageBody.toLowerCase();
-                if((lowerMessageBody.includes('yes') || lowerMessageBody.includes('ya')) && firebaseTags.includes('follow up')){
-                    await removeScheduledMessages(msg.from, idSubstring, 'edwardfollowup');
-                    await removeTagFirebase(extractedNumber, 'follow up', idSubstring);
-                    return;
-                }
+                // const lowerMessageBody = messageBody.toLowerCase();
+                // if((lowerMessageBody.includes('yes') || lowerMessageBody.includes('ya')) && firebaseTags.includes('follow up')){
+                //     await removeScheduledMessages(msg.from, idSubstring, 'edwardfollowup');
+                //     await removeTagFirebase(extractedNumber, 'follow up', idSubstring);
+                //     return;
+                // }
 
             }else{
                 const firstMessage = client.sendMessage(msg.from, `Hi ${data.contactName}! 

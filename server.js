@@ -168,6 +168,7 @@ const { handleNewMessagesMuhibbah } = require('./bots/handleMessagesMuhibbah.js'
 const { handleNewMessagesNewTown } = require('./bots/handleMessagesNewTown.js');
 const { handleNewMessagesDMAI } = require('./bots/handleMessagesDMAI.js');
 const { handleNewMessagesEdward } = require('./bots/handleMessagesEdward.js');
+const { handleEdwardTag } = require('./blast/edwardTag.js');
 
 
 
@@ -231,6 +232,9 @@ app.post('/juta/blast', async (req, res) => {
 });
 app.post('/api/bina/tag', async (req, res) => {
   await handleBinaTag(req, res);
+});
+app.post('/api/edward/tag', async (req, res) => {
+  await handleEdwardTag(req, res);
 });
 
 //spreadsheet
