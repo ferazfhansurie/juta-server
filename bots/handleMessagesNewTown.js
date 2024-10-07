@@ -772,11 +772,28 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
     
                             await messageDoc.set(sentMessageData, { merge: true });
-                            if(check.includes('BT 14 Kg:')){
-                                const imagePath = './Users/faeezree/Documents/juta-server/media/newtown/1575272636_1574391439_14kg.png'; // Update this path to your local image file
-const media = await MessageMedia.fromFilePath(imagePath); // Use fromFilePath instead of fromUrl
-const imageMessage = await client.sendMessage(msg.from, media);
-await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            if (check.includes('BT 14 Kg:')) {
+                                const imagePath = 'Users/faeezree/Documents/juta-server/media/newtown/1575272636_1574391439_14kg.png'; // Update this path
+                                try {
+                                    const media = await MessageMedia.fromFilePath(imagePath);
+                                    console.log('Media prepared:', media);
+                                    const imageMessage = await client.sendMessage(msg.from, media);
+                                    console.log(imageMessage)
+                                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                                } catch (error) {
+                                    console.error('Error sending image:', error);
+                                }
+                            }
+                            if (check.includes('C14 Kg:')) {
+                                const imagePath = 'Users/faeezree/Documents/juta-server/media/newtown/1575272636_1574391439_14kg.png'; // Update this path
+                                try {
+                                    const media = await MessageMedia.fromFilePath(imagePath);
+                                    console.log('Media prepared:', media);
+                                    const imageMessage = await client.sendMessage(msg.from, media);
+                                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                                } catch (error) {
+                                    console.error('Error sending image:', error);
+                                }
                             }
                             if(check.includes('C14 Kg:')){
                                 const imagePath = './Users/faeezree/Documents/juta-server/media/newtown/1575272636_1574391439_14kg.png'; // Update this path to your local image file
