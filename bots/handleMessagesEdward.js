@@ -303,51 +303,30 @@ async function transcribeAudio(audioData) {
 async function scheduleFollowUpMessages(chatId, idSubstring, customerName) {
     let dailyMessages = [
         [
-            `Hi ${customerName}, did you know this Seri Kembangan condo comes with a direct link to the MRT and shopping mall? 🏬🚆 
-
-It is the cheapest 3 bedder DIRECTLY LINKED to MRT + SHOPPING MALL in the whole of KL & SELANGOR. Long term rentals could even cover your monthly installments! 💡(Roughly about RM1,100+ positive cashflow after installment and maintenance)
-I'll be sharing more details in my upcoming Zoom session! Make sure to reserve your spot: 🎥
+            `Hi ${customerName}, did you know this Seri Kembangan condo comes with a direct link to the MRT and shopping mall? 🏬🚆 \n\nIt is the cheapest 3 bedder DIRECTLY LINKED to MRT + SHOPPING MALL in the whole of KL & SELANGOR. Long term rentals could even cover your monthly installments! 💡(Roughly about RM1,100+ positive cashflow after installment and maintenance)\nI'll be sharing more details in my upcoming Zoom session! Make sure to reserve your spot: 🎥
 `
         ],
         [
-            `Sorry dear customers! I might have missed your message few days back. Just a quick reminder that there are only 5 units left at exclusive prices! (Cheaper than developer price)
-
-This is the last opportunities to secure the cheapest 3-bedder directly linked to MRT + Shopping mall at just RM390k 🏢🔥
-Join my Zoom session to get the best deals and more info. Don't miss out! 
-
-Reply "YES" and we'll get in touch with you for a Google Meet.`
+            `Sorry dear customers! I might have missed your message few days back. Just a quick reminder that there are only 5 units left at exclusive prices! (Cheaper than developer price)\n\nThis is the last opportunities to secure the cheapest 3-bedder directly linked to MRT + Shopping mall at just RM390k 🏢🔥\nJoin my Zoom session to get the best deals and more info. Don't miss out! \n\nReply *"YES"* and we'll get in touch with you for a Google Meet.`
         ],
         [
-            `I'd like to address some concerns today. Apart from the fantastic location and rental benefits, our package offers a RM35,000 cashback and 0% downpayment! 💰🔥 
-
-This is one the property that you can own with LITERALLY ZERO CAPITAL & the cashback amount can cover the whole renovation cost.
-
-Plus there's no need to pay progressive interest, as it's ready to move in!
-We're having a physical group tour to visit the actual units of this property in the coming week.
-
-If you're interested to join our physical  group tour, reply with "GROUP" to this message`
+            `I'd like to address some concerns today. Apart from the fantastic location and rental benefits, our package offers a RM35,000 cashback and 0% downpayment! 💰🔥 \n\nThis is one the property that you can own with LITERALLY ZERO CAPITAL & the cashback amount can cover the whole renovation cost.\n\nPlus there's no need to pay progressive interest, as it's ready to move in!\nWe're having a physical group tour to visit the actual units of this property in the coming week.\n\nIf you're interested to join our physical  group tour, reply with "GROUP" to this message`
         ],
         [
             `If you're looking for a property that is perfect for both investors and those looking for a great place to live. In fact, many buyers have already seen returns from their rentals that fully cover their installments. 📈
 You can be the next success story! 
 
-Reply "YES" to join my Zoom session and learn how.
+Reply *"YES"* to join my Zoom session and learn how.
 
 We'll be going through how much the installments are, and what kind of rental rates you can realistically earn from here. 
 `
         ],
         [
-            `Just a heads-up – the exclusive price offer is ending soon, and there's only 1 unit left! Don't miss your chance to lock in this deal before it's gone! ⏳🔥
-Join my Google Meet session and let me walk you through all the numbers & benefits.
+            `Just a heads-up – the exclusive price offer is ending soon, and there's only 1 unit left! Don't miss your chance to lock in this deal before it's gone! ⏳🔥\nJoin my Google Meet session and let me walk you through all the numbers & benefits.
 `
         ],
         [
-            `Hi ${customerName}, this is your final reminder – if you're serious about getting the best value for this condo in Seri Kembangan, now is the time! We're down to the last few units, and I would love to help you secure one. 🏡
-Join me on Zoom for a quick chat: 
-
-Reply "YES" to receive the link.
-
-💬 Looking forward to seeing you there!`
+            `Hi ${customerName}, this is your final reminder – if you're serious about getting the best value for this condo in Seri Kembangan, now is the time! We're down to the last few units, and I would love to help you secure one. 🏡\nJoin me on Zoom for a quick chat: \n\nReply *"YES"* to receive the link.\n\n💬 Looking forward to seeing you there!`
         ]
     ];
 
