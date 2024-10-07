@@ -841,15 +841,7 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
                 // }
 
             }else{
-                    const firstMessage = client.sendMessage(msg.from, `Hi ${data.contactName}! 
-
-                        Thank you for showing interest in the 3-bedroom condo project in Seri Kembangan! 
-        
-                        🌟 I’m Edward, and I’d love to invite you to a Google Meet session where we’ll discuss how this amazing property, priced from RM394k, can meet your needs, whether for investment or personal use. 🏢
-                        Secure your spot now! 
-        
-                        Reply “YES” to book an appointment 📅
-                        Feel free to ask me any questions!"
+                    const firstMessage = client.sendMessage(msg.from, `Hi ${data.contactName}! \n\nThank you for showing interest in the 3-bedroom condo project in Seri Kembangan! \n\n🌟 I’m Edward, and I’d love to invite you to a Google Meet session where we’ll discuss how this amazing property, priced from RM394k, can meet your needs, whether for investment or personal use. 🏢\nSecure your spot now! \n\nReply *“YES”* to book an appointment 📅\nFeel free to ask me any questions!"
                         `);
         
                         await addMessagetoFirebase(firstMessage,idSubstring,extractedNumber,data.contactName);
