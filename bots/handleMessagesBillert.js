@@ -40,23 +40,16 @@ async function loadAssignmentState(idSubstring) {
     }
 }
 
-async function storeAssignmentState(idSubstring) {
-    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
-    const stateToStore = {
-        currentEmployeeIndex: currentEmployeeIndex,
-        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
-    };
-
-    await stateRef.set(stateToStore);
-    console.log('Assignment state stored in Firebase:', stateToStore);
-}
-
 async function assignNewContactToEmployee(contactID, idSubstring, client) {
     // Fetch the latest employee list from Firebase
     const employees = await fetchEmployeesFromFirebase(idSubstring);
 
+    console.log('All employees:', employees);  // Debug: Log all employees
+
     // Filter out employees who are inactive (assuming active employees have a weightage > 0)
     const availableEmployees = employees.filter(emp => emp.weightage > 0);
+
+    console.log('Available employees:', availableEmployees);  // Debug: Log available employees
 
     if (availableEmployees.length === 0) {
         console.log('No available employees found for assignment');
@@ -66,8 +59,12 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     // Calculate total weight
     const totalWeight = availableEmployees.reduce((sum, emp) => sum + emp.weightage, 0);
 
+    console.log('Total weight:', totalWeight);  // Debug: Log total weight
+
     // Generate a random number between 0 and totalWeight
     const randomValue = Math.random() * totalWeight;
+
+    console.log('Random value:', randomValue);  // Debug: Log random value
 
     // Select an employee based on the weighted random selection
     let cumulativeWeight = 0;
@@ -75,6 +72,7 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
 
     for (const emp of availableEmployees) {
         cumulativeWeight += emp.weightage;
+        console.log(`Employee: ${emp.name}, Cumulative Weight: ${cumulativeWeight}`);  // Debug: Log each iteration
         if (randomValue <= cumulativeWeight) {
             assignedEmployee = emp;
             break;
@@ -100,6 +98,8 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
         number: employeeID
     };
 }
+
+
 
 // Make sure this function is updated to return the correct employee data structure
 async function fetchEmployeesFromFirebase(idSubstring) {
