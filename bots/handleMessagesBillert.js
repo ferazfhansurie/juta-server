@@ -40,6 +40,17 @@ async function loadAssignmentState(idSubstring) {
     }
 }
 
+async function storeAssignmentState(idSubstring) {
+    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    const stateToStore = {
+        currentEmployeeIndex: currentEmployeeIndex,
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp()
+    };
+
+    await stateRef.set(stateToStore);
+    console.log('Assignment state stored in Firebase:', stateToStore);
+}
+
 async function assignNewContactToEmployee(contactID, idSubstring, client) {
     // Fetch the latest employee list from Firebase
     const employees = await fetchEmployeesFromFirebase(idSubstring);
