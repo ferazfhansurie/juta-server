@@ -40,10 +40,11 @@ async function loadAssignmentState(idSubstring) {
     }
 }
 
-async function storeAssignmentState(idSubstring) {
+async function storeAssignmentState(idSubstring, assignedEmployee) {
     const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
     const stateToStore = {
         currentEmployeeIndex: currentEmployeeIndex,
+        lastAssignedEmployee: assignedEmployee.name,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
     };
 
