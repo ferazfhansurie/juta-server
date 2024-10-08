@@ -46,8 +46,8 @@ async function handleBinaTag(req, res) {
     const idSubstring = '002';
 
     await fetchConfigFromDatabase(idSubstring);
-
-    const { requestType, phone, first_name } = req.body;
+    const { requestType, phone, first_name, phoneIndex: requestedPhoneIndex } = req.body;
+    const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0;
 
     if (!phone || !first_name) {
         return res.status(400).json({ error: 'Phone number, name, and quote date are required' });
@@ -65,19 +65,19 @@ async function handleBinaTag(req, res) {
     try {
         switch (requestType) {
             case 'addBeforeQuote':
-                await scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, first_name, phoneWithPlus);
+                await scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, first_name, phoneWithPlus, phoneIndex);
                 res.json({ success: true });
                 break;
             case 'addAfterQuoteEnglish':
-                await scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, first_name, 'english');
+                await scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, first_name, 'english', phoneIndex);
                 res.json({ success: true });
                 break;
             case 'addAfterQuoteChinese':
-                await scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, first_name, 'chinese');
+                await scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, first_name, 'chinese', phoneIndex);
                 res.json({ success: true });
                 break;
             case 'addAfterQuoteMalay':
-                await scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, first_name, 'malay');
+                await scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, first_name, 'malay', phoneIndex);
                 res.json({ success: true });
                 break;
             case 'removeBeforeQuote':
@@ -93,15 +93,15 @@ async function handleBinaTag(req, res) {
                 res.json({ success: true });
                 break;
             case '5DaysFollowUpEnglish':
-                await scheduleFollowUpMessages(chatId, idSubstring, first_name, 'english');
+                await scheduleFollowUpMessages(chatId, idSubstring, first_name, 'english', phoneIndex);
                 res.json({ success: true });
                 break;
             case '5DaysFollowUpChinese':
-                await scheduleFollowUpMessages(chatId, idSubstring, first_name, 'chinese');
+                await scheduleFollowUpMessages(chatId, idSubstring, first_name, 'chinese', phoneIndex);
                 res.json({ success: true });
                 break;
             case '5DaysFollowUpMalay':
-                await scheduleFollowUpMessages(chatId, idSubstring, first_name, 'malay');
+                await scheduleFollowUpMessages(chatId, idSubstring, first_name, 'malay', phoneIndex);
                 res.json({ success: true });
                 break;
             case 'pauseFollowUp':
@@ -298,7 +298,7 @@ async function customWait(milliseconds) {
 }
 
 
-async function scheduleFollowUpMessages(chatId, idSubstring, customerName, language) {
+async function scheduleFollowUpMessages(chatId, idSubstring, customerName, language, phoneIndex) {
     let dailyMessages;
     if(language == 'english'){
         dailyMessages = [
@@ -413,7 +413,7 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
                 await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup');
                 await customWait(3000);
             } else {
-                await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup');
+                await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup', phoneIndex);
             }
         }
     }
@@ -423,10 +423,10 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
     const scheduledTime = moment().add(numberOfDays - 1, 'days')
                                   .set({hour: 10 + (lastDay.length * 2), minute: 0, second: 0});
     const staffReminder = `Day ${numberOfDays} last follow up ${customerName}, ${chatId.split('@')[0]}`;
-    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), '60135186862@c.us', idSubstring, '5daysfollowup');
+    await scheduleReminderMessage(staffReminder, scheduledTime.toDate(), '60135186862@c.us', idSubstring, '5daysfollowup', phoneIndex);
 }
 
-async function scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, customerName, language) {
+async function scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, customerName, language, phoneIndex) {
     let dailyMessages
     if(language == 'english'){
         dailyMessages = [
@@ -511,20 +511,20 @@ async function scheduleFollowUpAfterQuoteMessages(chatId, idSubstring, customerN
             const scheduledTime = moment().add(day, 'days').set({hour: 10 + (i * 2), minute: 0, second: 0});
             const message = dailyMessages[day][i];
             
-            await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, 'followUpAfterQuote');
+            await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, 'followUpAfterQuote', phoneIndex);
             }
         }
 }
 
 
-async function scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, customerName, contactNumber) {
+async function scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, customerName, contactNumber, phoneIndex) {
     const baseMessage = `Quotation reminder for ${customerName}, ${contactNumber}`;
 
     // Schedule the message once a day for 10 days
     for (let day = 1; day <= 10; day++) {
         const message = `Day ${day} ${baseMessage}`;
         const scheduledTime = moment().add(day, 'days').set({hour: 10, minute: 0, second: 0}); // Set to 10:00 AM each day
-        await scheduleReminderMessage(message, scheduledTime.toDate(), '60135186862@c.us', idSubstring, 'followUpBeforeQuote');
+        await scheduleReminderMessage(message, scheduledTime.toDate(), '60135186862@c.us', idSubstring, 'followUpBeforeQuote', phoneIndex);
     }
 }
 
@@ -567,7 +567,7 @@ async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, id
     }
 }
 
-async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSubstring, type) {
+async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSubstring, type, phoneIndex) {
     // Convert to seconds and ensure it's an integer
     const scheduledTimeSeconds = Math.floor(startDateTime.getTime() / 1000);
   
@@ -576,6 +576,7 @@ async function scheduleReminderMessage(eventSummary, startDateTime, chatId, idSu
     
     const scheduledMessage = {
         batchQuantity: 1,
+        phoneIndex: phoneIndex,
         chatIds: [chatId],
         companyId: idSubstring,
         createdAt: admin.firestore.Timestamp.now(),
