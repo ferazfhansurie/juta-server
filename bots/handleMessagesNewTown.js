@@ -922,7 +922,7 @@ async function generateSpecialReport(threadID, assistantId) {
         const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
         const reportInstruction = `Please generate a report in the following format based on our conversation:
 
-"New Enquiry Has Been Submitted
+New Order Has Been Submitted
 
 1. Full Name: [Extract from conversation]
 2. Contact Number: [Extract from conversation]
@@ -933,9 +933,9 @@ async function generateSpecialReport(threadID, assistantId) {
 7. Account Payable Contact Name and Phone: [Extract from conversation]
 8. Product Order and Quantity: [Extract from conversation]
 9. Intended Usage: [Extract from conversation]
-"
 
-Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. (Send the report in the "" only))`;
+
+Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank.)`;
 
         const response = await openai.beta.threads.messages.create(threadID, {
             role: "user",
