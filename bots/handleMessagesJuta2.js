@@ -1078,7 +1078,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
         processingQueue.set(chatId, true);
     try {
         // Initial fetch of config
-        await fetchConfigFromDatabase(idSubstring);
+        await fetchConfigFromDatabase(idSubstring,phoneIndex);
 
         // Set up the daily report schedule
         await checkAndScheduleDailyReport(client, idSubstring);
@@ -3477,7 +3477,7 @@ async function getContact(number) {
 }
 
 
-async function fetchConfigFromDatabase(idSubstring) {
+async function fetchConfigFromDatabase(idSubstring, phoneIndex) {
     try {
         const docRef = db.collection('companies').doc(idSubstring);
         const doc = await docRef.get();
@@ -3486,7 +3486,20 @@ async function fetchConfigFromDatabase(idSubstring) {
             return;
         }
         ghlConfig = doc.data();
-        console.log(ghlConfig);
+        console.log('Initial ghlConfig:', ghlConfig);
+
+        // Determine the assistantId based on phoneIndex
+        if (phoneIndex > 0) {
+            const assistantIdKey = `assistantId${phoneIndex + 1}`;
+            if (ghlConfig[assistantIdKey]) {
+                ghlConfig.assistantId = ghlConfig[assistantIdKey];
+                console.log(`Using ${assistantIdKey}: ${ghlConfig.assistantId}`);
+            } else {
+                console.log(`${assistantIdKey} not found, using default assistantId`);
+            }
+        }
+
+        console.log('Final ghlConfig:', ghlConfig);
     } catch (error) {
         console.error('Error fetching config:', error);
         throw error;
