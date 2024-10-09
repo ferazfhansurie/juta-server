@@ -56,24 +56,25 @@ async function fetchEmployeesFromFirebase(idSubstring) {
         const data = doc.data();
         console.log(`Processing employee document:`, data);
 
-        if (data.name) {
+        if (data.name && data.role === "4") {
             employees.push({
                 name: data.name,
                 email: data.email,
                 phoneNumber: data.phoneNumber,
                 assignedContacts: data.assignedContacts || 0
             });
-            console.log(`Added employee ${data.name}`);
+            console.log(`Added employee ${data.name} with role 4`);
         } else {
-            console.log(`Skipped employee due to missing name:`, data);
+            console.log(`Skipped employee ${data.name} due to missing name or role not being 4`);
         }
     });
 
-    console.log('Fetched employees:', employees);
+    console.log('Fetched employees with role 4:', employees);
 
     // Load the previous assignment state
     await loadAssignmentState(idSubstring);
 }
+
 
 async function loadAssignmentState(idSubstring) {
     const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
