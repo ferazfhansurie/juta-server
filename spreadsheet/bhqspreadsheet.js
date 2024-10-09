@@ -448,6 +448,12 @@ class bhqSpreadsheet {
     }
   }
 
+  async createThread() {
+    console.log('Creating a new thread...');
+    const thread = await openai.beta.threads.create();
+    return thread;
+}
+
   async sendReminderToTeacher(teacherName, phoneNumber, customerName, rowNumber) {
     const message = `Assalamualaikum ${teacherName}, 
     
@@ -479,20 +485,20 @@ class bhqSpreadsheet {
         if (contactData.threadid) {
           threadID = contactData.threadid;
         } else {
-          const thread = await createThread();
+          const thread = await this.createThread();
           threadID = thread.id;
-          await saveThreadIDFirebase(contactID, threadID, this.botName);
+          await this.saveThreadIDFirebase(contactID, threadID, this.botName);
         }
       } else {
-        await customWait(2500); 
+        await this.customWait(2500); 
   
         contactID = extractedNumber;
         contactName = teacherName || extractedNumber;
         
-        const thread = await createThread();
+        const thread = await this.createThread();
         threadID = thread.id;
         console.log(threadID);
-        await saveThreadIDFirebase(contactID, threadID, this.botName);
+        await this.saveThreadIDFirebase(contactID, threadID, this.botName);
         console.log('sent new contact to create new contact');
       }
       
@@ -585,6 +591,25 @@ class bhqSpreadsheet {
       console.error(`Error sending reminder to ${teacherName} (${phoneNumber}):`, error);
     }
   }
+
+  async customWait(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+async saveThreadIDFirebase(contactID, threadID, idSubstring) {
+    
+  // Construct the Firestore document path
+  const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+
+  try {
+      await db.doc(docPath).set({
+          threadid: threadID
+      }, { merge: true }); // merge: true ensures we don't overwrite the document, just update it
+      console.log(`Thread ID saved to Firestore at ${docPath}`);
+  } catch (error) {
+      console.error('Error saving Thread ID to Firestore:', error);
+  }
+}
 
   async sendWeeklyReport() {
     try {
