@@ -732,7 +732,7 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                 }else if(assigned == 'teha'){
-                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/teha.jpg?alt=media&token=f86e643d-a7fc-4d87-871b-d3060c511c21';
+                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/3b37f5d7-e2bf-412f-99e1-e7c6bff433f4.jpeg?alt=media&token=92e07b9d-cda7-4c9f-8c22-f01652da0661';
                     const media = await MessageMedia.fromUrl(imagePath);
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
