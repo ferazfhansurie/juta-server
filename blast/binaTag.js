@@ -410,7 +410,7 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
             const message = messagesForDay[i];
             
             if (typeof message === 'object' && message.type === 'image') {
-                await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup');
+                await scheduleImageMessage(message.url, message.caption, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup', phoneIndex);
                 await customWait(3000);
             } else {
                 await scheduleReminderMessage(message, scheduledTime.toDate(), chatId, idSubstring, '5daysfollowup', phoneIndex);
@@ -528,7 +528,7 @@ async function scheduleFollowUpBeforeQuoteMessages(chatId, idSubstring, customer
     }
 }
 
-async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, idSubstring, type) {
+async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, idSubstring, type, phoneIndex) {
     const scheduledTimeSeconds = Math.floor(scheduledTime.getTime() / 1000);
     
     const scheduledMessage = {
@@ -556,7 +556,8 @@ async function scheduleImageMessage(imageUrl, caption, scheduledTime, chatId, id
         },
         status: "scheduled",
         v2: true,
-        whapiToken: null
+        whapiToken: null,
+        phoneIndex: phoneIndex
     };
 
     try {
