@@ -386,7 +386,7 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
                 "Adakah bocor di rumah atau kedai anda??🧐"
             ],
             [
-                "Adakah bocor di rumah atau kedai anda??🧐",
+                "Selamat sejahtera",
                 "Kami boleh mengatur kunjungan ke tempat anda untuk pemeriksaan secara 🆓PERCUMA pada hari Selasa, Rabu, Sabtu, atau Ahad yang akan datang.",
                 "Hari mana yang sesuai untuk anda??🤔"
             ],
