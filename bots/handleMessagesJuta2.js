@@ -2050,10 +2050,10 @@ async function addMessage(threadId, message) {
 
 // Updated checkAvailableTimeSlots function
 async function checkAvailableTimeSlots(daysAhead = 7) {
-    const currentDateTime = getCurrentDateTime(); // Get current date and time
+    const currentDateTime = getTodayDate(); // Get current date and time
     const today = moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD'); // Get today's date
-    const startOfToday = moment(today).startOf('day').toISOString();
-    const endOfToday = moment(today).endOf('day').toISOString();
+    const availableSlots = [];
+    const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
 
     // Create an auth client for Google Calendar
     const auth = new google.auth.GoogleAuth({
@@ -2062,9 +2062,6 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
     });
 
     const calendar = google.calendar({ version: 'v3', auth });
-
-    const availableSlots = [];
-    const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
 
     // Loop through the next 'daysAhead' days
     for (let dayOffset = 0; dayOffset <= daysAhead; dayOffset++) {
@@ -2087,7 +2084,7 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
             endTime: new Date(event.end.dateTime || event.end.date).getTime(),
         }));
 
-        // Check for available slots in the day starting from the current time
+        // Check for available slots in the day
         for (let hour = 0; hour < 24; hour++) { // Check all hours in the day
             const startTime = moment(dateToCheck).set({ hour, minute: 0 }).toDate().getTime();
             const endTime = startTime + slotDuration;
@@ -2108,14 +2105,10 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
                     endTime: new Date(endTime),
                 });
             }
-
-            // Stop if we have found three available slots
-            if (availableSlots.length === 3) {
-                return availableSlots; // Return early if we have enough slots
-            }
         }
     }
 
+    // Return all available slots but only provide three at a time
     return availableSlots.length > 0 ? availableSlots : 'No available time slots for the next few days.';
 }
 async function callWebhook(webhook,senderText,thread) {
