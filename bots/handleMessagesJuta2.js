@@ -550,7 +550,7 @@ async function scheduleDailyReport(client, idSubstring) {
 //   }
 
   function getTodayDate() {
-    return moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD');
+    return moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD HH:mm:ss');
   }
 async function saveMediaLocally(base64Data, mimeType, filename) {
     const writeFileAsync = util.promisify(fs.writeFile);
@@ -2047,6 +2047,8 @@ async function addMessage(threadId, message) {
     );
     return response;
 }
+
+// Updated checkAvailableTimeSlots function
 async function checkAvailableTimeSlots() {
     const today = getTodayDate(); // Get today's date
     const startOfDay = moment(today).startOf('day').toISOString();
@@ -2078,19 +2080,25 @@ async function checkAvailableTimeSlots() {
     const availableSlots = [];
     const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
 
-    // Check for available slots in the day
-    for (let hour = 9; hour < 17; hour++) { // Assuming working hours from 9 AM to 5 PM
+    // Get the current time
+    const currentTime = new Date().getTime();
+
+    // Check for available slots in the day starting from the current time
+    for (let hour = new Date().getHours(); hour < 17; hour++) { // Assuming working hours until 5 PM
         const startTime = moment(today).set({ hour, minute: 0 }).toDate().getTime();
-        const endTime = startTime + slotDuration;
+        
+        // Adjust start time if it's before the current time
+        const adjustedStartTime = startTime < currentTime ? currentTime : startTime;
+        const endTime = adjustedStartTime + slotDuration;
 
         // Check if the slot is booked
         const isBooked = bookedSlots.some(slot => {
-            return (startTime < slot.endTime && endTime > slot.startTime);
+            return (adjustedStartTime < slot.endTime && endTime > slot.startTime);
         });
 
         if (!isBooked) {
             availableSlots.push({
-                startTime: new Date(startTime),
+                startTime: new Date(adjustedStartTime),
                 endTime: new Date(endTime),
             });
         }
@@ -3312,7 +3320,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "checkAvailableTimeSlots",
-                description: "Check for available time slots in Google Calendar. Always call getTodayDate first to get the current date as a reference before checking for available time slots. Returns up to three available time slots, each with a duration of 1 hour.",
+                description: "Check for available time slots in Google Calendar. Always call getTodayDate first to get the current date as a reference before checking for available time slots. Returns up to three available time slots, each with a duration of 1 hour, and only suggests slots that are after the current time.",
                 parameters: {
                     type: "object",
                     properties: {},
