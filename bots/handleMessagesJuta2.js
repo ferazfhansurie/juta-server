@@ -2047,7 +2047,62 @@ async function addMessage(threadId, message) {
     );
     return response;
 }
+async function checkAvailableTimeSlots() {
+    const today = getTodayDate(); // Get today's date
+    const startOfDay = moment(today).startOf('day').toISOString();
+    const endOfDay = moment(today).endOf('day').toISOString();
 
+    // Create an auth client for Google Calendar
+    const auth = new google.auth.GoogleAuth({
+        keyFile: './service_account.json', // Update this path
+        scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+    });
+
+    const calendar = google.calendar({ version: 'v3', auth });
+
+    // Fetch events for the day
+    const eventsResponse = await calendar.events.list({
+        calendarId: 'faeezree@gmail.com', // Use the appropriate calendar ID
+        timeMin: startOfDay,
+        timeMax: endOfDay,
+        singleEvents: true,
+        orderBy: 'startTime',
+    });
+
+    const events = eventsResponse.data.items;
+    const bookedSlots = events.map(event => ({
+        startTime: new Date(event.start.dateTime || event.start.date).getTime(),
+        endTime: new Date(event.end.dateTime || event.end.date).getTime(),
+    }));
+
+    const availableSlots = [];
+    const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
+
+    // Check for available slots in the day
+    for (let hour = 9; hour < 17; hour++) { // Assuming working hours from 9 AM to 5 PM
+        const startTime = moment(today).set({ hour, minute: 0 }).toDate().getTime();
+        const endTime = startTime + slotDuration;
+
+        // Check if the slot is booked
+        const isBooked = bookedSlots.some(slot => {
+            return (startTime < slot.endTime && endTime > slot.startTime);
+        });
+
+        if (!isBooked) {
+            availableSlots.push({
+                startTime: new Date(startTime),
+                endTime: new Date(endTime),
+            });
+        }
+
+        // Stop if we have found three available slots
+        if (availableSlots.length === 3) {
+            break;
+        }
+    }
+
+    return availableSlots.length > 0 ? availableSlots : 'No available time slots for today.';
+}
 async function callWebhook(webhook,senderText,thread) {
     console.log('calling webhook')
     const webhookUrl = webhook;
@@ -2594,6 +2649,43 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                     });
                 }
                 break;
+                case 'checkAvailableTimeSlots':
+    try {
+        console.log('Parsing arguments for checkAvailableTimeSlots...');
+        const args = JSON.parse(toolCall.function.arguments);
+        console.log('Arguments:', args);
+        
+        console.log('Calling checkAvailableTimeSlots...');
+        const result = await checkAvailableTimeSlots(); // No arguments needed since duration is fixed to 1 hour
+        
+        if (Array.isArray(result) && result.length > 0) {
+            console.log('Available time slots found, preparing tool output...');
+            toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({
+                    success: true,
+                    availableSlots: result,
+                }),
+            });
+        } else {
+            console.log('No available time slots found.');
+            toolOutputs.push({
+                tool_call_id: toolCall.id,
+                output: JSON.stringify({
+                    success: false,
+                    message: result, // This will be the 'No available time slots for today.' message
+                }),
+            });
+        }
+    } catch (error) {
+        console.error('Error in handleToolCalls for checkAvailableTimeSlots:');
+        console.error(error);
+        toolOutputs.push({
+            tool_call_id: toolCall.id,
+            output: JSON.stringify({ error: error.message }),
+        });
+    }
+    break;
                 case 'createCalendarEvent':
                     try {
                         console.log('Parsing arguments for createCalendarEvent...');
@@ -3213,6 +3305,18 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                         offset: { type: "number", description: "Number of contacts to skip (default 0)" },
                     },
                     required: ["idSubstring"],
+                },
+            },
+        },
+        {
+            type: "function",
+            function: {
+                name: "checkAvailableTimeSlots",
+                description: "Check for available time slots in Google Calendar. Always call getTodayDate first to get the current date as a reference before checking for available time slots. Returns up to three available time slots, each with a duration of 1 hour.",
+                parameters: {
+                    type: "object",
+                    properties: {},
+                    required: [],
                 },
             },
         },
