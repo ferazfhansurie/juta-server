@@ -1456,6 +1456,7 @@ if (!contactData) {
                 query = `${combinedMessage}`;
              if(!(sender.to.includes('@g.us')) || (msg.body.toLowerCase().startsWith('@juta') && phoneIndex == 0)){
                 answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client);
+                console.log(answer);
                 parts = answer.split(/\s*\|\|\s*/);
                 
                 for (let i = 0; i < parts.length; i++) {
@@ -1480,6 +1481,9 @@ if (!contactData) {
                             ack: sentMessage.ack ?? 0,
                         };
 
+                        const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+                        const messagesRef = contactRef.collection('messages');
+                
                         const messageDoc = messagesRef.doc(sentMessage.id._serialized);
 
                         await messageDoc.set(sentMessageData, { merge: true });
