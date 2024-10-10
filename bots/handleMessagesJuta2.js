@@ -2049,28 +2049,30 @@ async function addMessage(threadId, message) {
 }
 
 // Updated checkAvailableTimeSlots function
+async function checkAvailableTimeSlots(daysAhead = 7) {
+    const currentDateTime = getCurrentDateTime(); // Get current date and time
+    const today = moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD'); // Get today's date
+    const startOfToday = moment(today).startOf('day').toISOString();
+    const endOfToday = moment(today).endOf('day').toISOString();
 
-// Updated checkAvailableTimeSlots function
-async function checkAvailableTimeSlots() {
-    const currentDate = moment().tz('Asia/Kuala_Lumpur'); // Get current date and time
-    const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
+    // Create an auth client for Google Calendar
+    const auth = new google.auth.GoogleAuth({
+        keyFile: './service_account.json', // Update this path
+        scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+    });
+
+    const calendar = google.calendar({ version: 'v3', auth });
+
     const availableSlots = [];
+    const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
 
-    // Loop to find available slots starting from today and moving to the next month
-    for (let dayOffset = 0; dayOffset < 30; dayOffset++) { // Check up to 30 days ahead
-        const specifiedDate = currentDate.clone().add(dayOffset, 'days'); // Get the date to check
-        const startOfDay = specifiedDate.startOf('day').toISOString();
-        const endOfDay = specifiedDate.endOf('day').toISOString();
+    // Loop through the next 'daysAhead' days
+    for (let dayOffset = 0; dayOffset <= daysAhead; dayOffset++) {
+        const dateToCheck = moment(today).add(dayOffset, 'days').format('YYYY-MM-DD');
+        const startOfDay = moment(dateToCheck).startOf('day').toISOString();
+        const endOfDay = moment(dateToCheck).endOf('day').toISOString();
 
-        // Create an auth client for Google Calendar
-        const auth = new google.auth.GoogleAuth({
-            keyFile: './service_account.json', // Update this path
-            scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
-        });
-
-        const calendar = google.calendar({ version: 'v3', auth });
-
-        // Fetch events for the specified day
+        // Fetch events for the day
         const eventsResponse = await calendar.events.list({
             calendarId: 'faeezree@gmail.com', // Use the appropriate calendar ID
             timeMin: startOfDay,
@@ -2085,38 +2087,36 @@ async function checkAvailableTimeSlots() {
             endTime: new Date(event.end.dateTime || event.end.date).getTime(),
         }));
 
-        // Get the current time
-        const currentTime = new Date().getTime();
+        // Check for available slots in the day starting from the current time
+        for (let hour = 0; hour < 24; hour++) { // Check all hours in the day
+            const startTime = moment(dateToCheck).set({ hour, minute: 0 }).toDate().getTime();
+            const endTime = startTime + slotDuration;
 
-        // Check for available slots in the specified day starting from the current time
-        for (let hour = 0; hour < 24; hour++) { // Check all hours of the day
-            const startTime = specifiedDate.set({ hour, minute: 0 }).toDate().getTime();
-            
-            // Adjust start time if it's before the current time
-            const adjustedStartTime = startTime < currentTime ? currentTime : startTime;
-            const endTime = adjustedStartTime + slotDuration;
+            // Only consider future time slots
+            if (startTime < new Date().getTime()) {
+                continue; // Skip if the start time is in the past
+            }
 
             // Check if the slot is booked
             const isBooked = bookedSlots.some(slot => {
-                return (adjustedStartTime < slot.endTime && endTime > slot.startTime);
+                return (startTime < slot.endTime && endTime > slot.startTime);
             });
 
             if (!isBooked) {
                 availableSlots.push({
-                    date: specifiedDate.format('YYYY-MM-DD'), // Include the date in the available slot
-                    startTime: new Date(adjustedStartTime),
+                    startTime: new Date(startTime),
                     endTime: new Date(endTime),
                 });
             }
 
             // Stop if we have found three available slots
             if (availableSlots.length === 3) {
-                return availableSlots; // Return available slots found
+                return availableSlots; // Return early if we have enough slots
             }
         }
     }
 
-    return 'No available time slots found.'; // If no slots are found in the next 30 days
+    return availableSlots.length > 0 ? availableSlots : 'No available time slots for the next few days.';
 }
 async function callWebhook(webhook,senderText,thread) {
     console.log('calling webhook')
@@ -3327,7 +3327,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "checkAvailableTimeSlots",
-                description: "Check for available time slots in Google Calendar. Always call getTodayDate first to get the current date as a reference before checking for available time slots. Returns up to three available time slots, each with a duration of 1 hour, and only suggests slots that are after the current time, If the user wants a different date use and suggest a different date",
+                description: "Check for available time slots in Google Calendar. Always call getTodayDate first to get the current date as a reference before checking for available time slots. Returns up to three available time slots, each with a duration of 1 hour, and only suggests slots that are after the current time.",
                 parameters: {
                     type: "object",
                     properties: {},
