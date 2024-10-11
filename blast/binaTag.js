@@ -303,10 +303,10 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
     if(language == 'english'){
         dailyMessages = [
             [
-                { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/binna%20%20english.jpeg?alt=media&token=f80a156a-3304-4cbb-9317-f721fcaf741b', caption: "" },
+                { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/kelven.jpg?alt=media&token=baef675f-43e3-4f56-b2ba-19db0a6ddbf5', caption: "" },
                 "FREE Site Inspection Roofing, Slab Waterproofing with Senior Chinese Shifu & get a Quotation Immediately (For Klang Valley, KL, Seremban & JB areas only).",
                 "Hi 😊 Snowy here from BINA Pasifik S/B. We specialized in Roofing & Waterproofing. Thank you for connecting us through Facebook.",
-                "May I know which area are you from? How should I address you? 😊",
+                "May I know which area are you from? KL or JB ? 😊",
                 "Any issues with your roof? Leaking while raining? Any photo?",
                 "Is your house single or double-story? Is your roof roof tiles, metal roof, or concrete slab?"
             ],
@@ -338,10 +338,10 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
     } else if(language == 'chinese'){
         dailyMessages = [
             [
-                { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/binna%20chinese.jpeg?alt=media&token=16e450f8-9a49-42ee-baea-ece2eb35347f', caption: "" },
+                { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/kelven.jpg?alt=media&token=baef675f-43e3-4f56-b2ba-19db0a6ddbf5', caption: "" },
                 "你好, 华人师傅免费屋顶&地台防水检查，并立即获得报价 (只限Klang Valley, KL, Seremban & JB )",
                 "您好😊 我是 snowy 来自 BINA Pasifik S/B。我们是屋顶和防水专业公司。感谢您通过Facebook联系我们。",
-                "请问您是来自那一区？如何称呼您的名字？😊",
+                "请问您是来自那一区？ KL or JB ? 😊",
                 "请问屋顶下雨漏水吗？有照片看看吗？屋顶是屋瓦片吗？单层还是双层？",
             ],
             [
@@ -369,10 +369,10 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
     } else if(language == 'malay'){
         dailyMessages = [
             [
-                { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/binna%20malay.jpeg?alt=media&token=c6916786-cc81-4626-ac5e-adf0550d2a33', caption: "" },
+                { type: 'image', url: 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/kelven.jpg?alt=media&token=baef675f-43e3-4f56-b2ba-19db0a6ddbf5', caption: "" },
                 "Hi, PERCUMA Pemeriksaan Tapak Bumbung, Kalis Air Papak dgn Senior Supervisor & dapatkan Quotation Segera (Klang Valley, KL ,Seremban & JB shj).",
                 "Selamat sejahtera 😊 Saya Snowy dari BINA Pasifik S/B. Kami pakar kalis air dan bumbung. Terima kasih kerana menghubungi kami melalui Facebook.",
-                "Nak tanya area dari mana kamu? KL ke? Apakah nama anda? 😊",
+                "Nak tanya area dari mana kamu? KL or JB ? 😊",
                 "Bumbung bocor? Hujan baru air keluar ke? Ada gambar?",
                 "Rumah 1 tingkat atau 2 tingkat ye? Bumbung itu tiles roof, metal roof atau concrete slab?",
             ],
@@ -406,7 +406,7 @@ async function scheduleFollowUpMessages(chatId, idSubstring, customerName, langu
         const messagesForDay = dailyMessages[day];
         for (let i = 0; i < messagesForDay.length; i++) {
             // Schedule messages starting at 10 AM, with 2-hour intervals
-            const scheduledTime = moment().add(day, 'days').set({hour: 10, minute: i * 10, second: 0});
+            const scheduledTime = moment().add(day, 'days').set({hour: 10, minute: i * 1, second: 0});
             const message = messagesForDay[i];
             
             if (typeof message === 'object' && message.type === 'image') {
