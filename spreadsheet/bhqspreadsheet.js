@@ -696,20 +696,20 @@ async saveThreadIDFirebase(contactID, threadID, idSubstring) {
         if (contactData.threadid) {
           threadID = contactData.threadid;
         } else {
-          const thread = await createThread();
+          const thread = await this.createThread();
           threadID = thread.id;
-          await saveThreadIDFirebase(contactID, threadID, this.botName);
+          await this.saveThreadIDFirebase(contactID, threadID, this.botName);
         }
       } else {
-        await customWait(2500); 
+        await this.customWait(2500); 
   
         contactID = extractedNumber;
         contactName = teacherName || extractedNumber;
         
-        const thread = await createThread();
+        const thread = await this.createThread();
         threadID = thread.id;
         console.log(threadID);
-        await saveThreadIDFirebase(contactID, threadID, this.botName);
+        await this.saveThreadIDFirebase(contactID, threadID, this.botName);
         console.log('sent new contact to create new contact');
       }
       
