@@ -611,7 +611,7 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                         await spreadsheet.updateAttendance(extractedNumber, true);
 
                         // Send confirmation message
-                        client.sendMessage(msg.from, 'Terima kasih! Kehadiran anda telah disahkan.');                    
+                        client.sendMessage(msg.from, 'Terima kasih! Kehadiran guru telah disahkan.');                    
                     }
                     console.log('Response sent.');
                     userState.set(sender.to, steps.START);
