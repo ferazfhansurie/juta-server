@@ -777,6 +777,13 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 const report = await generateSpecialReport(threadID, ghlConfig.assistantId);
                                 const sentMessage2 = await client.sendMessage('120363325228671809@g.us', report)
                                 await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
+
+                                try {
+                                    await updateGoogleSheet(report);
+                                    console.log('Google Sheet updated successfully');
+                                } catch (error) {
+                                    console.error('Error updating Google Sheet:', error);
+                                }
                             }
                             
                         }
@@ -795,6 +802,50 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
         return(e.message);
     }
 }
+
+async function updateGoogleSheet(report) {
+    const spreadsheetId = '1V1iCai1Uf_gbWzWxmx9JrN9iL66azsqIsZ7Vr6k_y10'; // Replace with your spreadsheet ID
+    const range = 'Form_Responses!A:U'; // Adjust based on your sheet name and range
+  
+    // Parse the report
+    const lines = report.split('\n');
+    const data = {};
+    lines.forEach(line => {
+      const [key, value] = line.split(':').map(s => s.trim());
+      if (key && value) {
+        data[key] = value;
+      }
+    });
+  
+    // Prepare the row data
+    const rowData = [
+      new Date().toISOString(), // Submission Date
+      data['Name'] || '',
+      data['Country'] || '',
+      data['Highest Educational Qualification'] || '',
+      data['Program'] || '',
+      data['Intake'] || '',
+      data['Certificate'] || '',
+
+    ];
+  
+    try {
+      const response = await sheets.spreadsheets.values.append({
+        spreadsheetId,
+        range,
+        valueInputOption: 'USER_ENTERED',
+        resource: {
+          values: [rowData],
+        },
+      });
+  
+      console.log(`${response.data.updates.updatedCells} cells appended.`);
+      return response;
+    } catch (err) {
+      console.error('The API returned an error: ' + err);
+      throw err;
+    }
+  }
 
 async function generateSpecialReport(threadID, assistantId) {
     try {

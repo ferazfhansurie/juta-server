@@ -457,7 +457,7 @@ class bhqSpreadsheet {
   async sendReminderToTeacher(teacherName, phoneNumber, customerName, rowNumber) {
     const message = `Assalamualaikum ${teacherName}, 
     
-    \nKelas anda bersama ${customerName} akan bermula dalam 2 jam. 
+    \nKelas anda bersama ${customerName} akan bermula dalam sebentar lagi. 
 
     \nSila ingatkan ${customerName} untuk mengesahkan kehadiran anda.`;
   
@@ -668,7 +668,7 @@ async saveThreadIDFirebase(contactID, threadID, idSubstring) {
   async sendReminderToCustomer(customerName, phoneNumber, teacherName, rowNumber) {
     const message = `Assalamualaikum ${customerName}, 
     
-    \nKelas bersama ${teacherName} akan bermula dalam 2 jam. 
+    \nKelas bersama ${teacherName} akan bermula sebentar lagi. 
 
     \nSila sahkan kehadiran ${teacherName} dengan membalas 'Ya'`;
 
