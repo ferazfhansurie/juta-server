@@ -775,8 +775,8 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 
                                 // Generate and send the special report
                                 const report = await generateSpecialReport(threadID, ghlConfig.assistantId);
-                                const sentMessage2 = await client.sendMessage('120363325228671809@g.us', report);
-                                await addMessagetoFirebase(sentMessage2, idSubstring, '+120363325228671809');
+                                const sentMessage2 = await client.sendMessage('120363325228671809@g.us', report)
+                                await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
 
                                 try {
                                     await updateGoogleSheet(report);
@@ -846,6 +846,7 @@ async function updateGoogleSheet(report) {
       throw err;
     }
   }
+  
 
 async function generateSpecialReport(threadID, assistantId) {
     try {
