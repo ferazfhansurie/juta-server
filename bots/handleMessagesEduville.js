@@ -775,8 +775,21 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 
                                 // Generate and send the special report
                                 const report = await generateSpecialReport(threadID, ghlConfig.assistantId);
-                                const sentMessage2 = await client.sendMessage('120363325228671809@g.us', report)
-                                await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
+                                const sentMessage2 = await client.sendMessage('120363325228671809@g.us', report);
+                                await addMessagetoFirebase(sentMessage2, idSubstring, '+120363325228671809');
+
+                                // Prepare response details to save to Firestore
+                                const responseDetails = {
+                                    Name: sentMessageData.text.body, // Assuming the name is in the message body
+                                    Country: 'Actual Country', // Replace with actual country data if available
+                                    highestEducationalQualification: 'Actual Qualification', // Replace with actual data
+                                    program: 'Actual Program', // Replace with actual data
+                                    intake: 'Actual Intake', // Replace with actual data
+                                    certificate: 'Actual Certificate' // Replace with actual data
+                                };
+
+                                // Save response details to Firestore
+                                await saveResponseToFirestore(idSubstring, responseDetails);
 
                                 try {
                                     await updateGoogleSheet(report);
@@ -846,6 +859,39 @@ async function updateGoogleSheet(report) {
       throw err;
     }
   }
+  async function saveResponseToFirestore(companyId, responseDetails) {
+    // Prepare the document data
+    const contactData = {
+        contactName: responseDetails['Name'] || '',
+        country: responseDetails['Country'] || '',
+        highestEducationalQualification: responseDetails['highestEducationalQualification'] || '',
+        program: responseDetails['program'] || '',
+        intake: responseDetails['intake'] || '',
+        certificate: responseDetails['certificate'] || '',
+        submissionDate: new Date().toISOString(), // Submission Date
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(), // Timestamp for when the document is updated
+    };
+
+    try {
+        // Reference to the contact document
+        const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(responseDetails['Phone']); // Use phone as document ID
+        
+        // Check if the document already exists
+        const doc = await contactRef.get();
+        if (doc.exists) {
+            // If the document exists, update all fields
+            await contactRef.set(contactData, { merge: true }); // Use merge to update existing fields
+            console.log(`Contact updated in Firestore for company ${companyId}:`, contactData);
+        } else {
+            // If the document does not exist, create it with all fields
+            await contactRef.set(contactData);
+            console.log(`Contact created in Firestore for company ${companyId}:`, contactData);
+        }
+    } catch (err) {
+        console.error('Error saving contact to Firestore:', err);
+        throw err;
+    }
+}
 
 async function generateSpecialReport(threadID, assistantId) {
     try {
