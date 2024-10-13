@@ -779,6 +779,15 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 await addMessagetoFirebase(sentMessage2, idSubstring, '+120363325228671809');
 
                                 // Prepare response details to save to Firestore
+                            
+
+                                try {
+                                    await updateGoogleSheet(report);
+                                    console.log('Google Sheet updated successfully');
+                                } catch (error) {
+                                    console.error('Error updating Google Sheet:', error);
+                                }
+
                                 const responseDetails = {
                                     Name: sentMessageData.text.body, // Assuming the name is in the message body
                                     Country: 'Actual Country', // Replace with actual country data if available
@@ -790,13 +799,6 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
 
                                 // Save response details to Firestore
                                 await saveResponseToFirestore(idSubstring, responseDetails);
-
-                                try {
-                                    await updateGoogleSheet(report);
-                                    console.log('Google Sheet updated successfully');
-                                } catch (error) {
-                                    console.error('Error updating Google Sheet:', error);
-                                }
                             }
                             
                         }
@@ -860,21 +862,28 @@ async function updateGoogleSheet(report) {
     }
   }
   async function saveResponseToFirestore(companyId, responseDetails) {
+    // Check if phone is defined and not empty
+    const phone = responseDetails['phone'];
+    if (!phone) {
+        console.error('Phone number is undefined or empty. Cannot save to Firestore.');
+        return; // Exit the function if phone is invalid
+    }
+
     // Prepare the document data
     const contactData = {
         contactName: responseDetails['Name'] || '',
         country: responseDetails['Country'] || '',
-        highestEducationalQualification: responseDetails['highestEducationalQualification'] || '',
-        program: responseDetails['program'] || '',
-        intake: responseDetails['intake'] || '',
-        certificate: responseDetails['certificate'] || '',
+        highestEducationalQualification: responseDetails['Highest Educational Qualification'] || '',
+        program: responseDetails['Program'] || '',
+        intake: responseDetails['Intake'] || '',
+        certificate: responseDetails['Certificate'] || '',
         submissionDate: new Date().toISOString(), // Submission Date
         updatedAt: admin.firestore.FieldValue.serverTimestamp(), // Timestamp for when the document is updated
     };
 
     try {
         // Reference to the contact document
-        const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(responseDetails['Phone']); // Use phone as document ID
+        const contactRef = db.collection('companies').doc(companyId).collection('contacts').doc(phone); // Use phone as document ID
         
         // Check if the document already exists
         const doc = await contactRef.get();
