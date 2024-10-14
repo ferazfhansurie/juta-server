@@ -554,7 +554,11 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                 console.error(`Error handling media for message ${msg.id._serialized}:`, error);
                 messageData.text = { body: "Error handling media" };
             }
-        }
+        }   
+
+            if(contactData.customer == true){
+                data.customer = true;
+            }
 
             const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
             const messagesRef = contactRef.collection('messages');
@@ -605,7 +609,7 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                     
                     
                     
-                    if((msg.body.toLowerCase() === 'ya' || msg.body.toLowerCase() === 'yes') && (contactData.customer == true)){
+                    if((msg.body.toLowerCase().includes('ya') || msg.body.toLowerCase().includes('yes')) && (contactData.customer == true)){
                         // Call the method to update the spreadsheet
                         const spreadsheet = new bhqSpreadsheet(this.botMap);
                         await spreadsheet.updateAttendance(extractedNumber, true);
