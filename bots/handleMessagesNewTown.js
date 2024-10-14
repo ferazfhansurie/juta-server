@@ -746,7 +746,7 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                     answer= await handleOpenAIAssistant(query,threadID);
                     parts = answer.split(/\s*\|\|\s*/);
                     
-                    await customWait(10000);
+                    await customWait(5000);
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();   
                         const check = part.toLowerCase();
