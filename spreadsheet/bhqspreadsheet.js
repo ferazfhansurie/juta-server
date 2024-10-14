@@ -656,7 +656,7 @@ async saveThreadIDFirebase(contactID, threadID, idSubstring) {
 
     Thank you for your dedication to teaching this week!`;
 
-      await this.sendMessage('ttest', '60126029909', reportMessage);
+      await this.sendMessage('BHQ x Juta', '120363225984522400', reportMessage);
       console.log('Weekly report sent successfully');
 
     } catch (error) {
