@@ -820,6 +820,7 @@ async function handleNewMessagesEdward(client, msg, botName, phoneIndex) {
                 // }
 
             }else{
+                await customWait(20000); 
                     const firstMessage = client.sendMessage(msg.from, `Hi ${data.contactName}! \n\nThank you for showing interest in the 3-bedroom condo project in Seri Kembangan! \n\n🌟 I’m Edward, and I’d love to invite you to a Google Meet session where we’ll discuss how this amazing property, priced from RM394k, can meet your needs, whether for investment or personal use. 🏢\nSecure your spot now! \n\nReply *“YES”* to book an appointment 📅\nFeel free to ask me any questions!"
                         `);
         

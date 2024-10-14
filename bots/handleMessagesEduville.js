@@ -777,6 +777,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 const report = await generateSpecialReport(threadID, ghlConfig.assistantId);
                                 const sentMessage2 = await client.sendMessage('120363325228671809@g.us', report)
                                 await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
+                                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
 
                                 try {
                                     await updateGoogleSheet(report);
