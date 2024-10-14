@@ -931,8 +931,9 @@ New Order Has Been Submitted
 5. Address: [Extract from conversation]
 6. Stock Receiver: [Extract from conversation]
 7. Account Payable Contact Name and Phone: [Extract from conversation]
-8. Product Order and Quantity: [Extract from conversation]
-9. Intended Usage: [Extract from conversation]
+8. Product : [Extract from conversation]
+9. Quantity: [Extract from conversation]
+10. Intended Usage: [Extract from conversation]
 
 
 Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank.)`;
