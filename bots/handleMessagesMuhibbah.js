@@ -42,6 +42,7 @@ async function customWait(milliseconds) {
 }
 
 let employees = [];
+let sales = [];
 let currentEmployeeIndex = 0;
 
 async function fetchEmployeesFromFirebase(idSubstring) {
@@ -61,7 +62,8 @@ async function fetchEmployeesFromFirebase(idSubstring) {
                 name: data.name,
                 email: data.email,
                 phoneNumber: data.phoneNumber,
-                assignedContacts: data.assignedContacts || 0
+                assignedContacts: data.assignedContacts || 0,
+                group: data.group || null
             });
             console.log(`Added employee ${data.name} with role 4`);
         } else {
@@ -73,6 +75,36 @@ async function fetchEmployeesFromFirebase(idSubstring) {
 
     // Load the previous assignment state
     await loadAssignmentState(idSubstring);
+}
+
+async function fetchSalesFromFirebase(idSubstring, group) {
+    const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
+    const snapshot = await employeesRef.get();
+    
+    sales = [];
+    
+    console.log(`Total documents in employee collection: ${snapshot.size}`);
+
+    snapshot.forEach(doc => {
+        const data = doc.data();
+        console.log(`Processing employee document:`, data);
+
+        if (data.name && data.role === "2" && data.group === group) {
+            sales.push({
+                name: data.name,
+                email: data.email,
+                phoneNumber: data.phoneNumber,
+                assignedContacts: data.assignedContacts || 0,
+                weightage: data.weightage || 0
+            });
+            console.log(`Added employee ${data.name} with role 2`);
+        } else {
+            console.log(`Skipped employee ${data.name} due to missing name or role not being 2`);
+        }
+    });
+
+    console.log('Fetched employees with role 2:', employees);
+
 }
 
 
@@ -127,7 +159,58 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
     await client.sendMessage(employeeID, 'You have been assigned to ' + contactID);
     await addtagbookedFirebase(contactID, assignedEmployee.name, idSubstring);
+    if(assignedEmployee.group){
+        await fetchSalesFromFirebase(idSubstring, assignedEmployee.group);
+    }else{
+        console.log('No group assigned to the employee');
+    }
+    
+    // Filter out employees who are inactive (assuming active employees have a weightage > 0)
+    const availableEmployees = sales.filter(emp => emp.weightage > 0);
+
+    console.log('Available employees:', availableEmployees);  // Debug: Log available employees
     // Store the current state in Firebase
+    
+    if (availableEmployees.length === 0) {
+        console.log('No available employees found for assignment');
+        return [];
+    }
+
+    // Calculate total weight
+    const totalWeight = availableEmployees.reduce((sum, emp) => sum + emp.weightage, 0);
+
+    console.log('Total weight:', totalWeight);  // Debug: Log total weight
+
+    // Generate a random number between 0 and totalWeight
+    const randomValue = Math.random() * totalWeight;
+
+    console.log('Random value:', randomValue);  // Debug: Log random value
+
+    // Select an employee based on the weighted random selection
+    let cumulativeWeight = 0;
+    let assignedSales = null;
+
+    for (const emp of availableEmployees) {
+        cumulativeWeight += emp.weightage;
+        console.log(`Employee: ${emp.name}, Cumulative Weight: ${cumulativeWeight}`);  // Debug: Log each iteration
+        if (randomValue <= cumulativeWeight) {
+            assignedSales = emp;
+            break;
+        }
+    }
+    
+    if (!assignedSales) {
+        console.log('Failed to assign a sales');
+        return [];
+    }
+
+    console.log(`Assigned sales: ${assignedSales.name}`);
+    await addtagbookedFirebase(contactID, assignedSales.name, idSubstring);
+    const salesID = assignedEmployee.phoneNumber.replace(/\s+/g, '').split('+')[1] + '@c.us';
+
+    await client.sendMessage(salesID, 'You have been assigned to ' + contactID);
+
+    sales = []
     await storeAssignmentState(idSubstring);
 
     return tags;
