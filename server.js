@@ -172,8 +172,6 @@ const { handleEdwardTag } = require('./blast/edwardTag.js');
 const { handleNewMessagesEduVille } = require('./bots/handleMessagesEduville.js');
 
 
-
-
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());// Middleware
 // Serve static files from the 'public' directory
@@ -241,7 +239,6 @@ app.post('/api/edward/tag', async (req, res) => {
 
 //spreadsheet
 const msuSpreadsheet = require('./spreadsheet/msuspreadsheet.js');
-
 // const applyRadarSpreadsheetLPUniten = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN).js');
 // const applyRadarSpreadsheetLPUnitenPK = require('./spreadsheet/applyradarspreadsheet(LP - UNITEN PK).js');
 // const applyRadarSpreadsheetLPMMUPK = require('./spreadsheet/applyradarspreadsheet(LP - MMU PK).js');
@@ -251,9 +248,6 @@ const msuSpreadsheetPartTime = require('./spreadsheet/msuspreadsheet(PartTime).j
 const msuSpreadsheetCOL = require('./spreadsheet/msuspreadsheet(COL).js');
 const msuSpreadsheetLeads = require('./spreadsheet/msuspreadsheet(Leads).js');
 const bhqSpreadsheet = require('./spreadsheet/bhqspreadsheet.js');
-
-
-
 
 //custom bots
 const customHandlers = {
@@ -1603,7 +1597,6 @@ async function processChats(client, botName, phoneIndex) {
 }
 
 
-
 async function main(reinitialize = false) {
   console.log('Initialization starting...');
 
@@ -1642,41 +1635,21 @@ async function main(reinitialize = false) {
     }
     botMap.clear();
   }
+  
   console.log('Obliterating all jobs...');
   await obiliterateAllJobs();
   
-  
-
   console.log('Initializing bots...');
   for (const config of botConfigs) {
-    console.log(`Initializing bot ${config.botName} with ${config.phoneCount} phone(s)...`);
-    await initializeBot(config.botName, config.phoneCount);
+    console.log(`Starting bot ${config.botName} with ${config.phoneCount} phone(s)...`);
+    startBotInPM2(config.botName, config.phoneCount);
   }
 
   console.log('Scheduling all messages...');
   await scheduleAllMessages();
 
-  // Run the check immediately when the server starts
-  // console.log('Checking for new rows msu...');
-  // const msuAutomationCOL = new msuSpreadsheetCOL(botMap);
-  // const msuAutomationPartTime = new msuSpreadsheetPartTime(botMap);
-  // const msuAutomationLeads = new msuSpreadsheetLeads(botMap);
   const bhqAutomation = new bhqSpreadsheet(botMap);
   bhqAutomation.initialize();
-  // msuAutomationCOL.initialize();
-  // msuAutomationPartTime.initialize();
-  // msuAutomationLeads.initialize();
-
-  // console.log('Checking for new rows apply radar...');
-  // const applyRadarAutomationLPUniten = new applyRadarSpreadsheetLPUniten(botMap);
-  // const applyRadarAutomationLPUnitenPK = new applyRadarSpreadsheetLPUnitenPK(botMap);
-  // const applyRadarAutomationLPMMUPK = new applyRadarSpreadsheetLPMMUPK(botMap);
-  // const applyRadarAutomationLPAPUPK = new applyRadarSpreadsheetLPAPUPK(botMap);
-
-  // applyRadarAutomationLPUniten.initialize();
-  // applyRadarAutomationLPUnitenPK.initialize();
-  // applyRadarAutomationLPMMUPK.initialize();
-  // applyRadarAutomationLPAPUPK.initialize(); 
 
   console.log('Initialization complete');
   // Send ready signal to PM2
@@ -1684,7 +1657,31 @@ async function main(reinitialize = false) {
     process.send('ready');
   }
 }
+// Function to start a bot in a separate PM2 process
+function startBotInPM2(botName, phoneCount) {
+  pm2.connect(err => {
+    if (err) {
+      console.error(err);
+      process.exit(2);
+    }
 
+    pm2.start({
+      script: 'server.js', // The same file
+      name: botName, // Unique name for each bot
+      args: [botName, phoneCount], // Pass botName and phoneCount as arguments
+      exec_mode: 'fork', // Use fork mode
+      instances: 1, // One instance per bot
+      watch: false, // Disable watch mode
+      env: {
+        PORT: process.env.PORT || 3000 // Ensure they all use the same port
+      }
+    }, (err, apps) => {
+      pm2.disconnect(); // Disconnect from PM2
+      if (err) throw err;
+      console.log(`Bot ${botName} started successfully!`);
+    });
+  });
+}
 async function getContactDataFromDatabaseByEmail(email) {
   try {
       // Check if email is defined
@@ -2105,7 +2102,7 @@ app.get('/api/messages/:chatId/:token/:email', async (req, res) => {
       });
 
       res.json({ messages: whapiMessages, count: whapiMessagesData.count, total: whapiMessagesData.total });
-    } catch (error) {
+  } catch (error) {
         console.error(error);
         res.status(500).send('Internal Server Error');
     }
@@ -2258,15 +2255,17 @@ app.put('/api/v2/messages/:companyId/:chatId/:messageId', async (req, res) => {
 app.delete('/api/v2/messages/:companyId/:chatId/:messageId', async (req, res) => {
   console.log('Delete message');
   const { companyId, chatId, messageId } = req.params;
-  const { deleteForEveryone } = req.body; // Add this to allow specifying if the message should be deleted for everyone
+  const { deleteForEveryone, phoneIndex: requestedPhoneIndex } = req.body; // Added phoneIndex to the request body
 
+  const phoneIndex = requestedPhoneIndex !== undefined ? parseInt(requestedPhoneIndex) : 0; // Determine phoneIndex
+  console.log('phone index',phoneIndex);
   try {
     // Get the client for this company from botMap
     const botData = botMap.get(companyId);
-    if (!botData || !botData[0] || !botData[0].client) {
+    if (!botData || !botData[phoneIndex] || !botData[phoneIndex].client) { // Use phoneIndex to access the client
       return res.status(404).send('WhatsApp client not found for this company');
     }
-    const client = botData[0].client;
+    const client = botData[phoneIndex].client; // Get the client using phoneIndex
 
     // Get the chat
     const chat = await client.getChatById(chatId);
@@ -2649,7 +2648,7 @@ app.post('/api/messages/document/:token', async (req, res) => {
     } catch (error) {
         console.error('Error sending image message:', error);
         res.status(500).send('Internal Server Error');
-    }
+    }
 });
 
 
