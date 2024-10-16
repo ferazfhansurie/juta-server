@@ -316,33 +316,88 @@ const RATE_LIMIT_DELAY = 5000; // 5 seconds
 
 // Add this new function to check for scheduling conflicts
 async function checkScheduleConflicts(startDateTime, endDateTime) {
+    const conflictResult = {
+        conflict: false,
+        conflictingAppointments: [],
+    };
+
+    // Convert input to timestamps if they aren't already
+    const startTimestamp = new Date(startDateTime).getTime();
+    const endTimestamp = new Date(endDateTime).getTime();
+
+    // Convert milliseconds to ISO strings for Google Calendar API
+    const timeMin = new Date(startTimestamp).toISOString();
+    const timeMax = new Date(endTimestamp).toISOString();
+
     try {
-      console.log('Checking for scheduling conflicts...');
-      
-      const userRef = db.collection('user').doc('faeezree@gmail.com');
-      const appointmentsCollectionRef = userRef.collection('appointments');
-  
-      const conflictingAppointments = await appointmentsCollectionRef
-            .where('startTime', '<', endDateTime)
-            .where('endTime', '>', startDateTime)
-            .get();
+        // **1. Check Firestore for Conflicts**
+        console.log('Checking for scheduling conflicts in Firestore...');
+        
+        const userRef = db.collection('user').doc('faeezree@gmail.com');
+        const appointmentsCollectionRef = userRef.collection('appointments');
     
-  
-      if (!conflictingAppointments.empty) {
-        console.log('Scheduling conflict found');
-        return { 
-          conflict: true, 
-          conflictingAppointments: conflictingAppointments.docs.map(doc => doc.data())
-        };
-      }
-  
-      console.log('No scheduling conflicts found');
-      return { conflict: false };
+        const conflictingAppointmentsFirestore = await appointmentsCollectionRef
+              .where('startTime', '<', endTimestamp)
+              .where('endTime', '>', startTimestamp)
+              .get();
+      
+        if (!conflictingAppointmentsFirestore.empty) {
+            console.log('Scheduling conflict found in Firestore');
+            conflictResult.conflict = true;
+            // Format Firestore conflicts to match expected structure
+            const firestoreConflicts = conflictingAppointmentsFirestore.docs.map(doc => ({
+                source: 'Firestore',
+                id: doc.id,
+                title: doc.data().title,
+                startTime: doc.data().startTime,
+                endTime: doc.data().endTime,
+                description: doc.data().address || "",
+                // Add other relevant fields if necessary
+            }));
+            conflictResult.conflictingAppointments.push(...firestoreConflicts);
+        } else {
+            console.log('No scheduling conflicts found in Firestore');
+        }
+
+        // **2. Check Google Calendar for Conflicts**
+        console.log('Checking for scheduling conflicts in Google Calendar...');
+        const calendar = createGoogleCalendarClient();
+
+        const eventsResponse = await calendar.events.list({
+            calendarId: 'faeezree@gmail.com', // Use the appropriate calendar ID
+            timeMin: timeMin,
+            timeMax: timeMax,
+            singleEvents: true,
+            orderBy: 'startTime',
+        });
+
+        const events = eventsResponse.data.items;
+
+        if (events && events.length > 0) {
+            console.log('Scheduling conflict found in Google Calendar');
+            conflictResult.conflict = true;
+            // Format Google Calendar conflicts to match expected structure
+            const calendarConflicts = events.map(event => ({
+                source: 'Google Calendar',
+                id: event.id,
+                title: event.summary,
+                startTime: new Date(event.start.dateTime || event.start.date).getTime(),
+                endTime: new Date(event.end.dateTime || event.end.date).getTime(),
+                description: event.description || "",
+                // Add other relevant fields if necessary
+            }));
+            conflictResult.conflictingAppointments.push(...calendarConflicts);
+        } else {
+            console.log('No scheduling conflicts found in Google Calendar');
+        }
+
+        return conflictResult;
+
     } catch (error) {
-      console.error('Error checking for scheduling conflicts:', error);
-      return { conflict: true, error: error.message };
+        console.error('Error checking for scheduling conflicts:', error);
+        return { conflict: true, error: error.message };
     }
-  }
+}
 
 async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
     try {
