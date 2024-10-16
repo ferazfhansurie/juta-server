@@ -316,33 +316,95 @@ const RATE_LIMIT_DELAY = 5000; // 5 seconds
 
 // Add this new function to check for scheduling conflicts
 async function checkScheduleConflicts(startDateTime, endDateTime) {
+    const conflictResult = {
+        conflict: false,
+        conflictingAppointments: [],
+    };
+
+    // Convert input to timestamps if they aren't already
+    const startTimestamp = new Date(startDateTime).getTime();
+    const endTimestamp = new Date(endDateTime).getTime();
+
+    // Convert milliseconds to ISO strings for Google Calendar API
+    const timeMin = new Date(startTimestamp).toISOString();
+    const timeMax = new Date(endTimestamp).toISOString();
+
     try {
-      console.log('Checking for scheduling conflicts...');
-      
-      const userRef = db.collection('user').doc('faeezree@gmail.com');
-      const appointmentsCollectionRef = userRef.collection('appointments');
-  
-      const conflictingAppointments = await appointmentsCollectionRef
-            .where('startTime', '<', endDateTime)
-            .where('endTime', '>', startDateTime)
-            .get();
+        // **1. Check Firestore for Conflicts**
+        console.log('Checking for scheduling conflicts in Firestore...');
+        
+        const userRef = db.collection('user').doc('faeezree@gmail.com');
+        const appointmentsCollectionRef = userRef.collection('appointments');
     
-  
-      if (!conflictingAppointments.empty) {
-        console.log('Scheduling conflict found');
-        return { 
-          conflict: true, 
-          conflictingAppointments: conflictingAppointments.docs.map(doc => doc.data())
-        };
-      }
-  
-      console.log('No scheduling conflicts found');
-      return { conflict: false };
+        const conflictingAppointmentsFirestore = await appointmentsCollectionRef
+              .where('startTime', '<', endTimestamp)
+              .where('endTime', '>', startTimestamp)
+              .get();
+      
+        if (!conflictingAppointmentsFirestore.empty) {
+            console.log('Scheduling conflict found in Firestore');
+            conflictResult.conflict = true;
+            // Format Firestore conflicts to match expected structure
+            const firestoreConflicts = conflictingAppointmentsFirestore.docs.map(doc => ({
+                source: 'Firestore',
+                id: doc.id,
+                title: doc.data().title,
+                startTime: doc.data().startTime,
+                endTime: doc.data().endTime,
+                description: doc.data().address || "",
+                // Add other relevant fields if necessary
+            }));
+            conflictResult.conflictingAppointments.push(...firestoreConflicts);
+        } else {
+            console.log('No scheduling conflicts found in Firestore');
+        }
+
+        // **2. Check Google Calendar for Conflicts**
+        console.log('Checking for scheduling conflicts in Google Calendar...');
+        
+        // Initialize Google Calendar client within the function
+        const auth = new google.auth.GoogleAuth({
+            keyFile: './service_account.json', // Ensure this path is correct
+            scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+        });
+
+        const calendar = google.calendar({ version: 'v3', auth });
+
+        const eventsResponse = await calendar.events.list({
+            calendarId: 'faeezree@gmail.com', // Use the appropriate calendar ID
+            timeMin: timeMin,
+            timeMax: timeMax,
+            singleEvents: true,
+            orderBy: 'startTime',
+        });
+
+        const events = eventsResponse.data.items;
+
+        if (events && events.length > 0) {
+            console.log('Scheduling conflict found in Google Calendar');
+            conflictResult.conflict = true;
+            // Format Google Calendar conflicts to match expected structure
+            const calendarConflicts = events.map(event => ({
+                source: 'Google Calendar',
+                id: event.id,
+                title: event.summary,
+                startTime: new Date(event.start.dateTime || event.start.date).getTime(),
+                endTime: new Date(event.end.dateTime || event.end.date).getTime(),
+                description: event.description || "",
+                // Add other relevant fields if necessary
+            }));
+            conflictResult.conflictingAppointments.push(...calendarConflicts);
+        } else {
+            console.log('No scheduling conflicts found in Google Calendar');
+        }
+
+        return conflictResult;
+
     } catch (error) {
-      console.error('Error checking for scheduling conflicts:', error);
-      return { conflict: true, error: error.message };
+        console.error('Error checking for scheduling conflicts:', error);
+        return { conflict: true, error: error.message };
     }
-  }
+}
 
 async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
     try {
@@ -410,11 +472,11 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             },
         };
 
-        const calendarResponse = await calendar.events.insert({
+        const calendarResponse = calendar.events.insert({
             calendarId: 'faeezree@gmail.com', // Use 'primary' for the user's primary calendar
             resource: event,
         });
-
+console.log(calendarResponse);
         // Format the date and time for better readability
         const startDate = new Date(startDateTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const startTime = new Date(startDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -3335,7 +3397,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "createCalendarEvent",
-                description: "Schedule a meeting in Calendar. Always call getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
+                description: "Schedule a meeting in Calendar. Always getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
                 parameters: {
                     type: "object",
                     properties: {
