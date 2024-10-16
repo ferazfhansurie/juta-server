@@ -2058,21 +2058,17 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
     const today = moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD'); // Get today's date
     const availableSlots = [];
     const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
-
     // Create an auth client for Google Calendar
     const auth = new google.auth.GoogleAuth({
         keyFile: './service_account.json', // Update this path
         scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
     });
-
     const calendar = google.calendar({ version: 'v3', auth });
-
     // Loop through the next 'daysAhead' days
     for (let dayOffset = 0; dayOffset <= daysAhead; dayOffset++) {
         const dateToCheck = moment(today).add(dayOffset, 'days').format('YYYY-MM-DD');
         const startOfDay = moment(dateToCheck).startOf('day').toISOString();
         const endOfDay = moment(dateToCheck).endOf('day').toISOString();
-
         // Fetch events for the day
         const eventsResponse = await calendar.events.list({
             calendarId: 'thealistmalaysia@gmail.com', // Use the appropriate calendar ID
@@ -2081,7 +2077,6 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
             singleEvents: true,
             orderBy: 'startTime',
         });
-
         const events = eventsResponse.data.items;
         const bookedSlots = events.map(event => ({
             startTime: new Date(event.start.dateTime || event.start.date).getTime(),
@@ -3335,7 +3330,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "createCalendarEvent",
-                description: "Schedule a meeting in Calendar. Always call getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
+                description: "Schedule a meeting in Calendar. Always call checkAvailableTimeSlots to see if the date is available and getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
                 parameters: {
                     type: "object",
                     properties: {
