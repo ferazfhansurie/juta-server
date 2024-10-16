@@ -3410,7 +3410,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "getTodayDate",
-                description: "Always call this first when doing time related queries. Get today's date in YYYY-MM-DD format",
+                "description": "Always call this first when handling time-related queries, such as when a user asks for today, next week, tomorrow, yesterday, etc. Retrieves today's date in YYYY-MM-DD format.",
                 parameters: {
                     type: "object",
                     properties: {},
