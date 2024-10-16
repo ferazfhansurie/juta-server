@@ -1555,45 +1555,45 @@ if (!contactData) {
                         
                            await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
                         }
-                        if(check.includes('All In Enterprise Package – RM7,899')){
+                        if(part.includes('All In Enterprise Package – RM7,899')){
                             const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/%5C.jpeg?alt=media&token=bb6ae244-04cd-4f59-b7d9-0f72516e5d4e'; // Update this URL to your image URL
                             const media = await MessageMedia.fromUrl(imagePath);
                             const imageMessage = await client.sendMessage(msg.from, media);
                             await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }
-                        if(check.includes('Start Up Package – RM5,000')){
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.00%20PM.jpeg?alt=media&token=798ebdeb-2597-4abb-a2bd-a186c4068b04'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath);
+                        if(part.includes('Start Up Package – RM5,000')){
+                            const imagePath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.00%20PM.jpeg?alt=media&token=798ebdeb-2597-4abb-a2bd-a186c4068b04';                // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath2);
                             const imageMessage = await client.sendMessage(msg.from, media);
                             await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }
-                        if(check.includes('TikTok Star Package – RM9,999')){
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.01%20PM.jpeg?alt=media&token=f98147e6-2438-4661-b381-86f6008f149c'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath);
+                        if(part.includes('TikTok Star Package – RM9,999')){
+                            const imagePath3 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.01%20PM.jpeg?alt=media&token=f98147e6-2438-4661-b381-86f6008f149c'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath3);
                             const imageMessage = await client.sendMessage(msg.from, media);
                             await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }
-                        if(check.includes('Rising Star Package – RM25,000')){
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.02%20PM.jpeg?alt=media&token=0ac2a45f-0d90-4790-8e51-87fa4a848162'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath);
+                        if(part.includes('Rising Star Package – RM25,000')){
+                            const imagePath4 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.02%20PM.jpeg?alt=media&token=0ac2a45f-0d90-4790-8e51-87fa4a848162'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath4);
                             const imageMessage = await client.sendMessage(msg.from, media);
                             await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }
-                        if(check.includes('Super Star Package – RM39,500')){
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.03%20PM.jpeg?alt=media&token=3fb5754c-757d-4499-a745-2b2600b69c61'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath);
+                        if(part.includes('Super Star Package – RM39,500')){
+                            const imagePath5 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.03%20PM.jpeg?alt=media&token=3fb5754c-757d-4499-a745-2b2600b69c61'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath5);
                             const imageMessage = await client.sendMessage(msg.from, media);
                             await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }
-                        if(check.includes('KOC Bundle - 3 Months – RM44,999')){
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.04%20PM.jpeg?alt=media&token=78f59305-a2fc-4493-a7a7-0d829d7fbe04'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath);
+                        if(part.includes('KOC Bundle - 3 Months – RM44,999')){
+                            const imagePath6 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.04%20PM.jpeg?alt=media&token=78f59305-a2fc-4493-a7a7-0d829d7fbe04'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath6);
                             const imageMessage = await client.sendMessage(msg.from, media);
                             await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }
                         if(check.includes('KOC Bundle - 1 Month – RM17,999')){
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.05%20PM.jpeg?alt=media&token=5a2356c0-8b65-4c20-9484-d8919615aecc'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath);
+                            const imagePath7 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.05%20PM.jpeg?alt=media&token=5a2356c0-8b65-4c20-9484-d8919615aecc'; // Update this URL to your image URL
+                            const media = await MessageMedia.fromUrl(imagePath7);
                             const imageMessage = await client.sendMessage(msg.from, media);
                             await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }

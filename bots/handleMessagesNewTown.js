@@ -794,7 +794,7 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if(part.includes('C50 Kg')){
-                                const imagePat4 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1567151606_sample_product2.jpg?alt=media&token=ab7306d3-7edd-4c10-9a5d-d4475fe00dd8'; // Update this URL to your image URL
+                                const imagePath4 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/1567151606_sample_product2.jpg?alt=media&token=ab7306d3-7edd-4c10-9a5d-d4475fe00dd8'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath4);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
