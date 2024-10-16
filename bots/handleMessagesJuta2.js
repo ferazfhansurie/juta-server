@@ -361,7 +361,14 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
 
         // **2. Check Google Calendar for Conflicts**
         console.log('Checking for scheduling conflicts in Google Calendar...');
-        const calendar = createGoogleCalendarClient();
+        
+        // Initialize Google Calendar client within the function
+        const auth = new google.auth.GoogleAuth({
+            keyFile: './service_account.json', // Ensure this path is correct
+            scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
+        });
+
+        const calendar = google.calendar({ version: 'v3', auth });
 
         const eventsResponse = await calendar.events.list({
             calendarId: 'faeezree@gmail.com', // Use the appropriate calendar ID
