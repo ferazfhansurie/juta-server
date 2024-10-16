@@ -170,7 +170,7 @@ const { handleNewMessagesDMAI } = require('./bots/handleMessagesDMAI.js');
 const { handleNewMessagesEdward } = require('./bots/handleMessagesEdward.js');
 const { handleEdwardTag } = require('./blast/edwardTag.js');
 const { handleNewMessagesEduVille } = require('./bots/handleMessagesEduville.js');
-
+const { handleNewMessagesAlist } = require('./bots/handleMessagesAList.js');
 
 
 
@@ -274,6 +274,7 @@ const customHandlers = {
   '067': handleNewMessagesMuhibbah,
   '081': handleNewMessagesDMAI,
   '088': handleNewMessagesNewTown,
+  '092': handleNewMessagesAlist,
   '093': handleNewMessagesEdward,
   '095': handleNewMessagesEduVille,
 
