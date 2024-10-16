@@ -177,25 +177,25 @@ class bhqSpreadsheet {
       let currentDateMalay;
       switch(currentDate){
         case 'MONDAY':
-          currentDateMalay = 'Isnin';
+          currentDateMalay = 'Ahad';
           break;
         case 'TUESDAY':
-          currentDateMalay = 'Selasa';
+          currentDateMalay = 'Isnin';
           break;
         case 'WEDNESDAY':
-          currentDateMalay = 'Rabu';
+          currentDateMalay = 'Selasa';
           break;
         case 'THURSDAY':
-          currentDateMalay = 'Khamis';
+          currentDateMalay = 'Rabu';
           break;
         case 'FRIDAY':
-          currentDateMalay = 'Jumaat';
+          currentDateMalay = 'Khamis';
           break;
         case 'SATURDAY':
-          currentDateMalay = 'Sabtu';
+          currentDateMalay = 'Jumaat';
           break;
         case 'SUNDAY':
-          currentDateMalay = 'Ahad';
+          currentDateMalay = 'Sabtu';
           break;
         default:
           currentDateMalay = currentDate;
