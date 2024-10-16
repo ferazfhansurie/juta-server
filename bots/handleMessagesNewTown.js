@@ -773,7 +773,7 @@ async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
     
                             await messageDoc.set(sentMessageData, { merge: true });
-                            if (check.includes('Here are the LPG Gas Cylinder')) {
+                            if (check.includes('Which LPG Gas Cylinder would you like to order?')) {
                                 const imagePath = 'Users/faeezree/Documents/juta-server/media/newtown/Newtowngases.png'; // Update this path
                                 try {
                                     const media = await MessageMedia.fromFilePath(imagePath);
