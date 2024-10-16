@@ -704,9 +704,9 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
 
                 // Capitalize the first letter of the assigned name
 
-               const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Farah. 😃\n\n` +
-               `Team farah akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
-               `Sebentar lagi team farah nama dia _*${assigned.toUpperCase()}*_ akan whatsapp cik, atau cik boleh terus whatsapp ${assigned} dengan segera di nombor *${number.split('@')[0]}* 👩🏻‍💼`;
+               const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Zara. 😃\n\n` +
+               `Team zara akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
+               `Sebentar lagi team zara nama dia _*${assigned.toUpperCase()}*_ akan whatsapp cik, atau cik boleh terus whatsapp ${assigned} dengan segera di nombor *${number.split('@')[0]}* 👩🏻‍💼`;
 
                const msg = await client.sendMessage(sender.to, message);
                await addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName);
