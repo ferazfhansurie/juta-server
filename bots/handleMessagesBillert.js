@@ -107,7 +107,8 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
 
     return {
         assigned: assignedName,
-        number: employeeID
+        number: employeeID,
+        email: assignedEmployee.email
     };
 }
 
@@ -679,13 +680,27 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 const assignmentResult = await assignNewContactToEmployee(contactID, idSubstring, client);
                 let assigned = assignmentResult.assigned;
                 let number = assignmentResult.number;
+                let email = assignmentResult.email;
 
                 // Save the assignment
                 await assignmentRef.set({
                     assigned: assigned,
                     number: number,
+                    email: email,
                     timestamp: admin.firestore.FieldValue.serverTimestamp()
                 });
+
+                // Fetch user data from Firebase
+                const userRef = db.collection('user').doc(email);
+                const userDoc = await userRef.get();
+                let userImageUrl = '';
+                let userNotes = '';
+
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    userImageUrl = userData.imageUrl || '';
+                    userNotes = userData.notes || '';
+                }
 
                 // Capitalize the first letter of the assigned name
 
@@ -693,71 +708,37 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                `Team farah akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
                `Sebentar lagi team farah nama dia _*${assigned.toUpperCase()}*_ akan whatsapp cik, atau cik boleh terus whatsapp ${assigned} dengan segera di nombor *${number.split('@')[0]}* 👩🏻‍💼`;
 
-               const msg =await client.sendMessage(sender.to, message);
+               const msg = await client.sendMessage(sender.to, message);
                await addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName);
 
-               if(assigned == 'hilmi'){
-                   const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Hilmi%20Intro%20Picture.png?alt=media&token=52947d47-30a3-4d5b-aaef-b67f9637eea9';
-                   const media = await MessageMedia.fromUrl(imagePath);
-                   const imageMessage = await client.sendMessage(sender.to, media);
-                   await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-               }else if(assigned == 'stanie'){
-                   const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Stanie%20Intro%20Picture.png?alt=media&token=65b13831-a719-4633-85c3-970127cab485';
-                   const media = await MessageMedia.fromUrl(imagePath);
-                   const imageMessage = await client.sendMessage(sender.to, media);
-                   await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-               }else if(assigned == 'zara'){
-                   const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/Zara%20Intro%20Picture%20(2).png?alt=media&token=c1539439-539e-4e2f-8503-e5dea2b7cb1b';
-                   const media = await MessageMedia.fromUrl(imagePath);
-                   const imageMessage = await client.sendMessage(sender.to, media);
-                   await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-               }else if(assigned == 'qayyim'){
-                   const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/qayyim.jpg?alt=media&token=2a962898-13fe-4d5f-9fea-8daf00bc50c7';
-                   const media = await MessageMedia.fromUrl(imagePath);
-                   const imageMessage = await client.sendMessage(sender.to, media);
-                   await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'bazilah'){
-                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/bazilah.jpg?alt=media&token=feb8ebec-8412-4677-8775-f85069ccd667';
-                    const media = await MessageMedia.fromUrl(imagePath);
-                    const imageMessage = await client.sendMessage(sender.to, media);
-                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'ida'){
-                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/ida.jpg?alt=media&token=e415ec10-1c4b-41a2-aea3-53eb760fb645';
-                    const media = await MessageMedia.fromUrl(imagePath);
-                    const imageMessage = await client.sendMessage(sender.to, media);
-                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'siti'){
-                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/siti.jpg?alt=media&token=cb11c599-7b1c-4b31-b9ef-60251fc673b6';
-                    const media = await MessageMedia.fromUrl(imagePath);
-                    const imageMessage = await client.sendMessage(sender.to, media);
-                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'teha'){
-                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/3b37f5d7-e2bf-412f-99e1-e7c6bff433f4.jpeg?alt=media&token=92e07b9d-cda7-4c9f-8c22-f01652da0661';
-                    const media = await MessageMedia.fromUrl(imagePath);
-                    const imageMessage = await client.sendMessage(sender.to, media);
-                    await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                }else if(assigned == 'alin'){
-                    const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/alin.jpg?alt=media&token=40d378b6-e07b-4319-bde5-da2af3a1e4ab';
-                    const media = await MessageMedia.fromUrl(imagePath);
+               // Send user's image if available
+                if (userImageUrl) {
+                    const media = await MessageMedia.fromUrl(userImageUrl);
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                 }
 
-               function getCurrentDate() {
-                const date = new Date();
-                const options = { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: '2-digit', year: 'numeric' };
-                const [day, month, year] = date.toLocaleDateString('en-GB', options).split('/');
-                return `${day}/${month}/${year}`;
-            }
-               const currentDate = getCurrentDate();
-               const custNumber = sender.to.split('@')[0];
-               const message2 = `Hi *${assigned}*\n\n` +
-               `Anda terima Leads baru 🚀\n\n` +
-               `No Phone : *+${custNumber}*\n\n`+
-               `Tarikh : *${currentDate}*\n\n`+
-               `Good Luck !`;
-               const msg2 =await client.sendMessage(number, message2);
-               await addMessagetoFirebase(msg2, idSubstring, number, assigned);
+                // Send user's notes if available
+                if (userNotes) {
+                    const notesMessage = await client.sendMessage(sender.to, userNotes);
+                    await addMessagetoFirebase(notesMessage, idSubstring, extractedNumber, contactName);
+                }
+
+                function getCurrentDate() {
+                    const date = new Date();
+                    const options = { timeZone: 'Asia/Kuala_Lumpur', day: '2-digit', month: '2-digit', year: 'numeric' };
+                    const [day, month, year] = date.toLocaleDateString('en-GB', options).split('/');
+                    return `${day}/${month}/${year}`;
+                }
+                const currentDate = getCurrentDate();
+                const custNumber = sender.to.split('@')[0];
+                const message2 = `Hi *${assigned}*\n\n` +
+                `Anda terima Leads baru 🚀\n\n` +
+                `No Phone : *+${custNumber}*\n\n`+
+                `Tarikh : *${currentDate}*\n\n`+
+                `Good Luck !`;
+                const msg2 = await client.sendMessage(number, message2);
+                await addMessagetoFirebase(msg2, idSubstring, number, assigned);                
 
                  // Create the data object
                 console.log('New contact assigned and messages sent');
