@@ -3391,7 +3391,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "createCalendarEvent",
-                description: "Schedule a meeting in Calendar. Always call checkAvailableTimeSlots to see if the date is available and getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
+                description: "Schedule a meeting in Calendar. Always call getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
                 parameters: {
                     type: "object",
                     properties: {
@@ -3410,7 +3410,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "getTodayDate",
-                description: "Get today's date in YYYY-MM-DD format",
+                description: "Always call this first when doing time related functions. Get today's date in YYYY-MM-DD format",
                 parameters: {
                     type: "object",
                     properties: {},

@@ -472,11 +472,11 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             },
         };
 
-        const calendarResponse = await calendar.events.insert({
+        const calendarResponse = calendar.events.insert({
             calendarId: 'faeezree@gmail.com', // Use 'primary' for the user's primary calendar
             resource: event,
         });
-
+console.log(calendarResponse);
         // Format the date and time for better readability
         const startDate = new Date(startDateTime).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         const startTime = new Date(startDateTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
@@ -3397,7 +3397,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "createCalendarEvent",
-                description: "Schedule a meeting in Calendar. Always call checkAvailableTimeSlots to see if the date is available and getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
+                description: "Schedule a meeting in Calendar. Always getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
                 parameters: {
                     type: "object",
                     properties: {
