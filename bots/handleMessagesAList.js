@@ -3406,11 +3406,11 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                 },
             },
         },
-        {
+        {   
             type: "function",
             function: {
                 name: "getTodayDate",
-                description: "Always call this first when doing time related functions. Get today's date in YYYY-MM-DD format",
+                description: "Always call this first when doing time related queries. Get today's date in YYYY-MM-DD format",
                 parameters: {
                     type: "object",
                     properties: {},
