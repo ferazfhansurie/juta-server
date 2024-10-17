@@ -249,7 +249,7 @@ class bhqSpreadsheet {
               if (!this.sentReminders[reminderKey]) {
                 console.log(`  Sending reminder...`);
                 if(customerName && customerPhone){
-                  await this.sendReminderToTeacher(teacherName, phoneNumber, customerName, j);
+            //      await this.sendReminderToTeacher(teacherName, phoneNumber, customerName, j);
                   await this.sendReminderToCustomer(customerName, customerPhone, teacherName, j);
                   this.sentReminders[reminderKey] = Date.now();
                   await this.saveSentReminders();
@@ -668,9 +668,9 @@ async saveThreadIDFirebase(contactID, threadID, idSubstring) {
   async sendReminderToCustomer(customerName, phoneNumber, teacherName, rowNumber) {
     const message = `Assalamualaikum ${customerName}, 
     
-    \nKelas bersama ${teacherName} akan bermula sebentar lagi. 
+    \nKelas bersama Guru : ${teacherName} berjalan semalam. 
 
-    \nSila sahkan kehadiran ${teacherName} dengan membalas 'Ya'`;
+    \nSila sahkan kehadiran kelas tersebut dengan membalas 'Ya'`;
 
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
