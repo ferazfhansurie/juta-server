@@ -2164,8 +2164,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
     // 2. Use wwebjs to send the message
     let sentMessage;
     if (quotedMessageId) {
-      const chat = await client.getChatById(chatId);
-      sentMessage = await chat.sendMessage(message, { quotedMessageId: quotedMessageId });
+      sentMessage = await client.sendMessage(chatId, message, { quotedMessageId: quotedMessageId });
     } else {
       sentMessage = await client.sendMessage(chatId, message);
     }
