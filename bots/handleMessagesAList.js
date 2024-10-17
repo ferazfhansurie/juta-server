@@ -1548,13 +1548,6 @@ if (!contactData) {
                         const messageDoc = messagesRef.doc(sentMessage.id._serialized);
 
                         await messageDoc.set(sentMessageData, { merge: true });
-                        if (check.includes('patience')) {
-                        } 
-                        if(check.includes('get back to you as soon as possible')){
-                            console.log('check includes');
-                        
-                           await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
-                        }
                         if(part.includes('*All In Enterprise Package* – RM7,899')){
                             const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/%5C.jpeg?alt=media&token=bb6ae244-04cd-4f59-b7d9-0f72516e5d4e'; // Update this URL to your image URL
                             const media = await MessageMedia.fromUrl(imagePath);
@@ -1597,6 +1590,14 @@ if (!contactData) {
                             const imageMessage = await client.sendMessage(msg.from, media);
                             await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                         }
+                        if (check.includes('patience')) {
+                        } 
+                        if(check.includes('get back to you as soon as possible')){
+                            console.log('check includes');
+                        
+                           await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
+                        }
+                        
 
                     }
                 }
