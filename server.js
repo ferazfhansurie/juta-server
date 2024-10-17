@@ -2165,9 +2165,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
     let sentMessage;
     if (quotedMessageId) {
       const chat = await client.getChatById(chatId);
-      const quotedMessage = await chat.fetchMessages({limit: 1, id: quotedMessageId});
-      console.log(quotedMessage);
-      sentMessage = await chat.sendMessage(message, { quotedMessageId: quotedMessage[0].id._serialized });
+      sentMessage = await chat.sendMessage(message, { quotedMessageId: quotedMessageId });
     } else {
       sentMessage = await client.sendMessage(chatId, message);
     }
