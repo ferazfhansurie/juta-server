@@ -775,10 +775,23 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 
                                 // Generate and send the special report
-                                const report = await generateSpecialReport(threadID, ghlConfig.assistantId);
-                                const sentMessage2 = await client.sendMessage('120363325228671809@g.us', report)
+                                const { reportMessage, contactInfo } = await generateSpecialReport(threadID, ghlConfig.assistantId);
+                                const sentMessage2 = await client.sendMessage('120363325228671809@g.us', reportMessage)
                                 await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
                                 await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
+
+                                // Update the data object with the extracted contact info
+                                data = {
+                                    ...data,
+                                    country: contactInfo.country || data.country,
+                                    highestEducation: contactInfo.highestEducation,
+                                    programOfStudy: contactInfo.programOfStudy,
+                                    intakePreference: contactInfo.intakePreference,
+                                    englishProficiency: contactInfo.englishProficiency,
+                                };
+
+                                await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
+
 
                                 try {
                                     await updateGoogleSheet(report);
@@ -887,11 +900,35 @@ Fill in the information in square brackets with the relevant details from our co
         const messages = await openai.beta.threads.messages.list(threadID);
         const reportMessage = messages.data[0].content[0].text.value;
 
-        return reportMessage;
+        const contactInfo = extractContactInfo(reportMessage);
+
+
+        return { reportMessage, contactInfo };
     } catch (error) {
         console.error('Error generating special report:', error);
         return 'Error generating report';
     }
+}
+
+function extractContactInfo(report) {
+    const lines = report.split('\n');
+    const contactInfo = {};
+
+    for (const line of lines) {
+        if (line.startsWith('2) Country:')) {
+            contactInfo.country = line.split(':')[1].trim();
+        } else if (line.startsWith('3) Your highest educational qualification:')) {
+            contactInfo.highestEducation = line.split(':')[1].trim();
+        } else if (line.startsWith('4) What program do you want to study:')) {
+            contactInfo.programOfStudy = line.split(':')[1].trim();
+        } else if (line.startsWith('5) Which intake you want to join:')) {
+            contactInfo.intakePreference = line.split(':')[1].trim();
+        } else if (line.startsWith('6) Do you have any English proficiency certificate')) {
+            contactInfo.englishProficiency = line.split(':')[1].trim();
+        }
+    }
+
+    return contactInfo;
 }
 
 async function removeTagBookedGHL(contactID, tag) {
