@@ -1267,6 +1267,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
         if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
             console.log('Voice message detected');
             const media = await msg.downloadMedia();
+            console.log('Media:', media);
             const transcription = await transcribeAudio(media.data);
             console.log('Transcription:', transcription);
             
