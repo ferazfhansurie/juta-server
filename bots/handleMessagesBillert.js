@@ -724,11 +724,18 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                     const media = await MessageMedia.fromUrl(userImageUrl);
                     const imageMessage = await client.sendMessage(sender.to, media);
                     await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                    await customWait(3000);
                 }
 
                 // Send user's notes if available
                 if (userNotes) {
-                    const notesMessage = await client.sendMessage(sender.to, userNotes);
+                    // Remove HTML tags and format for WhatsApp
+                    const formattedNotes = userNotes
+                        .replace(/<\/?p>/g, '') // Remove <p> and </p> tags
+                        .replace(/\n\s*\n/g, '\n\n') // Replace multiple newlines with double newlines
+                        .trim(); // Remove leading/trailing whitespace
+
+                    const notesMessage = await client.sendMessage(sender.to, formattedNotes);
                     await addMessagetoFirebase(notesMessage, idSubstring, extractedNumber, contactName);
                 }
 
