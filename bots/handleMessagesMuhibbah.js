@@ -169,7 +169,12 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     }
     
     // Filter out employees who are inactive (assuming active employees have a weightage > 0)
-    const availableEmployees = sales.filter(emp => emp.weightage > 0);
+    const availableEmployees = sales
+    .filter(emp => emp.weightage > 0)
+    .map(emp => ({
+        ...emp,
+        weightage: Math.pow(emp.weightage, 1.5)  // Square the weightage
+    }));
 
     console.log('Available sales employees:', availableEmployees);
 

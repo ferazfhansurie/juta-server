@@ -58,10 +58,15 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
 
     console.log('All employees:', employees);  // Debug: Log all employees
 
-    // Filter out employees who are inactive (assuming active employees have a weightage > 0)
-    const availableEmployees = employees.filter(emp => emp.weightage > 0);
+    // Filter out employees who are inactive and square their weightages
+    const availableEmployees = employees
+        .filter(emp => emp.weightage > 0)
+        .map(emp => ({
+            ...emp,
+            weightage: Math.pow(emp.weightage, 1.5)  // Square the weightage
+        }));
 
-    console.log('Available employees:', availableEmployees);  // Debug: Log available employees
+    console.log('Available employees with squared weightages:', availableEmployees);
 
     if (availableEmployees.length === 0) {
         console.log('No available employees found for assignment');
@@ -71,12 +76,12 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     // Calculate total weight
     const totalWeight = availableEmployees.reduce((sum, emp) => sum + emp.weightage, 0);
 
-    console.log('Total weight:', totalWeight);  // Debug: Log total weight
+    console.log('Total weight after squaring:', totalWeight);
 
     // Generate a random number between 0 and totalWeight
     const randomValue = Math.random() * totalWeight;
 
-    console.log('Random value:', randomValue);  // Debug: Log random value
+    console.log('Random value:', randomValue);
 
     // Select an employee based on the weighted random selection
     let cumulativeWeight = 0;
@@ -84,9 +89,10 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
 
     for (const emp of availableEmployees) {
         cumulativeWeight += emp.weightage;
-        console.log(`Employee: ${emp.name}, Cumulative Weight: ${cumulativeWeight}`);  // Debug: Log each iteration
+        console.log(`Employee: ${emp.name}, Original Weightage: ${Math.sqrt(emp.weightage)}, Squared Weightage: ${emp.weightage}, Cumulative Weight: ${cumulativeWeight}`);
         if (randomValue <= cumulativeWeight) {
             assignedEmployee = emp;
+            console.log(`Employee ${emp.name} assigned based on random value ${randomValue}`);
             break;
         }
     }
@@ -111,7 +117,6 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
         email: assignedEmployee.email
     };
 }
-
 
 
 // Make sure this function is updated to return the correct employee data structure
