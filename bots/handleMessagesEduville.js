@@ -88,6 +88,7 @@ async function loadAssignmentState(idSubstring) {
     }
 }
 async function addtagbookedFirebase(contactID, tag, idSubstring) {
+    console.log('Adding tag to Firebase:', tag);
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
     const contactRef = db.doc(docPath);
 
@@ -460,10 +461,11 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
             let unreadCount = 0;
             let stopTag = contactData?.tags || [];
             var contact = await chat.getContact()
-
+            let firebaseTags = ['']
             console.log(contactData);
             if (contactData !== null) {
                 stopTag = contactData.tags;
+                firebaseTags = stopTag;
                 console.log(stopTag);
                     unreadCount = contactData.unreadCount ?? 0;
                     contactID = extractedNumber;
@@ -490,7 +492,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 console.log('sent new contact to create new contact');
             }   
-            let firebaseTags = ['']
+            
             if (contactData) {
                 firebaseTags = contactData.tags ?? [];
                 // Remove 'snooze' tag if present
@@ -797,13 +799,13 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
     
                             await messageDoc.set(sentMessageData, { merge: true });
                             if (part.includes('get back to you')) {
-                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
+                   
                                 
                                 // Generate and send the special report
                                 var { reportMessage, contactInfo } = await generateSpecialReport(threadID, ghlConfig.assistantId);
                                 var sentMessage2 = await client.sendMessage('120363325228671809@g.us', reportMessage)
                                 await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
-                                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
+                                
 
                                 // Update the data object with the extracted contact info
                                 data = {
@@ -816,7 +818,8 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 };
 
                                 await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-
+                                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
+                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
 
                                 try {
                                     await updateGoogleSheet(report);
