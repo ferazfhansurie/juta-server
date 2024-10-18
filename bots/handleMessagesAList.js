@@ -3832,9 +3832,13 @@ const FormData = require('form-data');
 async function transcribeAudio(audioData) {
     try {
         const formData = new FormData();
-        formData.append('file', Buffer.from(audioData, 'base64'), {
+        
+        // Check if audioData is already a Buffer, if not, convert it
+        const audioBuffer = Buffer.isBuffer(audioData) ? audioData : Buffer.from(audioData, 'base64');
+        
+        formData.append('file', audioBuffer, {
             filename: 'audio.ogg',
-            contentType: 'audio/ogg',
+            contentType: 'audio/ogg; codecs=opus',
         });
         formData.append('model', 'whisper-1');
         formData.append('response_format', 'json');
@@ -3846,10 +3850,14 @@ async function transcribeAudio(audioData) {
             },
         });
 
+        if (!response.data || !response.data.text) {
+            throw new Error('Transcription response is missing or invalid');
+        }
+
         return response.data.text;
     } catch (error) {
         console.error('Error transcribing audio:', error);
-        return '';
+        return 'Audio transcription failed. Please try again.';
     }
 }
 
