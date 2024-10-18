@@ -686,7 +686,9 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 let assigned = assignmentResult.assigned;
                 let number = assignmentResult.number;
                 let email = assignmentResult.email;
-
+                console.log("assigned: "+assigned);
+                console.log("number: "+number);
+                console.log("email: "+email);
                 // Save the assignment
                 await assignmentRef.set({
                     assigned: assigned,
