@@ -79,25 +79,25 @@ class bhqSpreadsheet {
       let currentDateMalay;
       switch(currentDate){
         case 'MONDAY':
-          currentDateMalay = 'Isnin';
+          currentDateMalay = 'Ahad';
           break;
         case 'TUESDAY':
-          currentDateMalay = 'Selasa';
+          currentDateMalay = 'Isnin';
           break;
         case 'WEDNESDAY':
-          currentDateMalay = 'Rabu';
+          currentDateMalay = 'Selasa';
           break;
         case 'THURSDAY':
-          currentDateMalay = 'Khamis';
+          currentDateMalay = 'Rabu';
           break;
         case 'FRIDAY':
-          currentDateMalay = 'Jumaat';
+          currentDateMalay = 'Khamis';
           break;
         case 'SATURDAY':
-          currentDateMalay = 'Sabtu';
+          currentDateMalay = 'Jumaat';
           break;
         case 'SUNDAY':
-          currentDateMalay = 'Ahad';
+          currentDateMalay = 'Sabtu';
           break;
         default:
           currentDateMalay = currentDate;
@@ -202,7 +202,6 @@ class bhqSpreadsheet {
           break;
       }
 
-      // Find the column index for the current day using the Malay name
       const dayIndex = rows[3].findIndex(day => day.trim().toLowerCase() === currentDateMalay.toLowerCase());
       if (dayIndex === -1) {
         console.log(`Column for ${currentDateMalay} (${currentDate}) not found. Available columns:`, rows[3]);
@@ -220,7 +219,6 @@ class bhqSpreadsheet {
 
         console.log(`Row ${i}: Processing time slot ${timeSlot}`);
         const startTime = rows[i][0];
-        const endTime = rows[i][1];
         const classStartTime = moment(startTime, 'h:mm A');
         console.log('classStartTime: ', classStartTime.format('YYYY-MM-DD HH:mm:ss'));    
         console.log('currentTime: ', currentTime.format('YYYY-MM-DD HH:mm:ss'));    
@@ -233,48 +231,30 @@ class bhqSpreadsheet {
         if (timeUntilClass > 0 && timeUntilClass <= 120) {
           console.log(`  Classes at this time slot are within the next 2 hours`);
           
-          // Process all teachers for this time slot
-          let j = i;
-          while (j < rows.length && rows[j][0] === startTime) {
-            const customerName = rows[j][dayIndex];
-            const customerPhone = rows[j][dayIndex + 1];
-            const teacherName = rows[j][dayIndex + 2];
-            const phoneNumber = rows[j][dayIndex + 3];
+          const customerName = rows[i][dayIndex];
+          const customerPhone = rows[i][dayIndex + 1];
+          const teacherName = rows[i][dayIndex + 2];
 
-            console.log(`  Teacher: ${teacherName}, Phone: ${phoneNumber}`);
+          console.log(`  Customer: ${customerName}, Phone: ${customerPhone}, Teacher: ${teacherName}`);
 
-            if (teacherName && phoneNumber) {
-              const reminderKey = `${teacherName}-${phoneNumber}-${startTime}-${moment().format('YYYY-MM-DD')}`;
+          if (customerName && customerPhone) {
+            const reminderKey = `row-${i}-${moment().format('YYYY-MM-DD')}`;
 
-              if (!this.sentReminders[reminderKey]) {
-                console.log(`  Sending reminder...`);
-                if(customerName && customerPhone){
-            //      await this.sendReminderToTeacher(teacherName, phoneNumber, customerName, j);
-                  await this.sendReminderToCustomer(customerName, customerPhone, teacherName, j);
-                  this.sentReminders[reminderKey] = Date.now();
-                  await this.saveSentReminders();
-                } else{
-                  console.log(`  Missing customer name or phone number, skipping customer reminder`);
-                }
-              } else {
-                console.log(`  Reminder already sent for ${teacherName} at ${startTime}`);
-              }
+            if (!this.sentReminders[reminderKey]) {
+              console.log(`  Sending reminder...`);
+              await this.sendReminderToCustomer(customerName, customerPhone, teacherName, i);
+              this.sentReminders[reminderKey] = Date.now();
+              await this.saveSentReminders();
             } else {
-              console.log(`  Missing teacher name or phone number, skipping teacher sreminder`);
+              console.log(`  Reminder already sent for row ${i} at ${startTime}`);
             }
-
-            j++;
+          } else {
+            console.log(`  Missing customer name or phone number, skipping customer reminder`);
           }
-
-          // Skip to the next time slot
-          i = j - 1;
         } else {
           console.log(`  Classes at this time slot are not within the next 2 hours, skipping`);
         }
       }
-
-      
-
 
       console.log(`Finished processing timetable`);
 
