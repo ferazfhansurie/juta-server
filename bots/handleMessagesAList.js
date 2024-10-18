@@ -408,6 +408,8 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
 async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
     try {
       console.log('Checking for conflicts before creating appointment...');
+      console.log('Start ...'+startDateTime);
+      console.log('End ...'+endDateTime);
       const conflictCheck = await checkScheduleConflicts(startDateTime, endDateTime);
   
       if (conflictCheck.conflict) {
@@ -3529,14 +3531,14 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "createCalendarEvent",
-                description: "Schedule a meeting in Calendar. Always call getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
+                description: "Schedule a meeting in Calendar in Asia/Kuala Lumpur Time. Always call getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
                 parameters: {
                     type: "object",
                     properties: {
                         summary: { type: "string", description: "Title of the event" },
                         description: { type: "string", description: "Description or address of the event" },
-                        startDateTime: { type: "string", description: "Start date and time in ISO 8601 format" },
-                        endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
+                        startDateTime: { type: "string", description: "Start date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
+                        endDateTime: { type: "string", description: "End date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
                         contactPhone: { type: "string", description: "Phone number of the contact" },
                         contactName: { type: "string", description: "Name of the contact" },
                     },
