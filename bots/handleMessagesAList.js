@@ -3214,8 +3214,10 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
     assistantId = ghlConfig.assistantId;
    }else if(phoneIndex == 1){
     assistantId = ghlConfig.assistantId2;
-   }else if(phoneIndex == 1){
+   }else if(phoneIndex == 2){
     assistantId = ghlConfig.assistantId3;
+   }else if(phoneIndex == 3){
+    assistantId = ghlConfig.assistantId4;
    }
     await addMessage(threadID, message);
     // Periodically analyze and set lead temperature (e.g., every 5 messages)
