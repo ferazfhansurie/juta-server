@@ -79,25 +79,25 @@ class bhqSpreadsheet {
       let currentDateMalay;
       switch(currentDate){
         case 'MONDAY':
-          currentDateMalay = 'Ahad';
-          break;
-        case 'TUESDAY':
           currentDateMalay = 'Isnin';
           break;
-        case 'WEDNESDAY':
+        case 'TUESDAY':
           currentDateMalay = 'Selasa';
           break;
-        case 'THURSDAY':
+        case 'WEDNESDAY':
           currentDateMalay = 'Rabu';
           break;
-        case 'FRIDAY':
+        case 'THURSDAY':
           currentDateMalay = 'Khamis';
           break;
-        case 'SATURDAY':
+        case 'FRIDAY':
           currentDateMalay = 'Jumaat';
           break;
-        case 'SUNDAY':
+        case 'SATURDAY':
           currentDateMalay = 'Sabtu';
+          break;
+        case 'SUNDAY':
+          currentDateMalay = 'Ahad';
           break;
         default:
           currentDateMalay = currentDate;
@@ -287,7 +287,7 @@ class bhqSpreadsheet {
     console.log('idSubstring:', idSubstring);
     console.log('extractedNumber:', extractedNumber);
   
-    if (!extractedNumber || !extractedNumber.startsWith('+60')) {
+    if (!extractedNumber || !extractedNumber.startsWith('+60' || '+65')) {
         console.error('Invalid extractedNumber for Firebase document path:', extractedNumber);
         return;
     }
