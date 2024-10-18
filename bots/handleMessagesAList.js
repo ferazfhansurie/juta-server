@@ -3531,7 +3531,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "createCalendarEvent",
-                description: "Schedule a meeting in Calendar in Asia/Kuala Lumpur Time. Always call getTodayDate first to get the current date as a reference.The contact name should be included in the title of the event.",
+                description: "Schedule a meeting in Calendar in Asia/Kuala Lumpur Time 2024. Always call getTodayDate first to get the current date as a reference the year is 2024.The contact name should be included in the title of the event.",
                 parameters: {
                     type: "object",
                     properties: {
