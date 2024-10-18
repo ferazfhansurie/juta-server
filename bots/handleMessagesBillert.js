@@ -702,6 +702,9 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                     userNotes = userData.notes || '';
                 }
 
+                console.log("userImageUrl: "+userImageUrl);
+                console.log("userNotes: "+userNotes);
+
                 // Capitalize the first letter of the assigned name
 
                const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Zara. 😃\n\n` +
