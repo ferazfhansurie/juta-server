@@ -1277,6 +1277,7 @@ async function handleNewMessagesAlist(client, msg, botName, phoneIndex) {
                 messageBody = "I couldn't transcribe the audio. Could you please type your message instead?";
             }
             audioData = media.data;
+            combinedMessage = messageBody;
             console.log(msg);
         }
          
@@ -2056,6 +2057,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
         } else {
             messageBody = "I couldn't transcribe the audio. Could you please type your message instead?";
         }
+        combinedMessage = messageBody;
         audioData = media.data;
         console.log(msg);
     }

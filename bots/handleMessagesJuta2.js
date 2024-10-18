@@ -1277,6 +1277,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
                 messageBody = "I couldn't transcribe the audio. Could you please type your message instead?";
             }
             audioData = media.data;
+            combinedMessage = messageBody;
             console.log(msg);
         }
          
@@ -1925,6 +1926,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
             messageBody = "I couldn't transcribe the audio. Could you please type your message instead?";
         }
         audioData = media.data;
+        combinedMessage = messageBody;
         console.log(msg);
     }
     const messageData = {
