@@ -6,36 +6,36 @@
 //3. CHANGE all <assistant> to openai assistant id
 //4. CHANGE all Template to your <YourBotName>
 
-const OpenAI = require('openai');
-const axios = require('axios').default;
-const { Client } = require('whatsapp-web.js');
+var OpenAI = require('openai');
+var axios = require('axios').default;
+var { Client } = require('whatsapp-web.js');
 
-const { v4: uuidv4 } = require('uuid');
+var { v4: uuidv4 } = require('uuid');
 
-const { URLSearchParams } = require('url');
-const admin = require('../firebase.js');
-const db = admin.firestore();
+var { URLSearchParams } = require('url');
+var admin = require('../firebase.js');
+var db = admin.firestore();
 
 let ghlConfig = {};
-const { google } = require('googleapis');
+var { google } = require('googleapis');
 
 // Set up Google Sheets API
-const auth = new google.auth.GoogleAuth({
+var auth = new google.auth.GoogleAuth({
   keyFile: './service_account.json', // Replace with your credentials file path
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 
-const sheets = google.sheets({ version: 'v4', auth });
+var sheets = google.sheets({ version: 'v4', auth });
 // Schedule the task to run every 12 hours
 
-const openai = new OpenAI({
+var openai = new OpenAI({
     apiKey: process.env.OPENAIKEY,
 });
 
-const steps = {
+var steps = {
     START: 'start',
 };
-const userState = new Map();
+var userState = new Map();
 
 async function customWait(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -45,15 +45,15 @@ let employees = [];
 let currentEmployeeIndex = 0;
 
 async function fetchEmployeesFromFirebase(idSubstring) {
-    const employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
-    const snapshot = await employeesRef.get();
+    var employeesRef = db.collection('companies').doc(idSubstring).collection('employee');
+    var snapshot = await employeesRef.get();
     
     employees = [];
     
     console.log(`Total documents in employee collection: ${snapshot.size}`);
 
     snapshot.forEach(doc => {
-        const data = doc.data();
+        var data = doc.data();
         console.log(`Processing employee document:`, data);
 
         if (data.name) {
@@ -76,10 +76,10 @@ async function fetchEmployeesFromFirebase(idSubstring) {
 }
 
 async function loadAssignmentState(idSubstring) {
-    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
-    const doc = await stateRef.get();
+    var stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    var doc = await stateRef.get();
     if (doc.exists) {
-        const data = doc.data();
+        var data = doc.data();
         currentEmployeeIndex = data.currentEmployeeIndex;
         console.log('Assignment state loaded from Firebase:', data);
     } else {
@@ -88,12 +88,12 @@ async function loadAssignmentState(idSubstring) {
     }
 }
 async function addtagbookedFirebase(contactID, tag, idSubstring) {
-    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(contactID);
+    var contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(contactID);
     try {
-        const contactDoc = await contactRef.get();
+        var contactDoc = await contactRef.get();
         if (contactDoc.exists) {
-            const contactData = contactDoc.data();
-            const updatedTags = [...new Set([...(contactData.tags || []), tag])];
+            var contactData = contactDoc.data();
+            var updatedTags = [...new Set([...(contactData.tags || []), tag])];
             await contactRef.update({ tags: updatedTags });
             console.log(`Tag '${tag}' added to contact '${contactID}' in Firebase.`);
         } else {
@@ -104,8 +104,8 @@ async function addtagbookedFirebase(contactID, tag, idSubstring) {
     }
 }
 async function storeAssignmentState(idSubstring) {
-    const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
-    const stateToStore = {
+    var stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
+    var stateToStore = {
         currentEmployeeIndex: currentEmployeeIndex,
         lastUpdated: admin.firestore.FieldValue.serverTimestamp()
     };
@@ -136,8 +136,8 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
 
     console.log(`Assigned employee: ${assignedEmployee.name}`);
 
-    const tags = [assignedEmployee.name, assignedEmployee.phoneNumber];
-    const employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
+    var tags = [assignedEmployee.name, assignedEmployee.phoneNumber];
+    var employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
     await client.sendMessage(employeeID, 'You have been assigned to ' + contactID);
     await addtagbookedFirebase(contactID, assignedEmployee.name, idSubstring);
@@ -151,8 +151,8 @@ async function addNotificationToUser(companyId, message, contactName) {
     console.log('Adding notification and sending FCM');
     try {
         // Find the user with the specified companyId
-        const usersRef = db.collection('user');
-        const querySnapshot = await usersRef.where('companyId', '==', companyId).get();
+        var usersRef = db.collection('user');
+        var querySnapshot = await usersRef.where('companyId', '==', companyId).get();
 
         if (querySnapshot.empty) {
             console.log('No matching documents.');
@@ -160,37 +160,29 @@ async function addNotificationToUser(companyId, message, contactName) {
         }
 
         // Filter out undefined values and reserved keys from the message object
-        const cleanMessage = Object.fromEntries(
+        var cleanMessage = Object.fromEntries(
             Object.entries(message)
                 .filter(([key, value]) => value !== undefined && !['from', 'notification', 'data'].includes(key))
                 .map(([key, value]) => {
-                    if (key === 'text' && typeof value === 'string') {
-                        return [key, { body: value }];
+                    if (key === 'text' && typeof value === 'object') {
+                        return [key, { body: value.body || '' }];
                     }
                     return [key, typeof value === 'object' ? JSON.stringify(value) : String(value)];
                 })
         );
 
         // Add sender information to cleanMessage
-        cleanMessage.senderName = contactName;
-     // Filter out undefined values from the message object
-     const cleanMessage2 = Object.fromEntries(
-        Object.entries(message).filter(([_, value]) => value !== undefined)
-    );  
-        let text;
-        if(cleanMessage2.hasMedia){
-            text = "Media"
-        }
-        text = cleanMessage2.text?.body || 'New message received';
+        cleanMessage.senderName = contactName || 'Unknown';
+
         // Prepare the FCM message
-        const fcmMessage = {
+        var fcmMessage = {
             notification: {
-                title: `${contactName}`,
-                body: cleanMessage2.text?.body || 'New message received'
+                title: contactName || 'New Message',
+                body: cleanMessage.text?.body || 'New message received'
             },
             data: {
                 ...cleanMessage,
-                text: JSON.stringify(cleanMessage.text), // Stringify the text object for FCM
+                text: JSON.stringify(cleanMessage.text || {}), // Stringify the text object for FCM
                 click_action: 'FLUTTER_NOTIFICATION_CLICK',
                 sound: 'default'
             },
@@ -198,21 +190,25 @@ async function addNotificationToUser(companyId, message, contactName) {
         };
 
         // Add the new message to Firestore for each user
-        const promises = querySnapshot.docs.map(async (doc) => {
-            const userRef = doc.ref;
-            const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...cleanMessage2, read: false, from: contactName };
+        var promises = querySnapshot.docs.map(async (doc) => {
+            var userRef = doc.ref;
+            var notificationsRef = userRef.collection('notifications');
+            var updatedMessage = { 
+                ...cleanMessage, 
+                read: false, 
+                from: contactName || 'Unknown',
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            };
         
             await notificationsRef.add(updatedMessage);
             console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
-            console.log('Notification content:');
         });
 
         await Promise.all(promises);
 
         // Send FCM message to the topic
         await admin.messaging().send(fcmMessage);
-        console.log(`FCM notification sent to topic '001'`);
+        console.log(`FCM notification sent to topic '${companyId}'`);
 
     } catch (error) {
         console.error('Error adding notification or sending FCM: ', error);
@@ -247,15 +243,15 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
     
     if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
         console.log('Voice message detected');
-        const media = await msg.downloadMedia();
-        const transcription = await transcribeAudio(media.data);
+        var media = await msg.downloadMedia();
+        var transcription = await transcribeAudio(media.data);
         console.log('Transcription:', transcription);
                 
         messageBody = transcription;
         audioData = media.data;
         console.log(msg);
     }
-    const messageData = {
+    var messageData = {
         chat_id: msg.from,
         from: msg.from ?? "",
         from_me: msg.fromMe ?? false,
@@ -269,22 +265,22 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
     };
 
     if(msg.hasQuotedMsg){
-        const quotedMsg = await msg.getQuotedMessage();
+        var quotedMsg = await msg.getQuotedMessage();
         // Initialize the context and quoted_content structure
         messageData.text.context = {
           quoted_content: {
             body: quotedMsg.body
           }
         };
-        const authorNumber = '+'+(quotedMsg.from).split('@')[0];
-        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        var authorNumber = '+'+(quotedMsg.from).split('@')[0];
+        var authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
         messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
     }
 
     if((msg.from).includes('@g.us')){
-        const authorNumber = '+'+(msg.author).split('@')[0];
+        var authorNumber = '+'+(msg.author).split('@')[0];
 
-        const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+        var authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
         if(authorData){
             messageData.author = authorData.contactName;
         }else{
@@ -301,7 +297,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
 
     if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
         try {
-            const media = await msg.downloadMedia();
+            var media = await msg.downloadMedia();
             if (media) {
               if (msg.type === 'image') {
                 messageData.image = {
@@ -329,7 +325,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
                         caption: msg._data.caption || "",
                     };
                     // Store video data separately or use a cloud storage solution
-                    const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                    var videoUrl = await storeVideoData(media.data, msg._data.filename);
                     messageData.video.link = videoUrl;
               } else {
                   messageData[msg.type] = {
@@ -364,10 +360,10 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
         }
     }
 
-    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-    const messagesRef = contactRef.collection('messages');
+    var contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+    var messagesRef = contactRef.collection('messages');
 
-    const messageDoc = messagesRef.doc(msg.id._serialized);
+    var messageDoc = messagesRef.doc(msg.id._serialized);
     await messageDoc.set(messageData, { merge: true });
     console.log(messageData);
     await addNotificationToUser(idSubstring, messageData, contactName);
@@ -375,14 +371,14 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
 
 
 async function getChatMetadata(chatId,) {
-    const url = `https://gate.whapi.cloud/chats/${chatId}`;
-    const headers = {
+    var url = `https://gate.whapi.cloud/chats/${chatId}`;
+    var headers = {
         'Authorization': `Bearer ${ghlConfig.whapiToken}`,
         'Accept': 'application/json'
     };
 
     try {
-        const response = await axios.get(url, { headers });
+        var response = await axios.get(url, { headers });
         return response.data;
     } catch (error) {
         console.error('Error fetching chat metadata:', error.response.data);
@@ -391,7 +387,7 @@ async function getChatMetadata(chatId,) {
 }
 async function transcribeAudio(audioData) {
     try {
-        const formData = new FormData();
+        var formData = new FormData();
         formData.append('file', Buffer.from(audioData, 'base64'), {
             filename: 'audio.ogg',
             contentType: 'audio/ogg',
@@ -399,7 +395,7 @@ async function transcribeAudio(audioData) {
         formData.append('model', 'whisper-1');
         formData.append('response_format', 'json');
 
-        const response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
+        var response = await axios.post('https://api.openai.com/v1/audio/transcriptions', formData, {
             headers: {
                 ...formData.getHeaders(),
                 'Authorization': `Bearer ${process.env.OPENAIKEY}`,
@@ -413,25 +409,25 @@ async function transcribeAudio(audioData) {
     }
 }
 
-const messageQueue = new Map();
-const MAX_QUEUE_SIZE = 5;
-const RATE_LIMIT_DELAY = 5000; // 5 seconds
+var messageQueue = new Map();
+var MAX_QUEUE_SIZE = 5;
+var RATE_LIMIT_DELAY = 5000; // 5 seconds
 
 async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
-    const idSubstring = botName;
+    var idSubstring = botName;
     try {
 
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring);
 
-        //const receivedMessages = req.body.messages;
+        //var receivedMessages = req.body.messages;
             if (msg.fromMe){
                 return;
             }
 
-            const sender = {
+            var sender = {
                 to: msg.from,
                 name:msg.notifyName,
             };
@@ -444,12 +440,12 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
             let answer;
             let parts;
             let currentStep;
-            const extractedNumber = '+'+(sender.to).split('@')[0];
-            const chat = await msg.getChat();
-            const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
+            var extractedNumber = '+'+(sender.to).split('@')[0];
+            var chat = await msg.getChat();
+            var contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
             let unreadCount = 0;
             let stopTag = contactData?.tags || [];
-            const contact = await chat.getContact()
+            var contact = await chat.getContact()
 
             console.log(contactData);
             if (contactData !== null) {
@@ -462,7 +458,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                     if (contactData.threadid) {
                         threadID = contactData.threadid;
                     } else {
-                        const thread = await createThread();
+                        var thread = await createThread();
                         threadID = thread.id;
                         await saveThreadIDFirebase(contactID, threadID, idSubstring)
                     }
@@ -474,7 +470,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                 contactID = extractedNumber;
                 contactName = contact.pushname || contact.name || extractedNumber;
                 
-                const thread = await createThread();
+                var thread = await createThread();
                 threadID = thread.id;
                 console.log(threadID);
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
@@ -514,8 +510,8 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
 
             if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
                 console.log('Voice message detected');
-                const media = await msg.downloadMedia();
-                const transcription = await transcribeAudio(media.data);
+                var media = await msg.downloadMedia();
+                var transcription = await transcribeAudio(media.data);
                 console.log('Transcription:', transcription);
                     
                 messageBody = transcription;
@@ -523,7 +519,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                 console.log(msg);
             }
             
-            const data = {
+            var data = {
                 additionalEmails: [],
                 address1: null,
                 assignedTo: null,
@@ -590,7 +586,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
 
             
 
-            const messageData = {
+            var messageData = {
                 chat_id: msg.from,
                 from: msg.from ?? "",
                 from_me: msg.fromMe ?? false,
@@ -606,22 +602,22 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
             };
 
             if(msg.hasQuotedMsg){
-            const quotedMsg = await msg.getQuotedMessage();
+            var quotedMsg = await msg.getQuotedMessage();
             // Initialize the context and quoted_content structure
             messageData.text.context = {
                 quoted_content: {
                 body: quotedMsg.body
                 }
             };
-            const authorNumber = '+'+(quotedMsg.from).split('@')[0];
-            const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+            var authorNumber = '+'+(quotedMsg.from).split('@')[0];
+            var authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
             messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
         }
                 
             if((sender.to).includes('@g.us')){
-                const authorNumber = '+'+(msg.author).split('@')[0];
+                var authorNumber = '+'+(msg.author).split('@')[0];
 
-                const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+                var authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
                 if(authorData){
                     messageData.author = authorData.contactName;
                 }else{
@@ -637,7 +633,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
 
             if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
             try {
-                const media = await msg.downloadMedia();
+                var media = await msg.downloadMedia();
                 if (media) {
                     if (msg.type === 'image') {
                     messageData.image = {
@@ -665,7 +661,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                             caption: msg._data.caption || "",
                         };
                         // Store video data separately or use a cloud storage solution
-                        const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                        var videoUrl = await storeVideoData(media.data, msg._data.filename);
                         messageData.video.link = videoUrl;
                     } else {
                         messageData[msg.type] = {
@@ -700,10 +696,10 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
             }
         }
 
-            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-            const messagesRef = contactRef.collection('messages');
+            var contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+            var messagesRef = contactRef.collection('messages');
 
-            const messageDoc = messagesRef.doc(msg.id._serialized);
+            var messageDoc = messagesRef.doc(msg.id._serialized);
             await messageDoc.set(messageData, { merge: true });
             console.log(msg);
             await addNotificationToUser(idSubstring, messageData, contactName);
@@ -723,7 +719,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
 
             //reset bot command
             if (msg.body.includes('/resetbot')) {
-                const thread = await createThread();
+                var thread = await createThread();
                 threadID = thread.id;
                 await saveThreadIDFirebase(contactID, threadID, idSubstring)
                 client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
@@ -762,13 +758,13 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                     
                     await customWait(10000);
                     for (let i = 0; i < parts.length; i++) {
-                        const part = parts[i].trim();   
-                        const check = part.toLowerCase();
+                        var part = parts[i].trim();   
+                        var check = part.toLowerCase();
                         if (part) {
-                            const sentMessage = await client.sendMessage(msg.from, part);
+                            var sentMessage = await client.sendMessage(msg.from, part);
     
                             // Save the message to Firebase
-                            const sentMessageData = {
+                            var sentMessageData = {
                                 chat_id: sentMessage.from,
                                 from: sentMessage.from ?? "",
                                 from_me: true,
@@ -783,15 +779,15 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 ack: sentMessage.ack ?? 0,
                             };
     
-                            const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+                            var messageDoc = messagesRef.doc(sentMessage.id._serialized);
     
                             await messageDoc.set(sentMessageData, { merge: true });
                             if (check.includes('get back to you')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 
                                 // Generate and send the special report
-                                const { reportMessage, contactInfo } = await generateSpecialReport(threadID, ghlConfig.assistantId);
-                                const sentMessage2 = await client.sendMessage('120363325228671809@g.us', reportMessage)
+                                var { reportMessage, contactInfo } = await generateSpecialReport(threadID, ghlConfig.assistantId);
+                                var sentMessage2 = await client.sendMessage('120363325228671809@g.us', reportMessage)
                                 await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
                                 await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
 
@@ -834,21 +830,21 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
 }
 
 async function updateGoogleSheet(report) {
-    const spreadsheetId = '1V1iCai1Uf_gbWzWxmx9JrN9iL66azsqIsZ7Vr6k_y10'; // Replace with your spreadsheet ID
-    const range = 'Form_Responses!A:U'; // Adjust based on your sheet name and range
+    var spreadsheetId = '1V1iCai1Uf_gbWzWxmx9JrN9iL66azsqIsZ7Vr6k_y10'; // Replace with your spreadsheet ID
+    var range = 'Form_Responses!A:U'; // Adjust based on your sheet name and range
   
     // Parse the report
-    const lines = report.split('\n');
-    const data = {};
+    var lines = report.split('\n');
+    var data = {};
     lines.forEach(line => {
-      const [key, value] = line.split(':').map(s => s.trim());
+      var [key, value] = line.split(':').map(s => s.trim());
       if (key && value) {
         data[key] = value;
       }
     });
   
     // Prepare the row data
-    const rowData = [
+    var rowData = [
       new Date().toISOString(), // Submission Date
       data['Name'] || 'N/A',
       data['Country'] || 'N/A',
@@ -860,7 +856,7 @@ async function updateGoogleSheet(report) {
     ];
   
     try {
-      const response = await sheets.spreadsheets.values.append({
+      var response = await sheets.spreadsheets.values.append({
         spreadsheetId,
         range,
         valueInputOption: 'USER_ENTERED',
@@ -880,8 +876,8 @@ async function updateGoogleSheet(report) {
 
 async function generateSpecialReport(threadID, assistantId) {
     try {
-        const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
-        const reportInstruction = `Please generate a report in the following format based on our conversation:
+        var currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        var reportInstruction = `Please generate a report in the following format based on our conversation:
 
 New Enquiry Has Been Submitted
 
@@ -895,12 +891,12 @@ Date : ${currentDate}
 
 Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. Do not change the Date field.`;
 
-        const response = await openai.beta.threads.messages.create(threadID, {
+        var response = await openai.beta.threads.messages.create(threadID, {
             role: "user",
             content: reportInstruction
         });
 
-        const assistantResponse = await openai.beta.threads.runs.create(threadID, {
+        var assistantResponse = await openai.beta.threads.runs.create(threadID, {
             assistant_id: assistantId
         });
 
@@ -912,10 +908,10 @@ Fill in the information in square brackets with the relevant details from our co
         } while (runStatus.status !== 'completed');
 
         // Retrieve the assistant's response
-        const messages = await openai.beta.threads.messages.list(threadID);
-        const reportMessage = messages.data[0].content[0].text.value;
+        var messages = await openai.beta.threads.messages.list(threadID);
+        var reportMessage = messages.data[0].content[0].text.value;
 
-        const contactInfo = extractContactInfo(reportMessage);
+        var contactInfo = extractContactInfo(reportMessage);
 
 
         return { reportMessage, contactInfo };
@@ -926,10 +922,10 @@ Fill in the information in square brackets with the relevant details from our co
 }
 
 function extractContactInfo(report) {
-    const lines = report.split('\n');
-    const contactInfo = {};
+    var lines = report.split('\n');
+    var contactInfo = {};
 
-    for (const line of lines) {
+    for (var line of lines) {
         if (line.startsWith('2) Country:')) {
             contactInfo.country = line.split(':')[1].trim();
         } else if (line.startsWith('3) Your highest educational qualification:')) {
@@ -947,7 +943,7 @@ function extractContactInfo(report) {
 }
 
 async function removeTagBookedGHL(contactID, tag) {
-    const options = {
+    var options = {
         method: 'DELETE',
         url: `https://services.leadconnectorhq.com/contacts/${contactID}/tags`,
         headers: {
@@ -962,16 +958,16 @@ async function removeTagBookedGHL(contactID, tag) {
     };
 
     try {
-        const response = await axios.request(options);
+        var response = await axios.request(options);
     } catch (error) {
         console.error('Error removing tag from contact:', error);
     }
 }
 
 async function storeVideoData(videoData, filename) {
-    const bucket = admin.storage().bucket();
-    const uniqueFilename = `${uuidv4()}_${filename}`;
-    const file = bucket.file(`videos/${uniqueFilename}`);
+    var bucket = admin.storage().bucket();
+    var uniqueFilename = `${uuidv4()}_${filename}`;
+    var file = bucket.file(`videos/${uniqueFilename}`);
 
     await file.save(Buffer.from(videoData, 'base64'), {
         metadata: {
@@ -979,7 +975,7 @@ async function storeVideoData(videoData, filename) {
         },
     });
 
-    const [url] = await file.getSignedUrl({
+    var [url] = await file.getSignedUrl({
         action: 'read',
         expires: '03-01-2500', // Adjust expiration as needed
     });
@@ -988,7 +984,7 @@ async function storeVideoData(videoData, filename) {
 }
 
 async function getContactById(contactId) {
-    const options = {
+    var options = {
         method: 'GET',
         url: `https://services.leadconnectorhq.com/contacts/${contactId}`,
         headers: {
@@ -999,7 +995,7 @@ async function getContactById(contactId) {
     };
 
     try {
-        const response = await axios.request(options);
+        var response = await axios.request(options);
         return response.data.contact;
     } catch (error) {
         console.error(error);
@@ -1007,9 +1003,9 @@ async function getContactById(contactId) {
 }
 
 async function addtagbookedGHL(contactID, tag) {
-    const contact = await getContactById(contactID);
-    const previousTags = contact.tags || [];
-    const options = {
+    var contact = await getContactById(contactID);
+    var previousTags = contact.tags || [];
+    var options = {
         method: 'PUT',
         url: `https://services.leadconnectorhq.com/contacts/${contactID}`,
         headers: {
@@ -1032,12 +1028,12 @@ async function addtagbookedGHL(contactID, tag) {
 
 async function createThread() {
     console.log('Creating a new thread...');
-    const thread = await openai.beta.threads.create();
+    var thread = await openai.beta.threads.create();
     return thread;
 }
 
 async function addMessage(threadId, message) {
-    const response = await openai.beta.threads.messages.create(
+    var response = await openai.beta.threads.messages.create(
         threadId,
         {
             role: "user",
@@ -1049,9 +1045,9 @@ async function addMessage(threadId, message) {
 
 async function callWebhook(webhook,senderText,thread) {
     console.log('calling webhook')
-    const webhookUrl = webhook;
-    const body = JSON.stringify({ senderText,thread}); // Include sender's text in the request body
-    const response = await fetch(webhookUrl, {
+    var webhookUrl = webhook;
+    var body = JSON.stringify({ senderText,thread}); // Include sender's text in the request body
+    var response = await fetch(webhookUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -1079,15 +1075,15 @@ async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
         let threadID;
         let contactName;
         let bot_status;
-        const contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
-        const querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
+        var contactsRef = db.collection('companies').doc(idSubstring).collection('contacts');
+        var querySnapshot = await contactsRef.where('phone', '==', phoneNumber).get();
 
         if (querySnapshot.empty) {
             console.log('No matching documents.');
             return null;
         } else {
-            const doc = querySnapshot.docs[0];
-            const contactData = doc.data();
+            var doc = querySnapshot.docs[0];
+            var contactData = doc.data();
             contactName = contactData.name;
             threadID = contactData.thread_id;
             bot_status = contactData.bot_status;
@@ -1100,19 +1096,19 @@ async function getContactDataFromDatabaseByPhone(phoneNumber, idSubstring) {
 }
 
 async function checkingStatus(threadId, runId) {
-    const runObject = await openai.beta.threads.runs.retrieve(
+    var runObject = await openai.beta.threads.runs.retrieve(
         threadId,
         runId
     );
-    const status = runObject.status; 
+    var status = runObject.status; 
     if(status == 'completed') {
         try{
-            const messagesList = await openai.beta.threads.messages.list(threadId);
-            const latestMessage = messagesList.body.data[0].content;
+            var messagesList = await openai.beta.threads.messages.list(threadId);
+            var latestMessage = messagesList.body.data[0].content;
 
             console.log("Latest Message:");
             console.log(latestMessage[0].text.value);
-            const answer = latestMessage[0].text.value;
+            var answer = latestMessage[0].text.value;
             return answer;
         } catch(error){
             console.log("error from handleNewMessagesEduville: "+error)
@@ -1124,12 +1120,12 @@ async function checkingStatus(threadId, runId) {
 
 async function waitForCompletion(threadId, runId) {
     return new Promise((resolve, reject) => {
-        const maxAttempts = 30; // Maximum number of attempts
+        var maxAttempts = 30; // Maximum number of attempts
         let attempts = 0;
-        const pollingInterval = setInterval(async () => {
+        var pollingInterval = setInterval(async () => {
             attempts++;
             try {
-                const answer = await checkingStatus(threadId, runId);
+                var answer = await checkingStatus(threadId, runId);
                 if (answer) {
                     clearInterval(pollingInterval);
                     resolve(answer);
@@ -1147,30 +1143,30 @@ async function waitForCompletion(threadId, runId) {
 
 async function runAssistant(assistantID,threadId) {
     console.log('Running assistant for thread: ' + threadId);
-    const response = await openai.beta.threads.runs.create(
+    var response = await openai.beta.threads.runs.create(
         threadId,
         {
             assistant_id: assistantID
         }
     );
 
-    const runId = response.id;
+    var runId = response.id;
 
-    const answer = await waitForCompletion(threadId, runId);
+    var answer = await waitForCompletion(threadId, runId);
     return answer;
 }
 
 async function handleOpenAIAssistant(message, threadID) {
     console.log(ghlConfig.assistantId);
-    const assistantId = ghlConfig.assistantId;
+    var assistantId = ghlConfig.assistantId;
     await addMessage(threadID, message);
-    const answer = await runAssistant(assistantId,threadID);
+    var answer = await runAssistant(assistantId,threadID);
     return answer;
 }
 
 async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
     console.log('Sending request to Whapi.Cloud...');
-    const options = {
+    var options = {
         method: method,
         headers: {
             Authorization: `Bearer ${ghlConfig.whapiToken}`,
@@ -1178,15 +1174,15 @@ async function sendWhapiRequest(endpoint, params = {}, method = 'POST') {
         },
         body: JSON.stringify(params)
     };
-    const url = `https://gate.whapi.cloud/${endpoint}`;
-    const response = await fetch(url, options);
-    const jsonResponse = await response.json();
+    var url = `https://gate.whapi.cloud/${endpoint}`;
+    var response = await fetch(url, options);
+    var jsonResponse = await response.json();
     return jsonResponse;
 }
 
 
 async function saveThreadIDGHL(contactID,threadID){
-    const options = {
+    var options = {
         method: 'PUT',
         url: `https://services.leadconnectorhq.com/contacts/${contactID}`,
         headers: {
@@ -1211,8 +1207,8 @@ async function saveThreadIDGHL(contactID,threadID){
 
 async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
     
-    // Construct the Firestore document path
-    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    // varruct the Firestore document path
+    var docPath = `companies/${idSubstring}/contacts/${contactID}`;
 
     try {
         await db.doc(docPath).set({
@@ -1225,7 +1221,7 @@ async function saveThreadIDFirebase(contactID, threadID, idSubstring) {
 }
 
 async function createContact(name,number){
-    const options = {
+    var options = {
         method: 'POST',
         url: 'https://services.leadconnectorhq.com/contacts/',
         headers: {
@@ -1250,7 +1246,7 @@ async function createContact(name,number){
 }
 
 async function getContact(number) {
-    const options = {
+    var options = {
         method: 'GET',
         url: 'https://services.leadconnectorhq.com/contacts/search/duplicate',
         params: {
@@ -1265,7 +1261,7 @@ async function getContact(number) {
     };
   
     try {
-      const response = await axios.request(options);
+      var response = await axios.request(options);
       return(response.data.contact);
     } catch (error) {
         console.error(error);
@@ -1275,8 +1271,8 @@ async function getContact(number) {
 
 async function fetchConfigFromDatabase(idSubstring) {
     try {
-        const docRef = db.collection('companies').doc(idSubstring);
-        const doc = await docRef.get();
+        var docRef = db.collection('companies').doc(idSubstring);
+        var doc = await docRef.get();
         if (!doc.exists) {
             console.log('No such document!');
             return;
