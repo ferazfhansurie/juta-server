@@ -88,19 +88,33 @@ async function loadAssignmentState(idSubstring) {
     }
 }
 async function addtagbookedFirebase(contactID, tag, idSubstring) {
-    var contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(contactID);
+    const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+    const contactRef = db.doc(docPath);
+
     try {
-        var contactDoc = await contactRef.get();
-        if (contactDoc.exists) {
-            var contactData = contactDoc.data();
-            var updatedTags = [...new Set([...(contactData.tags || []), tag])];
-            await contactRef.update({ tags: updatedTags });
-            console.log(`Tag '${tag}' added to contact '${contactID}' in Firebase.`);
+        // Get the current document
+        const doc = await contactRef.get();
+        let currentTags = [];
+
+        if (doc.exists) {
+            currentTags = doc.data().tags || [];
+        }
+
+        // Add the new tag if it doesn't already exist
+        if (!currentTags.includes(tag)) {
+            currentTags.push(tag);
+
+            // Update the document with the new tags
+            await contactRef.set({
+                tags: currentTags
+            }, { merge: true });
+
+            console.log(`Tag "${tag}" added to contact ${contactID} in Firebase`);
         } else {
-            console.log(`Contact '${contactID}' does not exist in Firebase.`);
+            console.log(`Tag "${tag}" already exists for contact ${contactID} in Firebase`);
         }
     } catch (error) {
-        console.error('Error adding tag to contact in Firebase:', error);
+        console.error('Error adding tag to Firebase:', error);
     }
 }
 async function storeAssignmentState(idSubstring) {
@@ -782,7 +796,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                             var messageDoc = messagesRef.doc(sentMessage.id._serialized);
     
                             await messageDoc.set(sentMessageData, { merge: true });
-                            if (check.includes('get back to you')) {
+                            if (part.includes('get back to you')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 
                                 // Generate and send the special report
