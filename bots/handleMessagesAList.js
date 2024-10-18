@@ -1116,7 +1116,7 @@ async function removeScheduledMessages(chatId, idSubstring) {
 
 
 async function handleNewMessagesAlist(client, msg, botName, phoneIndex) {
-    console.log('Handling new Messages '+botName);
+    console.log('Handling new Messages '+botName + 'from phone index '+phoneIndex);
 
     const idSubstring = botName;
     const chatId = msg.from;
