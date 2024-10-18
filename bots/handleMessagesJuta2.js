@@ -1269,8 +1269,12 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
             const media = await msg.downloadMedia();
             const transcription = await transcribeAudio(media.data);
             console.log('Transcription:', transcription);
-                
-            messageBody = transcription;
+            
+            if (transcription && transcription !== 'Audio transcription failed. Please try again.') {
+                messageBody = transcription;
+            } else {
+                messageBody = "I couldn't transcribe the audio. Could you please type your message instead?";
+            }
             audioData = media.data;
             console.log(msg);
         }
@@ -1908,13 +1912,17 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
       }else{
         type = msg.type;
       }
-    if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
+      if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
         console.log('Voice message detected');
         const media = await msg.downloadMedia();
         const transcription = await transcribeAudio(media.data);
         console.log('Transcription:', transcription);
-                
-        messageBody = transcription;
+        
+        if (transcription && transcription !== 'Audio transcription failed. Please try again.') {
+            messageBody = transcription;
+        } else {
+            messageBody = "I couldn't transcribe the audio. Could you please type your message instead?";
+        }
         audioData = media.data;
         console.log(msg);
     }
