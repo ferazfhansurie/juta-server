@@ -87,7 +87,22 @@ async function loadAssignmentState(idSubstring) {
         currentEmployeeIndex = 0;
     }
 }
-
+async function addtagbookedFirebase(contactID, tag, idSubstring) {
+    const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(contactID);
+    try {
+        const contactDoc = await contactRef.get();
+        if (contactDoc.exists) {
+            const contactData = contactDoc.data();
+            const updatedTags = [...new Set([...(contactData.tags || []), tag])];
+            await contactRef.update({ tags: updatedTags });
+            console.log(`Tag '${tag}' added to contact '${contactID}' in Firebase.`);
+        } else {
+            console.log(`Contact '${contactID}' does not exist in Firebase.`);
+        }
+    } catch (error) {
+        console.error('Error adding tag to contact in Firebase:', error);
+    }
+}
 async function storeAssignmentState(idSubstring) {
     const stateRef = db.collection('companies').doc(idSubstring).collection('botState').doc('assignmentState');
     const stateToStore = {
