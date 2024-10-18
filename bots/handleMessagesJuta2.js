@@ -1149,7 +1149,7 @@ async function handleNewMessagesJuta2(client, msg, botName, phoneIndex) {
             messageQueue.set(chatId, []);
 
             // Combine all message bodies for AI processing
-            const combinedMessage = messages.map(m => m.body).join(' ');
+            var combinedMessage = messages.map(m => m.body).join(' ');
         const sender = {
             to: msg.from,
             name:msg.notifyName,
