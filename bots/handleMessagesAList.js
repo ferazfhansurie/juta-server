@@ -1516,7 +1516,7 @@ if (!contactData) {
 
                 query = `${combinedMessage}`;
              if(!(sender.to.includes('@g.us')) || (msg.body.toLowerCase().startsWith('@alist') && phoneIndex == 0)){
-                answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client);
+                answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client,phoneIndex);
                 console.log(answer);
                 parts = answer.split(/\s*\|\|\s*/);
                 
@@ -3193,7 +3193,7 @@ async function setLeadTemperature(idSubstring, phoneNumber, temperature) {
 }
 
 // Modify the handleOpenAIAssistant function to include the new tool
-async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client) {
+async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client,phoneIndex) {
     console.log(ghlConfig.assistantId);
     let assistantId = ghlConfig.assistantId;
     if (tags !== undefined && tags.includes('team')) { 
@@ -3208,7 +3208,13 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             assistantId = ghlConfig.assistantIdTeam;
         }
     }
-   
+   if(phoneIndex == 0){
+    assistantId = ghlConfig.assistantId;
+   }else if(phoneIndex == 1){
+    assistantId = ghlConfig.assistantId2;
+   }else if(phoneIndex == 1){
+    assistantId = ghlConfig.assistantId3;
+   }
     await addMessage(threadID, message);
     // Periodically analyze and set lead temperature (e.g., every 5 messages)
     const messageCount = await getMessageCount(threadID);
