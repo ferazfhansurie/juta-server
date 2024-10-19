@@ -277,6 +277,8 @@ const customHandlers = {
   '081': handleNewMessagesDMAI,
   '088': handleNewMessagesNewTown,
   '092': handleNewMessagesAlist,
+  '0101': handleNewMessagesAlist2,
+  '040': handleNewMessagesAlist3,
   '093': handleNewMessagesEdward,
   '095': handleNewMessagesEduVille,
   '0100': handleNewMessagesSSPower,
