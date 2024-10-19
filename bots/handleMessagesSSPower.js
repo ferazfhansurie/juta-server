@@ -813,63 +813,55 @@ async function handleNewMessagesSSPower(client, msg, botName, phoneIndex) {
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
-                            if(check.includes('Perodua Myvi 1.5')){
+                            if(check.includes('Perodua Myvi 1.5 Auto SE 2017')){
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2Fbf15f1b8-a893-4be2-acd4-42145da8972e.jpeg?alt=media&token=ef9eac30-57a2-4cf8-96b0-e7327859d4d8'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
-                            if(check.includes('Perodua Myvi 1.5')){
-                                const imagePath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2F1ec98c40-27d3-4a9c-b739-5010b659f7ec.jpeg?alt=media&token=0c8a6928-bab6-4823-93a6-000c67cf0a03'; // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath2);
-                                const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                            }
-                            if(check.includes('Honda City 1.5')){
+                            if(check.includes('Honda City 1.5 S Plus Auto 2015')){
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2F9288db7e-8b81-4905-9857-eae69daa9b52.jpeg?alt=media&token=88658f0a-6353-48e3-b828-7e8b103a0dcd'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
-                            if(check.includes('Honda City GM6 1.5')){
+                            if(check.includes('GM6')){
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.05%20PM.jpeg?alt=media&token=5a2356c0-8b65-4c20-9484-d8919615aecc'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
-                            if(check.includes('Honda HR-V 1.8S')){
+                            if(check.includes('HR-V')){
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2Fb620df46-389c-4c80-a061-d256a051a223.jpeg?alt=media&token=798e1a3c-aff5-47d4-9aa7-3d87f16931ef'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
-                            if(check.includes('Honda Jazz 1.5 S')){
+                            if(check.includes('Jazz')){
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2F5d527395-ca37-41f1-8f39-4a9083a23e02.jpeg?alt=media&token=05644950-2f0b-4818-b37e-01d33874ab93'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
-                            if(check.includes('Perodua Bezza 1.3')){
+                            if(check.includes('Bezza')){
                                 const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2F8a57c3be-417a-4bf3-9d5e-7b2a583e7e49.jpeg?alt=media&token=77920f3a-05fd-4192-b630-02ebeec66d2f'; // Update this URL to your image URL
                                 const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if(check.includes('Nissan Almera 1.5')){
-                                const imagePath1 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2Ff4f8ac8a-1281-4540-ad77-80912a3434e5.jpeg?alt=media&token=21a0b2a2-f798-4231-90ae-9e37dd7fcfa7'; // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath1);
+                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2Ff4f8ac8a-1281-4540-ad77-80912a3434e5.jpeg?alt=media&token=21a0b2a2-f798-4231-90ae-9e37dd7fcfa7'; // Update this URL to your image URL
+                                const media = await MessageMedia.fromUrl(imagePath);
                                 const imageMessage = await client.sendMessage(msg.from, media);
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
-                            if(check.includes('Nissan Almera 1.5')){
-                                const imagePath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/SS%20Power%2F647614e2-4922-4516-820b-b8bc7004c459.jpeg?alt=media&token=55a20564-9f84-458b-8ec0-248cf4268a21'; // Update this URL to your image URL
-                                const media = await MessageMedia.fromUrl(imagePath2);
-                                const imageMessage = await client.sendMessage(msg.from, media);
-                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            if (check.includes('team kami akan contact')) {
+                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
+                                await addtagbookedFirebase(contactID, 'Complete Document', idSubstring);
                             }
                             if (check.includes('maklumkan team')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
-                                await addtagbookedFirebase(contactID, 'Complete Document', idSubstring);
+                                await addtagbookedFirebase(contactID, 'Pending Gambar', idSubstring);
                             }
 
                             if (check.includes('boleh tolong isikan details')) {
