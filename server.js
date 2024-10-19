@@ -2038,99 +2038,99 @@ app.get('/api/assistant-test/', async (req, res) => {
         return res.status(404).json({ error: 'Company not found' });
       }
   
-      // Prepare queries
+      // Fetch contacts
       const contactsRef = db.collection('companies').doc(companyId).collection('contacts');
+      const contactsSnapshot = await contactsRef.get();
+      
+      let totalContacts = 0;
+      let closedContacts = 0;
+      let openContacts = 0;
+      let todayContacts = 0;
+      let weekContacts = 0;
+      let monthContacts = 0;
+      let numReplies = 0;
+  
       const now = new Date();
       const startOfDay = new Date(now.setHours(0, 0, 0, 0));
       const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   
-      // Prepare count promises
-      const countPromises = [
-        contactsRef.count().get(),
-        contactsRef.where('tags', 'array-contains', 'closed').count().get(),
-        contactsRef.where('dateAdded', '>=', startOfDay).count().get(),
-        contactsRef.where('dateAdded', '>=', startOfWeek).count().get(),
-        contactsRef.where('dateAdded', '>=', startOfMonth).count().get(),
-        db.collectionGroup('messages').where('from_me', '==', false).count().get(),
-      ];
+      const employeePerformance = {};
   
-      // Execute all count queries in parallel
-      const [
-        totalContactsSnapshot,
-        closedContactsSnapshot,
-        todayContactsSnapshot,
-        weekContactsSnapshot,
-        monthContactsSnapshot,
-        numRepliesSnapshot
-      ] = await Promise.all(countPromises);
+      // Process contacts
+      for (const doc of contactsSnapshot.docs) {
+        const contactData = doc.data();
+        const dateAdded = contactData.dateAdded ? new Date(contactData.dateAdded) : null;
   
-      // Extract counts
-      const totalContacts = totalContactsSnapshot.data().count;
-      const closedContacts = closedContactsSnapshot.data().count;
-      const openContacts = totalContacts - closedContacts;
-      const todayContacts = todayContactsSnapshot.data().count;
-      const weekContacts = weekContactsSnapshot.data().count;
-      const monthContacts = monthContactsSnapshot.data().count;
-      const numReplies = numRepliesSnapshot.data().count;
+        totalContacts++;
+        if (contactData.tags && contactData.tags.includes('closed')) {
+          closedContacts++;
+        } else {
+          openContacts++;
+        }
   
-      // Fetch employee data
-      const employeesRef = db.collection('companies').doc(companyId).collection('employee');
-      const employeesSnapshot = await employeesRef.get();
-      const employees = employeesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        assignedContacts: 0,
-        outgoingMessages: 0,
-        closedContacts: 0
-      }));
+        if (dateAdded) {
+          if (dateAdded >= startOfDay) todayContacts++;
+          if (dateAdded >= startOfWeek) weekContacts++;
+          if (dateAdded >= startOfMonth) monthContacts++;
+        }
   
-      // Prepare employee performance queries
-      const employeePerformancePromises = employees.map(employee => [
-        contactsRef.where('tags', 'array-contains', employee.name).count().get(),
-        contactsRef.where('tags', 'array-contains-any', [employee.name, 'closed']).count().get(),
-        db.collectionGroup('messages').where('from_me', '==', true).where('userName', '==', employee.name).count().get()
-      ]);
+        // Process tags for employee performance
+        if (contactData.tags) {
+          contactData.tags.forEach(tag => {
+            if (tag !== 'closed') {
+              employeePerformance[tag] = employeePerformance[tag] || { assignedContacts: 0, outgoingMessages: 0, closedContacts: 0 };
+              employeePerformance[tag].assignedContacts++;
+              if (contactData.tags.includes('closed')) {
+                employeePerformance[tag].closedContacts++;
+              }
+            }
+          });
+        }
   
-      // Execute employee performance queries
-      const employeePerformanceResults = await Promise.all(employeePerformancePromises.flat());
+        // Count messages
+        const messagesRef = contactsRef.doc(doc.id).collection('messages');
+        const messagesSnapshot = await messagesRef.get();
+        messagesSnapshot.forEach(messageDoc => {
+          const messageData = messageDoc.data();
+          if (!messageData.from_me) {
+            numReplies++;
+          } else if (messageData.userName) {
+            employeePerformance[messageData.userName] = employeePerformance[messageData.userName] || { assignedContacts: 0, outgoingMessages: 0, closedContacts: 0 };
+            employeePerformance[messageData.userName].outgoingMessages++;
+          }
+        });
+      }
   
-      // Process employee performance results
-      employees.forEach((employee, index) => {
-        employee.assignedContacts = employeePerformanceResults[index * 3].data().count;
-        employee.closedContacts = employeePerformanceResults[index * 3 + 1].data().count - employee.assignedContacts;
-        employee.outgoingMessages = employeePerformanceResults[index * 3 + 2].data().count;
-      });
-  
-      // Sort employees by assigned contacts
-      employees.sort((a, b) => b.assignedContacts - a.assignedContacts);
-  
-      // Calculate additional metrics
+      // Calculate metrics
       const responseRate = totalContacts > 0 ? (numReplies / totalContacts) * 100 : 0;
       const averageRepliesPerLead = totalContacts > 0 ? numReplies / totalContacts : 0;
       const engagementScore = (responseRate * 0.4) + (averageRepliesPerLead * 0.6);
       const conversionRate = totalContacts > 0 ? (closedContacts / totalContacts) * 100 : 0;
   
+      // Fetch and process employee data
+      const employeesRef = db.collection('companies').doc(companyId).collection('employee');
+      const employeesSnapshot = await employeesRef.get();
+      const employees = employeesSnapshot.docs.map(doc => {
+        const employeeData = doc.data();
+        const performance = employeePerformance[employeeData.name] || { assignedContacts: 0, outgoingMessages: 0, closedContacts: 0 };
+        return {
+          id: doc.id,
+          ...employeeData,
+          ...performance
+        };
+      }).sort((a, b) => b.assignedContacts - a.assignedContacts);
+  
       // Prepare the response
       const dashboardData = {
-        kpi: {
-          totalContacts,
-          numReplies,
-          closedContacts,
-          openContacts
-        },
+        kpi: { totalContacts, numReplies, closedContacts, openContacts },
         engagementMetrics: {
           responseRate: responseRate.toFixed(2),
           averageRepliesPerLead: averageRepliesPerLead.toFixed(2),
           engagementScore: engagementScore.toFixed(2),
           conversionRate: conversionRate.toFixed(2)
         },
-        leadsOverview: {
-          total: totalContacts,
-          today: todayContacts,
-          week: weekContacts,
-          month: monthContacts
-        },
+        leadsOverview: { total: totalContacts, today: todayContacts, week: weekContacts, month: monthContacts },
         employeePerformance: employees
       };
   
