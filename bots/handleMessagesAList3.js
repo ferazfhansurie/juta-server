@@ -1115,7 +1115,7 @@ async function removeScheduledMessages(chatId, idSubstring) {
 }
 
 
-async function handleNewMessagesAlist(client, msg, botName, phoneIndex) {
+async function handleNewMessagesAlist3(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName + 'from phone index '+phoneIndex);
 
     const idSubstring = botName;
@@ -3863,4 +3863,4 @@ async function transcribeAudio(audioData) {
     }
 }
 
-module.exports = { handleNewMessagesAlist };
+module.exports = { handleNewMessagesAlist3 };

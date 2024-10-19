@@ -171,6 +171,8 @@ const { handleNewMessagesEdward } = require('./bots/handleMessagesEdward.js');
 const { handleEdwardTag } = require('./blast/edwardTag.js');
 const { handleNewMessagesEduVille } = require('./bots/handleMessagesEduville.js');
 const { handleNewMessagesAlist } = require('./bots/handleMessagesAList.js');
+const { handleNewMessagesAlist2 } = require('./bots/handleMessagesAList2.js');
+const { handleNewMessagesAlist3 } = require('./bots/handleMessagesAList3.js');
 const { handleNewMessagesSSPower} = require('./bots/handleMessagesSSPower.js');
 
 
