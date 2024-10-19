@@ -857,7 +857,7 @@ async function handleNewMessagesSSPower(client, msg, botName, phoneIndex) {
                             }
                             if (check.includes('team kami akan contact')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
-                                await addtagbookedFirebase(contactID, 'Complete Document', idSubstring);
+                                await addtagbookedFirebase(contactID, 'Complete Details', idSubstring);
                             }
                             if (check.includes('maklumkan team')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
@@ -866,10 +866,15 @@ async function handleNewMessagesSSPower(client, msg, botName, phoneIndex) {
 
                             if (check.includes('boleh tolong isikan details')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
-                                await addtagbookedFirebase(contactID, 'Complete Details', idSubstring);
+                                await addtagbookedFirebase(contactID, 'Complete Document', idSubstring);
+                            }
+                        
+                            if (check.includes('semak dengan team')) {
+                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
+                                await addtagbookedFirebase(contactID, 'Trade-In', idSubstring);
                             }
 
-                            if (check.includes('Thank you for contacting SS Power Automobile Sdn Bhd')) {
+                            if (check.includes('Saya Aiman')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 await addtagbookedFirebase(contactID, 'Onboarding', idSubstring);
                             }
