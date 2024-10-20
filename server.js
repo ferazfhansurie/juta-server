@@ -1033,6 +1033,20 @@ async function scheduleAllMessages() {
     }
 }
 
+async function saveThreadIDFirebase2(contactID, threadID, idSubstring) {
+    
+  // Construct the Firestore document path
+  const docPath = `companies/${idSubstring}/contacts/${contactID}`;
+
+  try {
+      await db.doc(docPath).set({
+          threadid: threadID
+      }, { merge: true }); // merge: true ensures we don't overwrite the document, just update it
+      console.log(`Thread ID saved to Firestore at ${docPath}`);
+  } catch (error) {
+      console.error('Error saving Thread ID to Firestore:', error);
+  }
+}
 function setupMessageHandler(client, botName, phoneIndex) {
   client.on('message', async (msg) => {
       console.log(`DEBUG: Message received for bot ${botName}`);
@@ -2273,6 +2287,8 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
   console.log('send message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
+  const phoneNumber = chatId.split('@')[0];
+  const contactData = await getContactDataFromDatabaseByPhone(phoneNumber, companyId);
   const { message, quotedMessageId, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
   console.log(req.body);
   console.log(message)
@@ -2300,7 +2316,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
       sentMessage = await client.sendMessage(chatId, message);
     }
     console.log(sentMessage)
-    let phoneNumber = '+'+(chatId).split('@')[0];
+    const extractedNumber = '+'+(chatId).split('@')[0];
     let type2 = sentMessage.type === 'chat' ? 'text' : sentMessage.type;
     // 3. Save the message to Firebase
 
@@ -2327,14 +2343,36 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
 
     const messageDoc = messagesRef.doc(sentMessage.id._serialized);
     await messageDoc.set(messageData, { merge: true });
-    //await handleOpenAIMyMessage(message,threadID);
+    let threadID;
+    if (contactData.threadid) {
+      threadID = contactData.threadid;
+  } else {
+      const thread = await createThread();
+      threadID = thread.id;
+      await saveThreadIDFirebase2(extractedNumber, threadID, companyId)
+  }
+  await handleOpenAIMyMessage(message,threadID);
     res.json({ success: true, messageId: sentMessage.id._serialized });
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).send('Internal Server Error');
   }
 });
-
+async function handleOpenAIMyMessage(message, threadID) {
+  console.log('messaging manual')
+  query = `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`;
+  await addMessageAssistant(threadID, query);
+}async function addMessageAssistant(threadId, message) {
+  const response = await openai.beta.threads.messages.create(
+      threadId,
+      {
+          role: "user",
+          content: message
+      }
+  );
+  console.log(response);
+  return response;
+}
 // Edit message route
 app.put('/api/v2/messages/:companyId/:chatId/:messageId', async (req, res) => {
   console.log('Edit message');
