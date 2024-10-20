@@ -1112,6 +1112,22 @@ async function removeScheduledMessages(chatId, idSubstring) {
         console.error('Error removing scheduled messages:', error);
     }
 }
+async function handleOpenAIMyMessage(message, threadID) {
+    console.log('messaging manual')
+    query = `You sent this to the user: ${message}. Please remember this for the next interaction. Do not re-send this query to the user, this is only for you to remember the interaction.`;
+    await addMessageAssistant(threadID, query);
+}
+async function addMessageAssistant(threadId, message) {
+    const response = await openai.beta.threads.messages.create(
+        threadId,
+        {
+            role: "user",
+            content: message
+        }
+    );
+    console.log(response);
+    return response;
+}
 const MESSAGE_BUFFER_TIME = 60000; // 1 minute in milliseconds
 const messageBuffers = new Map();
 
@@ -1158,11 +1174,8 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
  
          const extractedNumber = '+'+(sender.to).split('@')[0];
  
-         if (msg.fromMe){
-             console.log(msg);
-             return;
-         }
-             
+       
+       
          let contactID;
          let contactName;
          let threadID;
@@ -1215,7 +1228,10 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
              await saveThreadIDFirebase(contactID, threadID, idSubstring)
              console.log('sent new contact to create new contact');
          }   
- 
+         if (msg.fromMe){
+            await handleOpenAIMyMessage(message.text.body,threadID);
+            return;
+        }
          let firebaseTags = ['']
          if (contactData) {
              firebaseTags = contactData.tags ?? [];

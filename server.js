@@ -32,6 +32,7 @@ const os = require('os');
 const { exec } = require('child_process');
 const url = require('url');
 const ffmpeg = require('ffmpeg-static');
+const queue = require('async/queue');
 
 const botMap = new Map();
 // Redis connection
@@ -1652,13 +1653,25 @@ async function main(reinitialize = false) {
   console.log('Obliterating all jobs...');
   await obiliterateAllJobs();
   
-  
-
+  //
   console.log('Initializing bots...');
-  for (const config of botConfigs) {
-    console.log(`Initializing bot ${config.botName} with ${config.phoneCount} phone(s)...`);
-    await initializeBot(config.botName, config.phoneCount);
-  }
+  const concurrency = 5; // Number of bots to initialize concurrently
+  const initQueue = queue(async (config, callback) => {
+    try {
+      console.log(`Initializing bot ${config.botName} with ${config.phoneCount} phone(s)...`);
+      await initializeBot(config.botName, config.phoneCount);
+      console.log(`Finished initializing bot ${config.botName}`);
+    } catch (error) {
+      console.error(`Error initializing bot ${config.botName}:`, error);
+    }
+    callback();
+  }, concurrency);
+
+  // Add all bot configs to the queue
+  botConfigs.forEach(config => initQueue.push(config));
+
+  // Wait for all initializations to complete
+  await promisify(initQueue.drain)();
 
   console.log('Scheduling all messages...');
   await scheduleAllMessages();
