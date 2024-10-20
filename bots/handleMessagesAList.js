@@ -490,8 +490,8 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             title: summary,
             date: startDate,
             time: `${startTime} - ${endTime}`,
-            description: description || "No description provided",
-            contact: contactName (contactPhone) ? `${contactName} (${contactPhone})` : "No contact information provided",
+            description: description + `\n\nContact: ${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
+contact: `${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
             staff: newAppointment.staff.join(", ")
         }
         };
