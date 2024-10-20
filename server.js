@@ -2327,7 +2327,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
 
     const messageDoc = messagesRef.doc(sentMessage.id._serialized);
     await messageDoc.set(messageData, { merge: true });
-
+    await handleOpenAIMyMessage(message,threadID);
     res.json({ success: true, messageId: sentMessage.id._serialized });
   } catch (error) {
     console.error('Error sending message:', error);

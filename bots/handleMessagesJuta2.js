@@ -1229,7 +1229,7 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
              console.log('sent new contact to create new contact');
          }   
          if (msg.fromMe){
-            await handleOpenAIMyMessage(message.text.body,threadID);
+            await handleOpenAIMyMessage(msg.body,threadID);
             return;
         }
          let firebaseTags = ['']
