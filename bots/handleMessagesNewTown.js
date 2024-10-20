@@ -398,56 +398,14 @@ async function transcribeAudio(audioData) {
     }
 }
 
-const MESSAGE_BUFFER_TIME = 60000; // 1 minute in milliseconds
-const messageBuffers = new Map();
+const messageQueue = new Map();
+const MAX_QUEUE_SIZE = 5;
+const RATE_LIMIT_DELAY = 5000; // 5 seconds
 
 async function handleNewMessagesNewTown(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
 
     const idSubstring = botName;
-    const chatId = msg.from;
-
-    // Initialize or update the message buffer for this chat
-    if (!messageBuffers.has(chatId)) {
-        messageBuffers.set(chatId, {
-            messages: [],
-            timer: null
-        });
-    }
-    const buffer = messageBuffers.get(chatId);
-
-    // Add the new message to the buffer
-    buffer.messages.push(msg);
-
-    // Clear any existing timer
-    if (buffer.timer) {
-        clearTimeout(buffer.timer);
-    }
-
-    // Set a new timer
-    buffer.timer = setTimeout(() => processBufferedMessages(client, chatId, botName, phoneIndex), MESSAGE_BUFFER_TIME);
-}
-
-async function processBufferedMessages(client, chatId, botName, phoneIndex) {
-    const buffer = messageBuffers.get(chatId);
-    if (!buffer || buffer.messages.length === 0) return;
-
-    const messages = buffer.messages;
-    messageBuffers.delete(chatId); // Clear the buffer
-
-    // Combine all message bodies
-    const combinedMessage = messages.map(m => m.body).join(' ');
-
-    // Process the combined message
-    await processMessage(client, messages[0], botName, phoneIndex, combinedMessage);
-}
-
-async function processMessage(client, msg, botName, phoneIndex, combinedMessage) {
-    console.log('Processing buffered messages for '+botName);
-
-    const idSubstring = botName;
-    const chatId = msg.from;
-    
     try {
 
         // Initial fetch of config
