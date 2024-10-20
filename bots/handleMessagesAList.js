@@ -490,7 +490,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             title: summary,
             date: startDate,
             time: `${startTime} - ${endTime}`,
-            description: description ,
+            description: description + `\n\nContact: ${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
             contact: `${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
             staff: newAppointment.staff.join(", ")
         }
@@ -2910,7 +2910,7 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                             args.description, 
                             args.startDateTime, 
                             args.endDateTime,
-                            args.contactPhone,
+                            phoneNumber,
                             args.contactName
                         );
                         
@@ -3548,13 +3548,13 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                     type: "object",
                     properties: {
                         summary: { type: "string", description: "Title of the event" },
-                        description: { type: "string", description: "Description or address of the event" },
+                        description: { type: "string", description: "Description of the event" },
                         startDateTime: { type: "string", description: "Start date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
                         endDateTime: { type: "string", description: "End date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
                         contactPhone: { type: "string", description: "Phone number of the contact" },
                         contactName: { type: "string", description: "Name of the contact" },
                     },
-                    required: ["summary", "startDateTime", "endDateTime","contactName"],
+                    required: ["summary", "description", "startDateTime", "endDateTime","contactName"],
                 },
             },
         },
