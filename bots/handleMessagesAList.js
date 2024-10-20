@@ -491,7 +491,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             date: startDate,
             time: `${startTime} - ${endTime}`,
             description: description || "No description provided",
-            contact: contactName ? `${contactName} (${contactPhone})` : "No contact information provided",
+            contact: contactName (contactPhone) ? `${contactName} (${contactPhone})` : "No contact information provided",
             staff: newAppointment.staff.join(", ")
         }
         };
