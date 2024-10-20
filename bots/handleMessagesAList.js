@@ -2424,7 +2424,7 @@ async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0
     const maxDepth = 5; // Maximum recursion depth
     const maxAttempts = 30;
     const pollingInterval = 2000; // 2 seconds
-  
+    console.log('Phone Number in waitForCompletion...'+phoneNumber);
     console.log(`Waiting for completion (depth: ${depth}, runId: ${runId})...`);
   
     if (depth >= maxDepth) {
@@ -2448,7 +2448,7 @@ async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0
           console.log('Submitting tool outputs...');
           await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
           console.log('Tool outputs submitted, restarting wait for completion...');
-          return await waitForCompletion(threadId, runId, idSubstring, client, depth + 1);
+          return await waitForCompletion(threadId, runId, idSubstring, client, depth + 1,phoneNumber);
         } else if (['failed', 'cancelled', 'expired'].includes(runObject.status)) {
           console.error(`Run ${runId} ended with status: ${runObject.status}`);
           return `I encountered an error (${runObject.status}). Please try your request again.`;
@@ -2612,6 +2612,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client,phon
   // Modify the handleToolCalls function to include the new tool
 async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
     console.log('Handling tool calls...');
+    console.log('Phone Number in handleToolCalls...'+phoneNumber);
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
         console.log(`Processing tool call: ${toolCall.function.name}`);
@@ -2907,7 +2908,7 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                         console.log('Parsing arguments for createCalendarEvent...');
                         const args = JSON.parse(toolCall.function.arguments);
                         console.log('Arguments:', args);
-                        
+                        console.log('Phone Number in createCalendarEvent before function call...  '+phoneNumber);
                         console.log('Calling createCalendarEvent...');
                         const result = await createCalendarEvent(
                             args.summary, 
