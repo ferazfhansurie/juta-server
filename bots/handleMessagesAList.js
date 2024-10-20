@@ -405,13 +405,13 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
         return { conflict: true, error: error.message };
     }
 }
-async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
+async function createCalendarEvent(summary, description, startDateTime, endDateTime, phoneNumber, contactName) {
     try {
-        console.log('Creating calendar event with params:', { summary, description, startDateTime, endDateTime, contactPhone, contactName });
+        console.log('Creating calendar event with params:', { summary, description, startDateTime, endDateTime, phoneNumber, contactName });
       console.log('Checking for conflicts before creating appointment...');
       console.log('Start ...'+startDateTime);
       console.log('End ...'+endDateTime);
-      console.log('Contact ...'+contactPhone);
+      console.log('Contact ...'+phoneNumber);
       console.log('Contact Name ...'+contactName);
       //
       const conflictCheck = await checkScheduleConflicts(startDateTime, endDateTime);
@@ -443,8 +443,8 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
         color: "#1F3A8A", // Default color
         packageId: "",
         dateAdded: new Date().toISOString(),
-        contacts: contactPhone && contactName ? [{
-          id: contactPhone,
+        contacts: phoneNumber && contactName ? [{
+          id: phoneNumber,
           name: contactName,
           session: null
         }] : [],
@@ -466,7 +466,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
 
         const event = {
             summary: summary,
-            description: `${description}\n\nContact: ${contactName} (${contactPhone})`,
+            description: `${description}\n\nContact: ${contactName} (${phoneNumber})`,
             start: {
                 dateTime: startDateTime,
                 timeZone: 'Asia/Kuala_Lumpur', // Adjust timezone as needed
@@ -494,8 +494,8 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             title: summary,
             date: startDate,
             time: `${startTime} - ${endTime}`,
-            description: description + `\n\nContact: ${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
-            contact: `${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
+            description: description + `\n\nContact: ${contactName || 'Unknown'} (${phoneNumber || 'No phone number found'})`,
+            contact: `${contactName || 'Unknown'} (${phoneNumber || 'No phone number found'})`,
             staff: newAppointment.staff.join(", ")
         }
         };//
@@ -3211,6 +3211,7 @@ async function setLeadTemperature(idSubstring, phoneNumber, temperature) {
 // Modify the handleOpenAIAssistant function to include the new tool
 async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client,phoneIndex) {
     console.log(ghlConfig.assistantId);
+    console.log('Phone Number...'+phoneNumber);
     let assistantId = ghlConfig.assistantId;
     if(phoneIndex == 0){
         assistantId = ghlConfig.assistantId;
@@ -3556,8 +3557,9 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                         startDateTime: { type: "string", description: "Start date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
                         endDateTime: { type: "string", description: "End date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
                         contactName: { type: "string", description: "Name of the contact" },
+                        phoneNumber: { type: "string", description: "Phone number of the contact" },
                     },
-                    required: ["summary", "description", "startDateTime", "endDateTime","contactName"],
+                    required: ["summary", "description", "startDateTime", "endDateTime","contactName","phoneNumber"],
                 },
             },
         },
