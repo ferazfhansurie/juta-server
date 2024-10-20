@@ -2344,7 +2344,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
     const messageDoc = messagesRef.doc(sentMessage.id._serialized);
     await messageDoc.set(messageData, { merge: true });
     let threadID;
-    if (contactData.threadid) {
+    if (contactData.threadid != "" || contactData.threadid) {
       threadID = contactData.threadid;
   } else {
       const thread = await createThread();
