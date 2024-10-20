@@ -1549,7 +1549,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
 
                 query = `${combinedMessage}`;
                 if(!(sender.to.includes('@g.us')) || (combinedMessage.toLowerCase().startsWith('@juta') && phoneIndex == 0)){
-                    answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring, client);
+                    answer = await handleOpenAIAssistant(query, threadID, stopTag, extractedNumber, idSubstring, client);
                     console.log(answer);
                     parts = answer.split(/\s*\|\|\s*/);
                     
