@@ -491,10 +491,10 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             date: startDate,
             time: `${startTime} - ${endTime}`,
             description: description + `\n\nContact: ${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
-contact: `${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
+            contact: `${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
             staff: newAppointment.staff.join(", ")
         }
-        };
+        };//
     } catch (error) {
       console.error('Error in createCalendarEvent:', error);
       return { error: `Failed to create appointment: ${error.message}` };
