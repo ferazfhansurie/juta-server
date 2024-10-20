@@ -490,7 +490,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             title: summary,
             date: startDate,
             time: `${startTime} - ${endTime}`,
-            description: description + `\n\nContact: ${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
+            description: description ,
             contact: `${contactName || 'Unknown'} (${contactPhone || 'No phone number found'})`,
             staff: newAppointment.staff.join(", ")
         }
@@ -2910,7 +2910,7 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                             args.description, 
                             args.startDateTime, 
                             args.endDateTime,
-                            phoneNumber,
+                            args.contactPhone,
                             args.contactName
                         );
                         
