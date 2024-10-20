@@ -1540,6 +1540,12 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                 await handleConfirmedAppointment(client, msg);
                 return;
             }
+        } if (contactData.threadid) {
+            threadID = contactData.threadid;
+        } else {
+            const thread = await createThread();
+            threadID = thread.id;
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
         }
 
         currentStep = userState.get(sender.to) || steps.START;
