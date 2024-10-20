@@ -1113,32 +1113,55 @@ async function removeScheduledMessages(chatId, idSubstring) {
         console.error('Error removing scheduled messages:', error);
     }
 }
-
+const MESSAGE_BUFFER_TIME = 60000; // 1 minute in milliseconds
+const messageBuffers = new Map();
 
 async function handleNewMessagesAlist(client, msg, botName, phoneIndex) {
-    console.log('Handling new Messages '+botName + 'from phone index '+phoneIndex);
+    console.log('Handling new Messages '+botName);
 
     const idSubstring = botName;
     const chatId = msg.from;
-        // Add message to queue
-        if (!messageQueue.has(chatId)) {
-            messageQueue.set(chatId, []);
-        }
-        const queue = messageQueue.get(chatId);
-        queue.push(msg);
-    
-        // If queue is too large, remove oldest messages
-        while (queue.length > MAX_QUEUE_SIZE) {
-            queue.shift();
-        }
-    
-        // If already processing messages for this chat, return
-        if (processingQueue.get(chatId)) {
-            return;
-        }
-    
-        // Set processing flag
-        processingQueue.set(chatId, true);
+
+    // Initialize or update the message buffer for this chat
+    if (!messageBuffers.has(chatId)) {
+        messageBuffers.set(chatId, {
+            messages: [],
+            timer: null
+        });
+    }
+    const buffer = messageBuffers.get(chatId);
+
+    // Add the new message to the buffer
+    buffer.messages.push(msg);
+
+    // Clear any existing timer
+    if (buffer.timer) {
+        clearTimeout(buffer.timer);
+    }
+
+    // Set a new timer
+    buffer.timer = setTimeout(() => processBufferedMessages(client, chatId, botName, phoneIndex), MESSAGE_BUFFER_TIME);
+}
+
+async function processBufferedMessages(client, chatId, botName, phoneIndex) {
+    const buffer = messageBuffers.get(chatId);
+    if (!buffer || buffer.messages.length === 0) return;
+
+    const messages = buffer.messages;
+    messageBuffers.delete(chatId); // Clear the buffer
+
+    // Combine all message bodies
+    const combinedMessage = messages.map(m => m.body).join(' ');
+
+    // Process the combined message
+    await processMessage(client, messages[0], botName, phoneIndex, combinedMessage);
+}
+
+async function processMessage(client, msg, botName, phoneIndex, combinedMessage) {
+    console.log('Processing buffered messages for '+botName);
+
+    const idSubstring = botName;
+    const chatId = msg.from;
     try {
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring,phoneIndex);
@@ -1628,11 +1651,11 @@ if (!contactData) {
     } catch (e) {
         console.error('Error:', e.message);
         return(e.message);
-    } finally {
-        // Clear processing flag
-        processingQueue.set(chatId, false);
-    }
+    } 
+    
 }
+
+
 function formatPhoneNumber(phoneNumber) {
   console.log('Formatting phone number:', phoneNumber);
   // Remove all non-digit characters
@@ -3208,6 +3231,15 @@ async function setLeadTemperature(idSubstring, phoneNumber, temperature) {
 async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client,phoneIndex) {
     console.log(ghlConfig.assistantId);
     let assistantId = ghlConfig.assistantId;
+    if(phoneIndex == 0){
+        assistantId = ghlConfig.assistantId;
+       }else if(phoneIndex == 1){
+        assistantId = ghlConfig.assistantId2;
+       }else if(phoneIndex == 2){
+        assistantId = ghlConfig.assistantId3;
+       }else if(phoneIndex == 3){
+        assistantId = ghlConfig.assistantId4;
+       }
     if (tags !== undefined && tags.includes('team')) { 
         assistantId = ghlConfig.assistantIdTeam;
     } else if (tags !== undefined && tags.includes('demo')) {
@@ -3220,15 +3252,6 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             assistantId = ghlConfig.assistantIdTeam;
         }
     }
-   if(phoneIndex == 0){
-    assistantId = ghlConfig.assistantId;
-   }else if(phoneIndex == 1){
-    assistantId = ghlConfig.assistantId2;
-   }else if(phoneIndex == 2){
-    assistantId = ghlConfig.assistantId3;
-   }else if(phoneIndex == 3){
-    assistantId = ghlConfig.assistantId4;
-   }
     await addMessage(threadID, message);
     // Periodically analyze and set lead temperature (e.g., every 5 messages)
     const messageCount = await getMessageCount(threadID);
