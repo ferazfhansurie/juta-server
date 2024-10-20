@@ -3554,7 +3554,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                         contactPhone: { type: "string", description: "Phone number of the contact" },
                         contactName: { type: "string", description: "Name of the contact" },
                     },
-                    required: ["summary", "description", "startDateTime", "endDateTime","contactName"],
+                    required: ["summary", "description","contactPhone", "startDateTime", "endDateTime","contactName"],
                 },
             },
         },
