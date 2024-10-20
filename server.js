@@ -1233,7 +1233,7 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber){
                     data: media.data,  // This is the base64-encoded data
                     filename: msg._data.filename || "",
                     caption: msg._data.caption || "",
-                    pageCount: msg._data.pageCount,
+                    pageCount: msg._data.pageCount || "",
                     fileSize: msg._data.size,
                 };
             }else if (msg.type === 'video') {
