@@ -434,7 +434,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
         endTime: endDateTime,
         address: description || "",
         appointmentStatus: 'new',
-        staff: ["Firaz"],
+        staff: ["firaz"],
         color: "#1F3A8A", // Default color
         packageId: "ja872PCc3kd7uQ4tQxB3",
         dateAdded: new Date().toISOString(),
@@ -489,8 +489,8 @@ console.log(calendarResponse);
             title: summary,
             date: startDate,
             time: `${startTime} - ${endTime}`,
-            description: description || "No description provided",
-            contact: contactName ? `${contactName} (${contactPhone})` : "No contact information provided",
+            description: description + `\n\nContact: ${contactName || 'Unknown'} (${phoneNumber || 'No phone number found'})`,
+            contact: `${contactName || 'Unknown'} (${phoneNumber || 'No phone number found'})`,
             staff: newAppointment.staff.join(", ")
         }
         };
@@ -1571,7 +1571,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
 
                 query = `${combinedMessage}`;
                 if(!(sender.to.includes('@g.us')) || (combinedMessage.toLowerCase().startsWith('@juta') && phoneIndex == 0)){
-                    answer = await handleOpenAIAssistant(query, threadID, stopTag, extractedNumber, idSubstring, client);
+                    answer = await handleOpenAIAssistant(query, threadID, stopTag, extractedNumber, idSubstring, client,contactData.contactName);
                     console.log(answer);
                     parts = answer.split(/\s*\|\|\s*/);
                     
@@ -2329,7 +2329,7 @@ async function checkingStatus(threadId, runId) {
 }
 
 // Modify the waitForCompletion function to handle tool calls
-async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0,phoneNumber) {
+async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0,phoneNumber,name) {
     const maxDepth = 5; // Maximum recursion depth
     const maxAttempts = 30;
     const pollingInterval = 2000; // 2 seconds
@@ -2353,11 +2353,11 @@ async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0
         } else if (runObject.status === 'requires_action') {
           console.log('Run requires action, handling tool calls...');
           const toolCalls = runObject.required_action.submit_tool_outputs.tool_calls;
-          const toolOutputs = await handleToolCalls(toolCalls, idSubstring, client,phoneNumber);
+          const toolOutputs = await handleToolCalls(toolCalls, idSubstring, client,phoneNumber,name);
           console.log('Submitting tool outputs...');
           await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
           console.log('Tool outputs submitted, restarting wait for completion...');
-          return await waitForCompletion(threadId, runId, idSubstring, client, depth + 1);
+          return await waitForCompletion(threadId, runId, idSubstring, client, depth + 1,phoneNumber,name);
         } else if (['failed', 'cancelled', 'expired'].includes(runObject.status)) {
           console.error(`Run ${runId} ended with status: ${runObject.status}`);
           return `I encountered an error (${runObject.status}). Please try your request again.`;
@@ -2376,7 +2376,7 @@ async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0
 
 
 // Modify the runAssistant function to handle tool calls
-async function runAssistant(assistantID, threadId, tools,idSubstring,client,phoneNumber) {
+async function runAssistant(assistantID, threadId, tools,idSubstring,client,phoneNumber,name) {
     console.log('Running assistant for thread: ' + threadId);
     const response = await openai.beta.threads.runs.create(
       threadId,
@@ -2388,7 +2388,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client,phon
   
     const runId = response.id;
   
-    const answer = await waitForCompletion(threadId, runId,idSubstring,client, 0,phoneNumber);
+    const answer = await waitForCompletion(threadId, runId,idSubstring,client, 0,phoneNumber,name);
     return answer;
   }
   async function fetchMultipleContactsData(phoneNumbers, idSubstring) {
@@ -2519,7 +2519,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client,phon
     }
 }
   // Modify the handleToolCalls function to include the new tool
-async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
+async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber,name) {
     console.log('Handling tool calls...');
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
@@ -2823,8 +2823,8 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                             args.description, 
                             args.startDateTime, 
                             args.endDateTime,
-                            args.contactPhone,
-                            args.contactName
+                            phoneNumber,
+                            name
                         );
                         
                         if (result.error) {
@@ -3118,7 +3118,7 @@ async function setLeadTemperature(idSubstring, phoneNumber, temperature) {
 }
 
 // Modify the handleOpenAIAssistant function to include the new tool
-async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client) {
+async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client,name) {
     console.log(ghlConfig.assistantId);
     let assistantId = ghlConfig.assistantId;
     if (tags !== undefined && tags.includes('team')) { 
@@ -3452,12 +3452,12 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                 parameters: {
                     type: "object",
                     properties: {
-                        summary: { type: "string", description: "Title of the event" },
-                        description: { type: "string", description: "Description or address of the event" },
-                        startDateTime: { type: "string", description: "Start date and time in ISO 8601 format" },
-                        endDateTime: { type: "string", description: "End date and time in ISO 8601 format" },
-                        contactPhone: { type: "string", description: "Phone number of the contact" },
+                        summary: { type: "string", description: "Title of the event include the contact name" },
+                        description: { type: "string", description: "Description of the event" },
+                        startDateTime: { type: "string", description: "Start date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
+                        endDateTime: { type: "string", description: "End date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
                         contactName: { type: "string", description: "Name of the contact" },
+                        phoneNumber: { type: "string", description: "Phone number of the contact" },
                     },
                     required: ["summary", "startDateTime", "endDateTime","contactName"],
                 },
@@ -3561,7 +3561,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
         },
     ];
   
-    const answer = await runAssistant(assistantId, threadID, tools, idSubstring, client,phoneNumber);
+    const answer = await runAssistant(assistantId, threadID, tools, idSubstring, client,phoneNumber,name);
     return answer;
 }
 
