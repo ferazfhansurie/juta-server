@@ -2910,7 +2910,7 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                             args.description, 
                             args.startDateTime, 
                             args.endDateTime,
-                            args.contactPhone,
+                            phoneNumber,
                             args.contactName
                         );
                         
