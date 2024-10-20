@@ -407,9 +407,13 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
 }
 async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
     try {
+        console.log('Creating calendar event with params:', { summary, description, startDateTime, endDateTime, contactPhone, contactName });
       console.log('Checking for conflicts before creating appointment...');
       console.log('Start ...'+startDateTime);
       console.log('End ...'+endDateTime);
+      console.log('Contact ...'+contactPhone);
+      console.log('Contact Name ...'+contactName);
+      //
       const conflictCheck = await checkScheduleConflicts(startDateTime, endDateTime);
   
       if (conflictCheck.conflict) {
