@@ -1246,7 +1246,7 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
          }
  
          // Use combinedMessage instead of looping through messages
-         let messageBody = combinedMessage;
+         let messageBody = msg.body;
          let audioData = null;
  
          const data = {
@@ -1435,7 +1435,33 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
          await addNotificationToUser(idSubstring, messageData, contactName);
         
         // Add the data to Firestore
-        await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
+        await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true}); 
+          //reset bot command
+          if (msg.body.includes('/resetbot')) {
+            const thread = await createThread();
+            threadID = thread.id;
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
+            client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
+            return;
+        }
+
+        //test bot command
+        if (msg.body.includes('/hello')) {
+            client.sendMessage(msg.from, 'tested.');
+            return;
+        }
+        if(ghlConfig.stopbot){
+            if(ghlConfig.stopbot == true){
+                console.log('bot stop all');
+                return;
+            }
+        }
+        if(firebaseTags !== undefined){
+            if(firebaseTags.includes('stop bot')){
+                console.log('bot stop');
+                return;
+            }
+        }   
         console.log('Message processed immediately:', msg.id._serialized);
     } catch (error) {
         console.error('Error in immediate processing:', error);
@@ -1505,32 +1531,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
             return;
         }
 
-        //reset bot command
-        if (combinedMessage.includes('/resetbot')) {
-            const thread = await createThread();
-            threadID = thread.id;
-            await saveThreadIDFirebase(contactID, threadID, idSubstring)
-            client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
-            return;
-        }
-
-        //test bot command
-        if (combinedMessage.includes('/hello')) {
-            client.sendMessage(msg.from, 'tested.');
-            return;
-        }
-        if(ghlConfig.stopbot){
-            if(ghlConfig.stopbot == true){
-                console.log('bot stop all');
-                return;
-            }
-        }
-        if(firebaseTags !== undefined){
-            if(firebaseTags.includes('stop bot')){
-                console.log('bot stop');
-                return;
-            }
-        }
+      
         if ((msg.from).includes('120363178065670386')) {
             console.log('detected message from group juta')
             console.log(combinedMessage)
