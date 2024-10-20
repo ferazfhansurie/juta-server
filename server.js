@@ -2287,8 +2287,8 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
   console.log('send message');
   const companyId = req.params.companyId;
   const chatId = req.params.chatId;
-  const phoneNumber = chatId.split('@')[0];
-  const contactData = await getContactDataFromDatabaseByPhone(phoneNumber, companyId);
+  const extractedNumber = '+'+(chatId).split('@')[0];
+  const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, companyId);
   const { message, quotedMessageId, phoneIndex: requestedPhoneIndex, userName: requestedUserName } = req.body;
   console.log(req.body);
   console.log(message)
@@ -2316,7 +2316,7 @@ app.post('/api/v2/messages/text/:companyId/:chatId', async (req, res) => {
       sentMessage = await client.sendMessage(chatId, message);
     }
     console.log(sentMessage)
-    const extractedNumber = '+'+(chatId).split('@')[0];
+    
     let type2 = sentMessage.type === 'chat' ? 'text' : sentMessage.type;
     // 3. Save the message to Firebase
 
