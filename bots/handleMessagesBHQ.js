@@ -609,7 +609,7 @@ async function handleNewMessagesBHQ(client, msg, botName, phoneIndex) {
                     
                     
                     
-                    if((msg.body.toLowerCase().includes('ya') || msg.body.toLowerCase().includes('yes')) && (contactData.customer == true)){
+                    if((msg.body.toLowerCase().includes('hadir') || msg.body.toLowerCase().includes('attended')) && (contactData.customer == true)){
                         // Call the method to update the spreadsheet
                         const spreadsheet = new bhqSpreadsheet(this.botMap);
                         await spreadsheet.updateAttendance(extractedNumber, true);

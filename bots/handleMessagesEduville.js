@@ -144,19 +144,74 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     
     let assignedEmployee = null;
 
-    
     // Round-robin assignment
     assignedEmployee = employees[currentEmployeeIndex];
     currentEmployeeIndex = (currentEmployeeIndex + 1) % employees.length;
 
     console.log(`Assigned employee: ${assignedEmployee.name}`);
 
-    var tags = [assignedEmployee.name, assignedEmployee.phoneNumber];
-    var employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
+    const tags = [assignedEmployee.name, assignedEmployee.phoneNumber];
+    const employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
     await client.sendMessage(employeeID, 'You have been assigned to ' + contactID);
     await addtagbookedFirebase(contactID, assignedEmployee.name, idSubstring);
-    // Store the current state in Firebase
+
+    // Fetch sales employees based on the assigned employee's group
+    if(assignedEmployee.group){
+        await fetchSalesFromFirebase(idSubstring, assignedEmployee.group);
+        console.log('Fetched sales employees:', sales);
+    } else {
+        console.log('No group assigned to the employee');
+        return tags;  // Return early if no group is assigned
+    }
+    
+    // Filter out employees who are inactive (assuming active employees have a weightage > 0)
+    const availableEmployees = sales.filter(emp => emp.weightage > 0);
+
+    console.log('Available sales employees:', availableEmployees);
+
+    if (availableEmployees.length === 0) {
+        console.log('No available sales employees found for assignment');
+        return tags;
+    }
+
+    // Calculate total weight
+    const totalWeight = availableEmployees.reduce((sum, emp) => sum + emp.weightage, 0);
+
+    console.log('Total weight:', totalWeight);
+
+    // Generate a random number between 0 and totalWeight
+    const randomValue = Math.random() * totalWeight;
+
+    console.log('Random value:', randomValue);
+
+    // Select an employee based on the weighted random selection
+    let cumulativeWeight = 0;
+    let assignedSales = null;
+
+    for (const emp of availableEmployees) {
+        cumulativeWeight += emp.weightage;
+        console.log(`Sales Employee: ${emp.name}, Cumulative Weight: ${cumulativeWeight}`);
+        if (randomValue <= cumulativeWeight) {
+            assignedSales = emp;
+            break;
+        }
+    }
+    
+    if (!assignedSales) {
+        console.log('Failed to assign a sales employee');
+        return tags;
+    }
+
+    console.log(`Assigned sales: ${assignedSales.name}`);
+    await addtagbookedFirebase(contactID, assignedSales.name, idSubstring);
+    const salesID = assignedSales.phoneNumber.replace(/\s+/g, '').split('+')[1] + '@c.us';
+
+    await client.sendMessage(salesID, 'You have been assigned to ' + contactID);
+
+    // Add the assigned sales employee to the tags
+    tags.push(assignedSales.name, assignedSales.phoneNumber);
+
     await storeAssignmentState(idSubstring);
 
     return tags;
@@ -810,11 +865,14 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 // Update the data object with the extracted contact info
                                 data = {
                                     ...data,
+                                    name: contactInfo.name || data.name,
                                     country: contactInfo.country || data.country,
                                     highestEducation: contactInfo.highestEducation,
                                     programOfStudy: contactInfo.programOfStudy,
                                     intakePreference: contactInfo.intakePreference,
                                     englishProficiency: contactInfo.englishProficiency,
+                                    passport: contactInfo.passport,
+                                    nationality: contactInfo.nationality,
                                 };
 
                                 await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
@@ -901,10 +959,12 @@ New Enquiry Has Been Submitted
 Date : ${currentDate}
 1) Name: [Extract from conversation]
 2) Country: [Extract from conversation]
-3) Your highest educational qualification: [Extract from conversation]
-4) What program do you want to study: [Extract from conversation]
-5) Which intake you want to join: [Extract from conversation]
-6) Do you have any English proficiency certificate such as TOEFL / IELTS?: [Extract from conversation]
+3) Nationality: [Extract from conversation]
+4) Your highest educational qualification: [Extract from conversation]
+5) What program do you want to study: [Extract from conversation]
+6) Which intake you want to join: [Extract from conversation]
+7) Do you have any English proficiency certificate such as TOEFL / IELTS?: [Extract from conversation]
+8) Do you have a valid passport?: [Extract from conversation]
 
 Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. Do not change the Date field.`;
 
@@ -943,7 +1003,10 @@ function extractContactInfo(report) {
     var contactInfo = {};
 
     for (var line of lines) {
-        if (line.startsWith('2) Country:')) {
+        if (line.startsWith('1) Name:')) {  
+            contactInfo.name = line.split(':')[1].trim();
+        } 
+        else if (line.startsWith('2) Country:')) {
             contactInfo.country = line.split(':')[1].trim();
         } else if (line.startsWith('3) Your highest educational qualification:')) {
             contactInfo.highestEducation = line.split(':')[1].trim();
@@ -953,7 +1016,11 @@ function extractContactInfo(report) {
             contactInfo.intakePreference = line.split(':')[1].trim();
         } else if (line.startsWith('6) Do you have any English proficiency certificate')) {
             contactInfo.englishProficiency = line.split(':')[1].trim();
-        }
+        } else if (line.startsWith('8) Do you have a valid passport?:')) {
+            contactInfo.passport = line.split(':')[1].trim();
+        } else if (line.startsWith('7) Nationality:')) {
+            contactInfo.nationality = line.split(':')[1].trim();
+        } 
     }
 
     return contactInfo;

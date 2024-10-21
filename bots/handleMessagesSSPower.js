@@ -115,7 +115,6 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     
     let assignedEmployee = null;
 
-    
     // Round-robin assignment
     assignedEmployee = employees[currentEmployeeIndex];
     currentEmployeeIndex = (currentEmployeeIndex + 1) % employees.length;
@@ -126,7 +125,64 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     const employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
     await client.sendMessage(employeeID, 'You have been assigned to ' + contactID);
-    // Store the current state in Firebase
+    await addtagbookedFirebase(contactID, assignedEmployee.name, idSubstring);
+
+    // Fetch sales employees based on the assigned employee's group
+    if(assignedEmployee.group){
+        await fetchSalesFromFirebase(idSubstring, assignedEmployee.group);
+        console.log('Fetched sales employees:', sales);
+    } else {
+        console.log('No group assigned to the employee');
+        return tags;  // Return early if no group is assigned
+    }
+    
+    // Filter out employees who are inactive (assuming active employees have a weightage > 0)
+    const availableEmployees = sales.filter(emp => emp.weightage > 0);
+
+    console.log('Available sales employees:', availableEmployees);
+
+    if (availableEmployees.length === 0) {
+        console.log('No available sales employees found for assignment');
+        return tags;
+    }
+
+    // Calculate total weight
+    const totalWeight = availableEmployees.reduce((sum, emp) => sum + emp.weightage, 0);
+
+    console.log('Total weight:', totalWeight);
+
+    // Generate a random number between 0 and totalWeight
+    const randomValue = Math.random() * totalWeight;
+
+    console.log('Random value:', randomValue);
+
+    // Select an employee based on the weighted random selection
+    let cumulativeWeight = 0;
+    let assignedSales = null;
+
+    for (const emp of availableEmployees) {
+        cumulativeWeight += emp.weightage;
+        console.log(`Sales Employee: ${emp.name}, Cumulative Weight: ${cumulativeWeight}`);
+        if (randomValue <= cumulativeWeight) {
+            assignedSales = emp;
+            break;
+        }
+    }
+    
+    if (!assignedSales) {
+        console.log('Failed to assign a sales employee');
+        return tags;
+    }
+
+    console.log(`Assigned sales: ${assignedSales.name}`);
+    await addtagbookedFirebase(contactID, assignedSales.name, idSubstring);
+    const salesID = assignedSales.phoneNumber.replace(/\s+/g, '').split('+')[1] + '@c.us';
+
+    await client.sendMessage(salesID, 'You have been assigned to ' + contactID);
+
+    // Add the assigned sales employee to the tags
+    tags.push(assignedSales.name, assignedSales.phoneNumber);
+
     await storeAssignmentState(idSubstring);
 
     return tags;
@@ -858,10 +914,12 @@ async function handleNewMessagesSSPower(client, msg, botName, phoneIndex) {
                             if (check.includes('team kami akan contact')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 await addtagbookedFirebase(contactID, 'Complete Details', idSubstring);
+                                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
+
                             }
                             if (check.includes('maklumkan team')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
-                                await addtagbookedFirebase(contactID, 'Pending Gambar', idSubstring);
+                                await addtagbookedFirebase(contactID, 'Pending Video', idSubstring);
                             }
 
                             if (check.includes('boleh tolong isikan details')) {

@@ -650,7 +650,7 @@ async saveThreadIDFirebase(contactID, threadID, idSubstring) {
     
     \nKelas bersama Guru : ${teacherName} berjalan semalam. 
 
-    \nSila sahkan kehadiran kelas tersebut dengan membalas 'Ya'`;
+    \nSila sahkan kehadiran kelas tersebut dengan membalas 'Hadir'`;
 
     const botData = this.botMap.get(this.botName);
     if (!botData || !botData[0].client) {
