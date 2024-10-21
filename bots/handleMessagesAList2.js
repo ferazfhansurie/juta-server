@@ -1117,47 +1117,409 @@ async function removeScheduledMessages(chatId, idSubstring) {
         console.error('Error removing scheduled messages:', error);
     }
 }
-
+const MESSAGE_BUFFER_TIME = 5000; // 1 minute in milliseconds
+const messageBuffers = new Map();
 
 async function handleNewMessagesAlist2(client, msg, botName, phoneIndex) {
-    console.log('Handling new Messages '+botName + 'from phone index '+phoneIndex);
+    console.log('Handling new Messages '+botName);
 
     const idSubstring = botName;
     const chatId = msg.from;
-        // Add message to queue
-        if (!messageQueue.has(chatId)) {
-            messageQueue.set(chatId, []);
-        }
-        const queue = messageQueue.get(chatId);
-        queue.push(msg);
-    
-        // If queue is too large, remove oldest messages
-        while (queue.length > MAX_QUEUE_SIZE) {
-            queue.shift();
-        }
-    
-        // If already processing messages for this chat, return
-        if (processingQueue.get(chatId)) {
+ // Process the message immediately for Firebase and notifications
+ await processImmediateActions(client, msg, botName, phoneIndex);
+    // Initialize or update the message buffer for this chat
+    if (!messageBuffers.has(chatId)) {
+        messageBuffers.set(chatId, {
+            messages: [],
+            timer: null
+        });
+    }
+    const buffer = messageBuffers.get(chatId);
+
+    // Add the new message to the buffer
+    buffer.messages.push(msg);
+
+    // Clear any existing timer
+    if (buffer.timer) {
+        clearTimeout(buffer.timer);
+    }
+
+    // Set a new timer
+    buffer.timer = setTimeout(() => processBufferedMessages(client, chatId, botName, phoneIndex), MESSAGE_BUFFER_TIME);
+}
+
+async function processImmediateActions(client, msg, botName, phoneIndex) {
+    const idSubstring = botName;
+    const chatId = msg.from;
+   console.log('processImmediateActions');
+   const currentDate = new Date().toISOString().split('T')[0]; // Get current date in YYYY-MM-DD format
+   const messageId = `${botName}_${currentDate}_${msg.id._serialized}`;
+
+   // Prepare the message data
+   const messageData = {
+       chat_id: msg.from,
+       from: msg.from ?? "",
+       from_me: msg.fromMe ?? false,
+       id: msg.id._serialized ?? "",
+       source: chat.deviceType ?? "",
+       status: "delivered",
+       text: {
+           body: msg.body ?? ""
+       },
+       timestamp: msg.timestamp ?? 0,
+       type: type,
+       phoneIndex: phoneIndex,
+   };
+
+
+   const messagesRef = db.collection('botMessages').doc(messageId);
+   await messagesRef.set(messageData);
+    try {
+         // Initial fetch of config
+         await fetchConfigFromDatabase(idSubstring,phoneIndex);
+         const sender = {
+             to: msg.from,
+             name: msg.notifyName,
+         };
+ 
+         const extractedNumber = '+'+(sender.to).split('@')[0];
+ 
+       
+       
+         let contactID;
+         let contactName;
+         let threadID;
+         let query;
+         let answer;
+         let parts;
+         let currentStep;
+         const chat = await msg.getChat();
+         const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
+         let unreadCount = 0;
+         let stopTag = contactData?.tags || [];
+         const contact = await chat.getContact();
+ 
+         console.log(contactData);
+         if (contactData !== null) {
+             if(contactData.tags){
+                 stopTag = contactData.tags;
+                 console.log(stopTag);
+                 unreadCount = contactData.unreadCount ?? 0;
+                 contactID = extractedNumber;
+                 contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
+             
+                 if (contactData.threadid) {
+                     threadID = contactData.threadid;
+                 } else {
+                     const thread = await createThread();
+                     threadID = thread.id;
+                     await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                 }
+             } else {
+                 contactID = extractedNumber;
+                 contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
+                 if (contactData.threadid) {
+                     threadID = contactData.threadid;
+                 } else {
+                     const thread = await createThread();
+                     threadID = thread.id;
+                     await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                 } 
+             }
+         } else {
+             await customWait(2500); 
+ 
+             contactID = extractedNumber;
+             contactName = contact.pushname || contact.name || extractedNumber;
+ 
+             const thread = await createThread();
+             threadID = thread.id;
+             console.log(threadID);
+             await saveThreadIDFirebase(contactID, threadID, idSubstring)
+             console.log('sent new contact to create new contact');
+         }   
+       
+         let firebaseTags = ['']
+         if (contactData) {
+             firebaseTags = contactData.tags ?? [];
+             // Remove 'snooze' tag if present
+             if(firebaseTags.includes('snooze')){
+                 firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+             }
+         } else {
+             if ((sender.to).includes('@g.us')) {
+                 firebaseTags = ['stop bot']
+             }
+         }
+ 
+         if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
+             // Schedule removal of 'replied' tag after 1 hour
+             // scheduleRepliedTagRemoval(idSubstring, extractedNumber, msg.from);
+         }
+ 
+         let type = 'text';
+         if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
+             return;
+         } else if (msg.type != 'chat') {
+             type = msg.type;
+         }
+             
+         if(extractedNumber.includes('status')){
+             return;
+         }
+ 
+         // Use combinedMessage instead of looping through messages
+         let messageBody = msg.body;
+         let audioData = null;
+ 
+         const data = {
+             additionalEmails: [],
+             address1: null,
+             assignedTo: null,
+             businessId: null,
+             phone: extractedNumber,
+             tags: firebaseTags,
+             chat: {
+                 contact_id: extractedNumber,
+                 id: msg.from,
+                 name: contactName || contact.name || contact.pushname || extractedNumber,
+                 not_spam: true,
+                 tags: firebaseTags,
+                 timestamp: chat.timestamp || Date.now(),
+                 type: 'contact',
+                 unreadCount: 0,
+                 last_message: {
+                     chat_id: msg.from,
+                     from: msg.from ?? "",
+                     from_me: msg.fromMe ?? false,
+                     id: msg.id._serialized ?? "",
+                     source: chat.deviceType ?? "",
+                     status: "delivered",
+                     text: {
+                         body: messageBody ?? ""
+                     },
+                     timestamp: msg.timestamp ?? 0,
+                     type: type,
+                 },
+             },
+             chat_id: msg.from,
+             city: null,
+             companyName: contact.companyName || null,
+             contactName: contactName || contact.name || contact.pushname || extractedNumber,
+             unreadCount: unreadCount + 1,
+             threadid: threadID ?? "",
+             phoneIndex: phoneIndex,
+             last_message: {
+                 chat_id: msg.from,
+                 from: msg.from ?? "",
+                 from_me: msg.fromMe ?? false,
+                 id: msg.id._serialized ?? "",
+                 source: chat.deviceType ?? "",
+                 status: "delivered",
+                 text: {
+                     body: messageBody ?? ""
+                 },
+                 timestamp: msg.timestamp ?? 0,
+                 type: type,
+             },
+         };
+ 
+         // Only add createdAt if it's a new contact
+         if (!contactData) {
+             data.createdAt = admin.firestore.Timestamp.now();
+         }
+ 
+         let profilePicUrl = "";
+         if (contact.getProfilePicUrl()) {
+             try {
+                 profilePicUrl = await contact.getProfilePicUrl() || "";
+             } catch (error) {
+                 console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
+             }
+         }
+         data.profilePicUrl = profilePicUrl;
+ 
+         const messageData = {
+             chat_id: msg.from,
+             from: msg.from ?? "",
+             from_me: msg.fromMe ?? false,
+             id: msg.id._serialized ?? "",
+             source: chat.deviceType ?? "",
+             status: "delivered",
+             text: {
+                 body: messageBody ?? ""
+             },
+             timestamp: msg.timestamp ?? 0,
+             type: type,
+             phoneIndex: phoneIndex,
+         };
+ 
+         if(msg.hasQuotedMsg){
+           const quotedMsg = await msg.getQuotedMessage();
+           // Initialize the context and quoted_content structure
+           messageData.text.context = {
+             quoted_content: {
+               body: quotedMsg.body
+             }
+           };
+           const authorNumber = '+'+(quotedMsg.from).split('@')[0];
+           const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+           messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
+       }
+             
+         if((sender.to).includes('@g.us')){
+             const authorNumber = '+'+(msg.author).split('@')[0];
+ 
+             const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+             if(authorData){
+                 messageData.author = authorData.contactName;
+             }else{
+                 messageData.author = authorNumber;
+             }
+         }
+         if (msg.type === 'audio' || msg.type === 'ptt') {
+             messageData.audio = {
+                 mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+                 data: audioData // This is the base64 encoded audio data
+             };
+         }
+ 
+         if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
+           try {
+               const media = await msg.downloadMedia();
+               if (media) {
+                 if (msg.type === 'image') {
+                   messageData.image = {
+                       mimetype: media.mimetype,
+                       data: media.data,  // This is the base64-encoded data
+                       filename: msg._data.filename || "",
+                       caption: msg._data.caption || "",
+                   };
+                   // Add width and height if available
+                   if (msg._data.width) messageData.image.width = msg._data.width;
+                   if (msg._data.height) messageData.image.height = msg._data.height;
+                 } else if (msg.type === 'document') {
+                     messageData.document = {
+                         mimetype: media.mimetype,
+                         data: media.data,  // This is the base64-encoded data
+                         filename: msg._data.filename || "",
+                         caption: msg._data.caption || "",
+                         pageCount: msg._data.pageCount,
+                         fileSize: msg._data.size,
+                     };
+                 }else if (msg.type === 'video') {
+                       messageData.video = {
+                           mimetype: media.mimetype,
+                           filename: msg._data.filename || "",
+                           caption: msg._data.caption || "",
+                       };
+                       // Store video data separately or use a cloud storage solution
+                       const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                       messageData.video.link = videoUrl;
+                 } else {
+                     messageData[msg.type] = {
+                         mimetype: media.mimetype,
+                         data: media.data,
+                         filename: msg._data.filename || "",
+                         caption: msg._data.caption || "",
+                     };
+                 }
+     
+                 // Add thumbnail information if available
+                 if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                     messageData[msg.type].thumbnail = {
+                         height: msg._data.thumbnailHeight,
+                         width: msg._data.thumbnailWidth,
+                     };
+                 }
+     
+                 // Add media key if available
+                 if (msg.mediaKey) {
+                     messageData[msg.type].mediaKey = msg.mediaKey;
+                 }
+ 
+                 
+               } else {
+                   console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                   messageData.text = { body: "Media not available" };
+               }
+           } catch (error) {
+               console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+               messageData.text = { body: "Error handling media" };
+           }
+       }
+ 
+         const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+         const messagesRef = contactRef.collection('messages');
+ 
+         const messageDoc = messagesRef.doc(msg.id._serialized);
+         await messageDoc.set(messageData, { merge: true });
+         console.log(msg);
+         await addNotificationToUser(idSubstring, messageData, contactName);
+        
+        // Add the data to Firestore
+        await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true}); 
+          //reset bot command
+          if (msg.body.includes('/resetbot')) {
+            const thread = await createThread();
+            threadID = thread.id;
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
+            client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
             return;
         }
+
+        //test bot command
+        if (msg.body.includes('/hello')) {
+            client.sendMessage(msg.from, 'tested.');
+            return;
+        }
+        if(ghlConfig.stopbot){
+            if(ghlConfig.stopbot == true){
+                console.log('bot stop all');
+                return;
+            }
+        }
+        if(firebaseTags !== undefined){
+            if(firebaseTags.includes('stop bot')){
+                console.log('bot stop');
+                return;
+            }
+        }   
+        console.log('Message processed immediately:', msg.id._serialized);
+    } catch (error) {
+        console.error('Error in immediate processing:', error);
+    }
+}
+async function processBufferedMessages(client, chatId, botName, phoneIndex) {
+    const buffer = messageBuffers.get(chatId);
+    if (!buffer || buffer.messages.length === 0) return;
+
+    const messages = buffer.messages;
+    messageBuffers.delete(chatId); // Clear the buffer
+
+    // Combine all message bodies
+    const combinedMessage = messages.map(m => m.body).join(' ');
+
+    // Process the combined message
+    await processMessage(client, messages[0], botName, phoneIndex, combinedMessage);
+}
+
+async function processMessage(client, msg, botName, phoneIndex, combinedMessage) {
+    console.log('Processing buffered messages for '+botName);
+
+    const idSubstring = botName;
+    const chatId = msg.from;
     
-        // Set processing flag
-        processingQueue.set(chatId, true);
     try {
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring,phoneIndex);
 
         // Set up the daily report schedule
-      //  await checkAndScheduleDailyReport(client, idSubstring);
-        while (messageQueue.get(chatId).length > 0) {
-            const messages = messageQueue.get(chatId);
-            messageQueue.set(chatId, []);
+        await checkAndScheduleDailyReport(client, idSubstring);
 
-            // Combine all message bodies for AI processing
-            var combinedMessage = messages.map(m => m.body).join(' ');
         const sender = {
             to: msg.from,
-            name:msg.notifyName,
+            name: msg.notifyName,
         };
 
         const extractedNumber = '+'+(sender.to).split('@')[0];
@@ -1180,298 +1542,7 @@ async function handleNewMessagesAlist2(client, msg, botName, phoneIndex) {
         let stopTag = contactData?.tags || [];
         const contact = await chat.getContact();
 
-            
-        console.log(contactData);
-        if (contactData !== null) {
-            if(contactData.tags){
-                stopTag = contactData.tags;
-                console.log(stopTag);
-                    unreadCount = contactData.unreadCount ?? 0;
-                    contactID = extractedNumber;
-                    contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
-                
-                    if (contactData.threadid) {
-                        threadID = contactData.threadid;
-                    } else {
-                        const thread = await createThread();
-                        threadID = thread.id;
-                        await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                    }
-                
-            }else{
-                contactID = extractedNumber;
-                contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
-                if (contactData.threadid) {
-                    threadID = contactData.threadid;
-                } else {
-                    const thread = await createThread();
-                    threadID = thread.id;
-                    await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                } 
-            }
-     
-        }else{
-                
-            await customWait(2500); 
 
-            contactID = extractedNumber;
-            contactName = contact.pushname || contact.name || extractedNumber;
-           // client.sendMessage('120363178065670386@g.us', 'New Lead '+contactName +' '+contactID);
-
-            const thread = await createThread();
-            threadID = thread.id;
-            console.log(threadID);
-            await saveThreadIDFirebase(contactID, threadID, idSubstring)
-            console.log('sent new contact to create new contact');
-        }   
-        let firebaseTags = ['']
-        if (contactData) {
-            firebaseTags = contactData.tags ?? [];
-            // Remove 'snooze' tag if present
-            if(firebaseTags.includes('snooze')){
-                firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
-            }
-        } else {
-            if ((sender.to).includes('@g.us')) {
-                firebaseTags = ['stop bot']
-            }
-        }
-        // if(firebaseTags.includes('meow')){
-        //     // await addtagbookedFirebase(extractedNumber, 'replied', idSubstring);
-        //     await scheduleFollowUpMessages(msg.from, idSubstring, contactName);
-        // }
-        // if(firebaseTags.includes('tester')){
-        //     await removeScheduledMessages(msg.from, idSubstring);
-        // }
-        if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
-                    // Schedule removal of 'replied' tag after 1 hour
-            // scheduleRepliedTagRemoval(idSubstring, extractedNumber, msg.from);
-        }
-  
-
-        // Cancel any existing follow-up jobs for this chat
-        // await changeFollowUpStatus(msg.from);
-
-        let type = '';
-        if(msg.type == 'chat'){
-            type ='text'
-          }else if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
-            return;
-        }else{
-            type = msg.type;
-          }
-            
-        if(extractedNumber.includes('status')){
-            return;
-        }
-        for (const msg of messages) {
-        // First, let's handle the transcription if it's an audio message
-        let messageBody = msg.body;
-        let audioData = null;
-
-        if (msg.hasMedia && (msg.type === 'audio' || msg.type === 'ptt')) {
-            console.log('Voice message detected');
-            const media = await msg.downloadMedia();
-            const transcription = await transcribeAudio(media.data);
-            console.log('Transcription:', transcription);
-            
-            if (transcription && transcription !== 'Audio transcription failed. Please try again.') {
-                messageBody = transcription;
-            } else {
-                messageBody = "I couldn't transcribe the audio. Could you please type your message instead?";
-            }
-            audioData = media.data;
-            combinedMessage = messageBody;
-            console.log(msg);
-        }
-         
-        const data = {
-            additionalEmails: [],
-            address1: null,
-            assignedTo: null,
-            businessId: null,
-            phone: extractedNumber,
-            tags: firebaseTags,
-            chat: {
-                contact_id: extractedNumber,
-                id: msg.from,
-                name: contactName || contact.name || contact.pushname || extractedNumber,
-                not_spam: true,
-                tags: firebaseTags,
-                timestamp: chat.timestamp || Date.now(),
-                type: 'contact',
-                unreadCount: 0,
-                last_message: {
-                    chat_id: msg.from,
-                    from: msg.from ?? "",
-                    from_me: msg.fromMe ?? false,
-                    id: msg.id._serialized ?? "",
-                    source: chat.deviceType ?? "",
-                    status: "delivered",
-                    text: {
-                        body: messageBody ?? ""
-                    },
-                    timestamp: msg.timestamp ?? 0,
-                    type:type,
-                },
-            },
-            chat_id: msg.from,
-            city: null,
-            companyName: contact.companyName||null,
-            contactName: contactName || contact.name || contact.pushname || extractedNumber,
-            unreadCount: unreadCount + 1,
-            threadid: threadID ?? "",
-            phoneIndex: phoneIndex,
-            last_message: {
-                chat_id: msg.from,
-                from: msg.from ?? "",
-                from_me: msg.fromMe ?? false,
-                id: msg.id._serialized ?? "",
-                source: chat.deviceType ?? "",
-                status: "delivered",
-                text: {
-                    body: messageBody ?? ""
-                },
-                timestamp: msg.timestamp ?? 0,
-                type: type,
-            },
-        };
-// Only add createdAt if it's a new contact
-if (!contactData) {
-  data.createdAt = admin.firestore.Timestamp.now();
-}
-        let profilePicUrl = "";
-        if (contact.getProfilePicUrl()) {
-          try {
-            profilePicUrl = await contact.getProfilePicUrl() || "";
-          } catch (error) {
-            console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
-          }
-        }
-        data.profilePicUrl = profilePicUrl;
-
-        
-
-        const messageData = {
-            chat_id: msg.from,
-            from: msg.from ?? "",
-            from_me: msg.fromMe ?? false,
-            id: msg.id._serialized ?? "",
-            source: chat.deviceType ?? "",
-            status: "delivered",
-            text: {
-                body: messageBody ?? ""
-            },
-            timestamp: msg.timestamp ?? 0,
-            type: type,
-            phoneIndex: phoneIndex,
-        };
-
-        if(msg.hasQuotedMsg){
-          const quotedMsg = await msg.getQuotedMessage();
-          // Initialize the context and quoted_content structure
-          messageData.text.context = {
-            quoted_content: {
-              body: quotedMsg.body
-            }
-          };
-          const authorNumber = '+'+(quotedMsg.from).split('@')[0];
-          const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-          messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
-      }
-            
-        if((sender.to).includes('@g.us')){
-            const authorNumber = '+'+(msg.author).split('@')[0];
-
-            const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-            if(authorData){
-                messageData.author = authorData.contactName;
-            }else{
-                messageData.author = authorNumber;
-            }
-        }
-        if (msg.type === 'audio' || msg.type === 'ptt') {
-            messageData.audio = {
-                mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
-                data: audioData // This is the base64 encoded audio data
-            };
-        }
-
-        if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
-          try {
-              const media = await msg.downloadMedia();
-              if (media) {
-                if (msg.type === 'image') {
-                  messageData.image = {
-                      mimetype: media.mimetype,
-                      data: media.data,  // This is the base64-encoded data
-                      filename: msg._data.filename || "",
-                      caption: msg._data.caption || "",
-                  };
-                  // Add width and height if available
-                  if (msg._data.width) messageData.image.width = msg._data.width;
-                  if (msg._data.height) messageData.image.height = msg._data.height;
-                } else if (msg.type === 'document') {
-                    messageData.document = {
-                        mimetype: media.mimetype,
-                        data: media.data,  // This is the base64-encoded data
-                        filename: msg._data.filename || "",
-                        caption: msg._data.caption || "",
-                        pageCount: msg._data.pageCount,
-                        fileSize: msg._data.size,
-                    };
-                }else if (msg.type === 'video') {
-                      messageData.video = {
-                          mimetype: media.mimetype,
-                          filename: msg._data.filename || "",
-                          caption: msg._data.caption || "",
-                      };
-                      // Store video data separately or use a cloud storage solution
-                      const videoUrl = await storeVideoData(media.data, msg._data.filename);
-                      messageData.video.link = videoUrl;
-                } else {
-                    messageData[msg.type] = {
-                        mimetype: media.mimetype,
-                        data: media.data,
-                        filename: msg._data.filename || "",
-                        caption: msg._data.caption || "",
-                    };
-                }
-    
-                // Add thumbnail information if available
-                if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
-                    messageData[msg.type].thumbnail = {
-                        height: msg._data.thumbnailHeight,
-                        width: msg._data.thumbnailWidth,
-                    };
-                }
-    
-                // Add media key if available
-                if (msg.mediaKey) {
-                    messageData[msg.type].mediaKey = msg.mediaKey;
-                }
-
-                
-              } else {
-                  console.log(`Failed to download media for message: ${msg.id._serialized}`);
-                  messageData.text = { body: "Media not available" };
-              }
-          } catch (error) {
-              console.error(`Error handling media for message ${msg.id._serialized}:`, error);
-              messageData.text = { body: "Error handling media" };
-          }
-      }
-
-        const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-        const messagesRef = contactRef.collection('messages');
-
-        const messageDoc = messagesRef.doc(msg.id._serialized);
-        await messageDoc.set(messageData, { merge: true });
-        console.log(msg);
-        await addNotificationToUser(idSubstring, messageData, contactName);
-
-        // Add the data to Firestore
-        await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
    
         if (msg.fromMe){
             if(stopTag.includes('idle')){
@@ -1483,138 +1554,116 @@ if (!contactData) {
             return;
         }
 
-        //reset bot command
-        if (msg.body.includes('/resetbot')) {
-            const thread = await createThread();
-            threadID = thread.id;
-            await saveThreadIDFirebase(contactID, threadID, idSubstring)
-            client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
-            return;
-        }
-
-        //test bot command
-        if (msg.body.includes('/hello')) {
-            
-            client.sendMessage(msg.from, 'tested.');
-            return;
-        }
-        if(ghlConfig.stopbot){
-            if(ghlConfig.stopbot == true){
-                console.log('bot stop all');
-                return;
-            }
-        }
-        if(firebaseTags !== undefined){
-            if(firebaseTags.includes('stop bot')){
-                console.log('bot stop');
-            return;
-            }
-        }
+      
         if ((msg.from).includes('120363178065670386')) {
-            console.log('detected message from group alist')
-            console.log(msg.body)
-            if ((msg.body).startsWith('<Confirmed Appointment>')) {
+            console.log('detected message from group juta')
+            console.log(combinedMessage)
+            if ((combinedMessage).startsWith('<Confirmed Appointment>')) {
                 console.log('detected <CONFIRMED APPOINTMENT>')
                 await handleConfirmedAppointment(client, msg);
                 return;
             }
+        } if (contactData.threadid) {
+            threadID = contactData.threadid;
+        } else {
+            const thread = await createThread();
+            threadID = thread.id;
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
         }
-    }
+
         currentStep = userState.get(sender.to) || steps.START;
         switch (currentStep) {
             case steps.START:
                 var context = "";
 
                 query = `${combinedMessage}`;
-             if(!(sender.to.includes('@g.us')) || (msg.body.toLowerCase().startsWith('@alist') && phoneIndex == 0)){
-                answer = await handleOpenAIAssistant(query, threadID, firebaseTags, extractedNumber, idSubstring,client,phoneIndex);
-                console.log(answer);
-                parts = answer.split(/\s*\|\|\s*/);
-                
-                for (let i = 0; i < parts.length; i++) {
-                    const part = parts[i].trim();   
-                    const check = part.toLowerCase();
-                    if (part) {
-                        const sentMessage = await client.sendMessage(msg.from, part);
+                if(!(sender.to.includes('@g.us')) || (combinedMessage.toLowerCase().startsWith('@alist') && phoneIndex == 0)){
+                    answer = await handleOpenAIAssistant(query, threadID, stopTag, extractedNumber, idSubstring, client,contactData.contactName);
+                    console.log(answer);
+                    parts = answer.split(/\s*\|\|\s*/);
+                    
+                    for (let i = 0; i < parts.length; i++) {
+                        const part = parts[i].trim();   
+                        const check = part.toLowerCase();
+                        if (part) {
+                            const sentMessage = await client.sendMessage(msg.from, part);
 
-                        // Save the message to Firebase
-                        const sentMessageData = {
-                            chat_id: sentMessage.from,
-                            from: sentMessage.from ?? "",
-                            from_me: true,
-                            id: sentMessage.id._serialized ?? "",
-                            source: sentMessage.deviceType ?? "",
-                            status: "delivered",
-                            text: {
-                                body: part
-                            },
-                            timestamp: sentMessage.timestamp ?? 0,
-                            type: 'text',
-                            ack: sentMessage.ack ?? 0,
-                        };
+                            // Save the message to Firebase
+                            const sentMessageData = {
+                                chat_id: sentMessage.from,
+                                from: sentMessage.from ?? "",
+                                from_me: true,
+                                id: sentMessage.id._serialized ?? "",
+                                source: sentMessage.deviceType ?? "",
+                                status: "delivered",
+                                text: {
+                                    body: part
+                                },
+                                timestamp: sentMessage.timestamp ?? 0,
+                                type: 'text',
+                                ack: sentMessage.ack ?? 0,
+                            };
 
-                        const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-                        const messagesRef = contactRef.collection('messages');
-                
-                        const messageDoc = messagesRef.doc(sentMessage.id._serialized);
+                            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+                            const messagesRef = contactRef.collection('messages');
+                    
+                            const messageDoc = messagesRef.doc(sentMessage.id._serialized);
 
-                        await messageDoc.set(sentMessageData, { merge: true });
-                        if(part.includes('*All In Enterprise Package* – RM7,899')){
-                            const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/%5C.jpeg?alt=media&token=bb6ae244-04cd-4f59-b7d9-0f72516e5d4e'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath);
-                            const imageMessage = await client.sendMessage(msg.from, media);
-                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            await messageDoc.set(sentMessageData, { merge: true });
+                            if(part.includes('*All In Enterprise Package* – RM7,899')){
+                                const imagePath = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/%5C.jpeg?alt=media&token=bb6ae244-04cd-4f59-b7d9-0f72516e5d4e'; // Update this URL to your image URL
+                                const media = await MessageMedia.fromUrl(imagePath);
+                                const imageMessage = await client.sendMessage(msg.from, media);
+                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            }
+                            if(part.includes('*Start Up Package* – RM5,000')){
+                                const imagePath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.00%20PM.jpeg?alt=media&token=798ebdeb-2597-4abb-a2bd-a186c4068b04';                // Update this URL to your image URL
+                                const media = await MessageMedia.fromUrl(imagePath2);
+                                const imageMessage = await client.sendMessage(msg.from, media);
+                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            }
+                            if(part.includes('*TikTok Star Package* – RM9,999')){
+                                const imagePath3 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.01%20PM.jpeg?alt=media&token=f98147e6-2438-4661-b381-86f6008f149c'; // Update this URL to your image URL
+                                const media = await MessageMedia.fromUrl(imagePath3);
+                                const imageMessage = await client.sendMessage(msg.from, media);
+                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            }
+                            if(part.includes('*Rising Star Package* – RM25,000')){
+                                const imagePath4 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.02%20PM.jpeg?alt=media&token=0ac2a45f-0d90-4790-8e51-87fa4a848162'; // Update this URL to your image URL
+                                const media = await MessageMedia.fromUrl(imagePath4);
+                                const imageMessage = await client.sendMessage(msg.from, media);
+                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            }
+                            if(part.includes('*Super Star Package* – RM39,500')){
+                                const imagePath5 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.03%20PM.jpeg?alt=media&token=3fb5754c-757d-4499-a745-2b2600b69c61'; // Update this URL to your image URL
+                                const media = await MessageMedia.fromUrl(imagePath5);
+                                const imageMessage = await client.sendMessage(msg.from, media);
+                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            }
+                            if(part.includes('*KOC Bundle - 3 Months* – RM44,999')){
+                                const imagePath6 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.04%20PM.jpeg?alt=media&token=78f59305-a2fc-4493-a7a7-0d829d7fbe04'; // Update this URL to your image URL
+                                const media = await MessageMedia.fromUrl(imagePath6);
+                                const imageMessage = await client.sendMessage(msg.from, media);
+                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            }
+                            if(check.includes('*KOC Bundle - 1 Month* – RM17,999')){
+                                const imagePath7 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.05%20PM.jpeg?alt=media&token=5a2356c0-8b65-4c20-9484-d8919615aecc'; // Update this URL to your image URL
+                                const media = await MessageMedia.fromUrl(imagePath7);
+                                const imageMessage = await client.sendMessage(msg.from, media);
+                                await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
+                            }
+                            if (check.includes('patience')) {
+                            } 
+                            if(check.includes('Sekejap lagi team kami akan hubungi')){
+                                console.log('check includes');
+                                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
+                                await assignNewContactToEmployee(extractedNumber, idSubstring, client);
+                            }
+                            
                         }
-                        if(part.includes('*Start Up Package* – RM5,000')){
-                            const imagePath2 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.00%20PM.jpeg?alt=media&token=798ebdeb-2597-4abb-a2bd-a186c4068b04';                // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath2);
-                            const imageMessage = await client.sendMessage(msg.from, media);
-                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                        }
-                        if(part.includes('*TikTok Star Package* – RM9,999')){
-                            const imagePath3 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.01%20PM.jpeg?alt=media&token=f98147e6-2438-4661-b381-86f6008f149c'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath3);
-                            const imageMessage = await client.sendMessage(msg.from, media);
-                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                        }
-                        if(part.includes('*Rising Star Package* – RM25,000')){
-                            const imagePath4 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.02%20PM.jpeg?alt=media&token=0ac2a45f-0d90-4790-8e51-87fa4a848162'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath4);
-                            const imageMessage = await client.sendMessage(msg.from, media);
-                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                        }
-                        if(part.includes('*Super Star Package* – RM39,500')){
-                            const imagePath5 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.03%20PM.jpeg?alt=media&token=3fb5754c-757d-4499-a745-2b2600b69c61'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath5);
-                            const imageMessage = await client.sendMessage(msg.from, media);
-                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                        }
-                        if(part.includes('*KOC Bundle - 3 Months* – RM44,999')){
-                            const imagePath6 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.04%20PM.jpeg?alt=media&token=78f59305-a2fc-4493-a7a7-0d829d7fbe04'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath6);
-                            const imageMessage = await client.sendMessage(msg.from, media);
-                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                        }
-                        if(check.includes('*KOC Bundle - 1 Month* – RM17,999')){
-                            const imagePath7 = 'https://firebasestorage.googleapis.com/v0/b/onboarding-a5fcb.appspot.com/o/WhatsApp%20Image%202024-10-08%20at%2012.11.05%20PM.jpeg?alt=media&token=5a2356c0-8b65-4c20-9484-d8919615aecc'; // Update this URL to your image URL
-                            const media = await MessageMedia.fromUrl(imagePath7);
-                            const imageMessage = await client.sendMessage(msg.from, media);
-                            await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
-                        }
-                        if (check.includes('patience')) {
-                        } 
-                        if(check.includes('Sekejap lagi team kami akan hubungi')){
-                            console.log('check includes');
-                            await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
-                            await assignNewContactToEmployee(extractedNumber, idSubstring, client);
-                        }
-                        
-
                     }
                 }
-             }
                 
-                  
                 console.log('Response sent.');
                 userState.set(sender.to, steps.START);
                 break;
@@ -1623,20 +1672,15 @@ if (!contactData) {
                 console.error('Unrecognized step:', currentStep);
                 break;
         }
-   // Implement rate limiting
-   await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
-}
-       
-
-        return('All messages processed');
+        // Implement rate limiting
+        await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
     } catch (e) {
         console.error('Error:', e.message);
         return(e.message);
-    } finally {
-        // Clear processing flag
-        processingQueue.set(chatId, false);
     }
 }
+ 
+
 function formatPhoneNumber(phoneNumber) {
   console.log('Formatting phone number:', phoneNumber);
   // Remove all non-digit characters
