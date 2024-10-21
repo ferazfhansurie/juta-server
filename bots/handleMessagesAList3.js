@@ -405,11 +405,15 @@ async function checkScheduleConflicts(startDateTime, endDateTime) {
         return { conflict: true, error: error.message };
     }
 }
-async function createCalendarEvent(summary, description, startDateTime, endDateTime, contactPhone, contactName) {
+async function createCalendarEvent(summary, description, startDateTime, endDateTime, phoneNumber, contactName) {
     try {
+        console.log('Creating calendar event with params:', { summary, description, startDateTime, endDateTime, phoneNumber, contactName });
       console.log('Checking for conflicts before creating appointment...');
       console.log('Start ...'+startDateTime);
       console.log('End ...'+endDateTime);
+      console.log('Contact ...'+phoneNumber);
+      console.log('Contact Name ...'+contactName);
+      //
       const conflictCheck = await checkScheduleConflicts(startDateTime, endDateTime);
   
       if (conflictCheck.conflict) {
@@ -439,8 +443,8 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
         color: "#1F3A8A", // Default color
         packageId: "",
         dateAdded: new Date().toISOString(),
-        contacts: contactPhone && contactName ? [{
-          id: contactPhone,
+        contacts: phoneNumber && contactName ? [{
+          id: phoneNumber,
           name: contactName,
           session: null
         }] : [],
@@ -462,7 +466,7 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
 
         const event = {
             summary: summary,
-            description: `${description}\n\nContact: ${contactName} (${contactPhone})`,
+            description: `${description}\n\nContact: ${contactName} (${phoneNumber})`,
             start: {
                 dateTime: startDateTime,
                 timeZone: 'Asia/Kuala_Lumpur', // Adjust timezone as needed
@@ -490,11 +494,11 @@ async function createCalendarEvent(summary, description, startDateTime, endDateT
             title: summary,
             date: startDate,
             time: `${startTime} - ${endTime}`,
-            description: description || "No description provided",
-            contact: contactName ? `${contactName} (${contactPhone})` : "No contact information provided",
+            description: description +'\nPhone: Azri' +`\n\nContact: ${contactName || 'Unknown'} (${phoneNumber || 'No phone number found'})`,
+            contact: `${contactName || 'Unknown'} (${phoneNumber || 'No phone number found'})`,
             staff: newAppointment.staff.join(", ")
         }
-        };
+        };//
     } catch (error) {
       console.error('Error in createCalendarEvent:', error);
       return { error: `Failed to create appointment: ${error.message}` };
@@ -2420,7 +2424,7 @@ async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0
     const maxDepth = 5; // Maximum recursion depth
     const maxAttempts = 30;
     const pollingInterval = 2000; // 2 seconds
-  
+    console.log('Phone Number in waitForCompletion...'+phoneNumber);
     console.log(`Waiting for completion (depth: ${depth}, runId: ${runId})...`);
   
     if (depth >= maxDepth) {
@@ -2444,7 +2448,7 @@ async function waitForCompletion(threadId, runId, idSubstring, client, depth = 0
           console.log('Submitting tool outputs...');
           await openai.beta.threads.runs.submitToolOutputs(threadId, runId, { tool_outputs: toolOutputs });
           console.log('Tool outputs submitted, restarting wait for completion...');
-          return await waitForCompletion(threadId, runId, idSubstring, client, depth + 1);
+          return await waitForCompletion(threadId, runId, idSubstring, client, depth + 1,phoneNumber);
         } else if (['failed', 'cancelled', 'expired'].includes(runObject.status)) {
           console.error(`Run ${runId} ended with status: ${runObject.status}`);
           return `I encountered an error (${runObject.status}). Please try your request again.`;
@@ -2608,6 +2612,7 @@ async function runAssistant(assistantID, threadId, tools,idSubstring,client,phon
   // Modify the handleToolCalls function to include the new tool
 async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
     console.log('Handling tool calls...');
+    console.log('Phone Number in handleToolCalls...'+phoneNumber);
     const toolOutputs = [];
     for (const toolCall of toolCalls) {
         console.log(`Processing tool call: ${toolCall.function.name}`);
@@ -2903,14 +2908,14 @@ async function handleToolCalls(toolCalls, idSubstring, client,phoneNumber) {
                         console.log('Parsing arguments for createCalendarEvent...');
                         const args = JSON.parse(toolCall.function.arguments);
                         console.log('Arguments:', args);
-                        
+                        console.log('Phone Number in createCalendarEvent before function call...  '+phoneNumber);
                         console.log('Calling createCalendarEvent...');
                         const result = await createCalendarEvent(
                             args.summary, 
                             args.description, 
                             args.startDateTime, 
                             args.endDateTime,
-                            args.contactPhone,
+                            phoneNumber,
                             args.contactName
                         );
                         
@@ -3207,7 +3212,17 @@ async function setLeadTemperature(idSubstring, phoneNumber, temperature) {
 // Modify the handleOpenAIAssistant function to include the new tool
 async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSubstring, client,phoneIndex) {
     console.log(ghlConfig.assistantId);
+    console.log('Phone Number...'+phoneNumber);
     let assistantId = ghlConfig.assistantId;
+    if(phoneIndex == 0){
+        assistantId = ghlConfig.assistantId;
+       }else if(phoneIndex == 1){
+        assistantId = ghlConfig.assistantId2;
+       }else if(phoneIndex == 2){
+        assistantId = ghlConfig.assistantId3;
+       }else if(phoneIndex == 3){
+        assistantId = ghlConfig.assistantId4;
+       }
     if (tags !== undefined && tags.includes('team')) { 
         assistantId = ghlConfig.assistantIdTeam;
     } else if (tags !== undefined && tags.includes('demo')) {
@@ -3220,15 +3235,6 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             assistantId = ghlConfig.assistantIdTeam;
         }
     }
-   if(phoneIndex == 0){
-    assistantId = ghlConfig.assistantId;
-   }else if(phoneIndex == 1){
-    assistantId = ghlConfig.assistantId2;
-   }else if(phoneIndex == 2){
-    assistantId = ghlConfig.assistantId3;
-   }else if(phoneIndex == 3){
-    assistantId = ghlConfig.assistantId4;
-   }
     await addMessage(threadID, message);
     // Periodically analyze and set lead temperature (e.g., every 5 messages)
     const messageCount = await getMessageCount(threadID);
@@ -3548,13 +3554,13 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                     type: "object",
                     properties: {
                         summary: { type: "string", description: "Title of the event" },
-                        description: { type: "string", description: "Description or address of the event" },
+                        description: { type: "string", description: "Description of the event" },
                         startDateTime: { type: "string", description: "Start date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
                         endDateTime: { type: "string", description: "End date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
-                        contactPhone: { type: "string", description: "Phone number of the contact" },
                         contactName: { type: "string", description: "Name of the contact" },
+                        phoneNumber: { type: "string", description: "Phone number of the contact" },
                     },
-                    required: ["summary", "startDateTime", "endDateTime","contactName"],
+                    required: ["summary", "description", "startDateTime", "endDateTime","contactName","phoneNumber"],
                 },
             },
         },
