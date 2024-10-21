@@ -1161,7 +1161,6 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
        from: msg.from ?? "",
        from_me: msg.fromMe ?? false,
        id: msg.id._serialized ?? "",
-       source: chat.deviceType ?? "",
        status: "delivered",
        text: {
            body: msg.body ?? ""
