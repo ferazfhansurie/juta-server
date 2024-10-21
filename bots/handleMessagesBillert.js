@@ -314,8 +314,8 @@ async function addMessagetoFirebase(msg, idSubstring, extractedNumber, contactNa
                       data: media.data,  // This is the base64-encoded data
                       filename: msg._data.filename || "",
                       caption: msg._data.caption || "",
-                      pageCount: msg._data.pageCount,
-                      fileSize: msg._data.size,
+                      pageCount: msg._data.pageCount || 0,
+                      fileSize: msg._data.size || 0,
                   };
               }else if (msg.type === 'video') {
                     messageData.video = {
@@ -609,8 +609,8 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                             data: media.data,  // This is the base64-encoded data
                             filename: msg._data.filename || "",
                             caption: msg._data.caption || "",
-                            pageCount: msg._data.pageCount,
-                            fileSize: msg._data.size,
+                            pageCount: msg._data.pageCount || 0,
+                            fileSize: msg._data.size || 0,
                         };
                     }else if (msg.type === 'video') {
                         messageData.video = {
