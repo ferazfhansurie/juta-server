@@ -1166,7 +1166,6 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
            body: msg.body ?? ""
        },
        timestamp: msg.timestamp ?? 0,
-       type: type,
        phoneIndex: phoneIndex,
    };
 
