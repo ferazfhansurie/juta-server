@@ -977,13 +977,13 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                                 await addtagbookedFirebase(contactID, 'Trade-In', idSubstring);
                             }
 
-                            if (check.includes('Saya Aiman')) {
+                            if (check.includes('Saya Bakri')) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 await addtagbookedFirebase(contactID, 'Onboarding', idSubstring);
                             }
                         }
                     }
-                }
+                }//
                 
                 console.log('Response sent.');
                 userState.set(sender.to, steps.START);
@@ -1166,6 +1166,7 @@ async function getContactById(contactId) {
 }
 
 async function addtagbookedFirebase(contactID, tag, idSubstring) {
+    console.log('Adding tag to Firebase:', tag);
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
     const contactRef = db.doc(docPath);
 
