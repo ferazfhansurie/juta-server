@@ -2317,9 +2317,9 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
     
     // Loop through the next 'daysAhead' days
     for (let dayOffset = 3; dayOffset <= daysAhead; dayOffset++) {
-        const dateToCheck = moment(today).add(dayOffset, 'days').format('YYYY-MM-DD');
-        const startOfDay = moment(dateToCheck).set({hour: 14, minute: 0}).toISOString(); // 2 PM
-        const endOfDay = moment(dateToCheck).set({hour: 17, minute: 0}).toISOString(); // 5 PM
+        const dateToCheck = moment(today).add(dayOffset, 'days');
+        const startOfDay = dateToCheck.clone().set({hour: 14, minute: 0}).toISOString(); // 2 PM
+        const endOfDay = dateToCheck.clone().set({hour: 17, minute: 0}).toISOString(); // 5 PM
         
         // Fetch events for the day
         const eventsResponse = await calendar.events.list({
@@ -2337,7 +2337,7 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
 
         // Check for available slots between 2 PM and 5 PM
         for (let hour = 14; hour < 17; hour++) { // 14 is 2 PM, 16 is 4 PM (last slot starts at 4 PM)
-            const startTime = moment(dateToCheck).set({ hour, minute: 0 }).toDate().getTime();
+            const startTime = dateToCheck.clone().set({ hour, minute: 0 }).toDate().getTime();
             const endTime = startTime + slotDuration;
 
             // Check if the slot is booked
@@ -2355,7 +2355,7 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
     }
 
     // Return all available slots but only provide three at a time
-    return availableSlots.length > 0 ? availableSlots : 'No available time slots for the next few days.';
+    return availableSlots.length > 0 ? availableSlots.slice(0, 3) : 'No available time slots for the next few days.';
 }
 async function callWebhook(webhook,senderText,thread) {
     console.log('calling webhook')
