@@ -2304,8 +2304,7 @@ async function addMessage(threadId, message) {
 }
 // Updated checkAvailableTimeSlots function
 async function checkAvailableTimeSlots(daysAhead = 7) {
-    const currentDateTime = getTodayDate(); // Get current date and time
-    const today = moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD'); // Get today's date
+    const today = moment().tz('Asia/Kuala_Lumpur');
     const availableSlots = [];
     const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
     
@@ -2332,24 +2331,24 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
         });
         const events = eventsResponse.data.items;
         const bookedSlots = events.map(event => ({
-            startTime: new Date(event.start.dateTime || event.start.date).getTime(),
-            endTime: new Date(event.end.dateTime || event.end.date).getTime(),
+            startTime: moment(event.start.dateTime || event.start.date).tz('Asia/Kuala_Lumpur'),
+            endTime: moment(event.end.dateTime || event.end.date).tz('Asia/Kuala_Lumpur'),
         }));
 
         // Check for available slots between 2 PM and 5 PM
         for (let hour = 14; hour < 17; hour++) { // 14 is 2 PM, 16 is 4 PM (last slot starts at 4 PM)
-            const startTime = dateToCheck.clone().set({ hour, minute: 0 }).toDate().getTime();
-            const endTime = startTime + slotDuration;
+            const startTime = dateToCheck.clone().set({ hour, minute: 0 });
+            const endTime = startTime.clone().add(1, 'hour');
 
             // Check if the slot is booked
             const isBooked = bookedSlots.some(slot => {
-                return (startTime < slot.endTime && endTime > slot.startTime);
+                return (startTime.isBefore(slot.endTime) && endTime.isAfter(slot.startTime));
             });
 
             if (!isBooked) {
                 availableSlots.push({
-                    startTime: new Date(startTime),
-                    endTime: new Date(endTime),
+                    startTime: startTime.format('YYYY-MM-DD HH:mm:ss'),
+                    endTime: endTime.format('YYYY-MM-DD HH:mm:ss'),
                 });
             }
         }
