@@ -957,24 +957,25 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if (check.includes('team kami akan contact')) {
-                                await addtagbookedFirebase(contactID, 'Complete Details', idSubstring);
-                                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
-
+                                await addtagbookedFirebase(extractedNumber, 'Complete Details', idSubstring);
+                                await addtagbookedFirebase(extractedNumber, 'stop bot', idSubstring);
+                                console.log('Added tags: Complete Details, stop bot');
                             }
                             if (check.includes('maklumkan team')) {
-                                await addtagbookedFirebase(contactID, 'Pending Video', idSubstring);
+                                await addtagbookedFirebase(extractedNumber, 'Pending Video', idSubstring);
+                                console.log('Added tag: Pending Video');
                             }
-
                             if (check.includes('boleh tolong isikan details')) {
-                                await addtagbookedFirebase(contactID, 'Complete Document', idSubstring);
+                                await addtagbookedFirebase(extractedNumber, 'Complete Document', idSubstring);
+                                console.log('Added tag: Complete Document');
                             }
-                        
                             if (check.includes('semak dengan team')) {
-                                await addtagbookedFirebase(contactID, 'Trade-In', idSubstring);
+                                await addtagbookedFirebase(extractedNumber, 'Trade-In', idSubstring);
+                                console.log('Added tag: Trade-In');
                             }
-
                             if (check.includes('Saya Bakri')) {
-                                await addtagbookedFirebase(contactID, 'Onboarding', idSubstring);
+                                await addtagbookedFirebase(extractedNumber, 'Onboarding', idSubstring);
+                                console.log('Added tag: Onboarding');
                             }
                         }
                     }
@@ -1161,36 +1162,31 @@ async function getContactById(contactId) {
 }
 
 async function addtagbookedFirebase(contactID, tag, idSubstring) {
-    console.log('Adding tag to Firebase:', tag);
+    console.log(`Adding tag "${tag}" to Firebase for contact ${contactID}`);
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
     const contactRef = db.doc(docPath);
 
     try {
-        // Get the current document
-        const doc = await contactRef.get();
-        let currentTags = [];
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(contactRef);
+            if (!doc.exists) {
+                throw new Error("Contact document does not exist!");
+            }
 
-        if (doc.exists) {
-            currentTags = doc.data().tags || [];
-        }
-
-        // Add the new tag if it doesn't already exist
-        if (!currentTags.includes(tag)) {
-            currentTags.push(tag);
-
-            // Update the document with the new tags
-            await contactRef.set({
-                tags: currentTags
-            }, { merge: true });
-
-            console.log(`Tag "${tag}" added to contact ${contactID} in Firebase`);
-        } else {
-            console.log(`Tag "${tag}" already exists for contact ${contactID} in Firebase`);
-        }
+            let currentTags = doc.data().tags || [];
+            if (!currentTags.includes(tag)) {
+                currentTags.push(tag);
+                transaction.update(contactRef, { tags: currentTags });
+                console.log(`Tag "${tag}" added successfully to contact ${contactID}`);
+            } else {
+                console.log(`Tag "${tag}" already exists for contact ${contactID}`);
+            }
+        });
     } catch (error) {
         console.error('Error adding tag to Firebase:', error);
     }
 }
+
 async function addtagbookedGHL(contactID, tag) {
     const contact = await getContactById(contactID);
     const previousTags = contact.tags || [];
