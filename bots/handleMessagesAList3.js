@@ -2307,17 +2307,20 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
     const today = moment().tz('Asia/Kuala_Lumpur').format('YYYY-MM-DD'); // Get today's date
     const availableSlots = [];
     const slotDuration = 60 * 60 * 1000; // Fixed duration of 1 hour in milliseconds
+    
     // Create an auth client for Google Calendar
     const auth = new google.auth.GoogleAuth({
         keyFile: './service_account.json', // Update this path
         scopes: ['https://www.googleapis.com/auth/calendar.readonly'],
     });
     const calendar = google.calendar({ version: 'v3', auth });
+    
     // Loop through the next 'daysAhead' days
-    for (let dayOffset = 2; dayOffset <= daysAhead; dayOffset++) {
+    for (let dayOffset = 3; dayOffset <= daysAhead; dayOffset++) {
         const dateToCheck = moment(today).add(dayOffset, 'days').format('YYYY-MM-DD');
-        const startOfDay = moment(dateToCheck).startOf('day').toISOString();
-        const endOfDay = moment(dateToCheck).endOf('day').toISOString();
+        const startOfDay = moment(dateToCheck).set({hour: 14, minute: 0}).toISOString(); // 2 PM
+        const endOfDay = moment(dateToCheck).set({hour: 17, minute: 0}).toISOString(); // 5 PM
+        
         // Fetch events for the day
         const eventsResponse = await calendar.events.list({
             calendarId: 'thealistmalaysia@gmail.com', // Use the appropriate calendar ID
@@ -2332,15 +2335,10 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
             endTime: new Date(event.end.dateTime || event.end.date).getTime(),
         }));
 
-        // Check for available slots in the day
-        for (let hour = 0; hour < 24; hour++) { // Check all hours in the day
+        // Check for available slots between 2 PM and 5 PM
+        for (let hour = 14; hour < 17; hour++) { // 14 is 2 PM, 16 is 4 PM (last slot starts at 4 PM)
             const startTime = moment(dateToCheck).set({ hour, minute: 0 }).toDate().getTime();
             const endTime = startTime + slotDuration;
-
-            // Only consider future time slots
-            if (startTime < new Date().getTime()) {
-                continue; // Skip if the start time is in the past
-            }
 
             // Check if the slot is booked
             const isBooked = bookedSlots.some(slot => {
