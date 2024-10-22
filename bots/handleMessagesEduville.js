@@ -874,6 +874,18 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
 
                             }
+                            if (part.includes('check with the team')) {
+                   
+                                
+                                // Generate and send the special report
+                                var { reportMessage, contactInfo } = await generateSpecialReport2(threadID, ghlConfig.assistantId);
+                                var sentMessage2 = await client.sendMessage('120363325228671809@g.us', reportMessage)
+                                await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
+
+                                await addtagbookedFirebase(extractedNumber, 'stop bot', idSubstring);
+                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
+
+                            }
                             
                         }
                     }
@@ -942,7 +954,7 @@ async function generateSpecialReport(threadID, assistantId) {
         var currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
         var reportInstruction = `Please generate a report in the following format based on our conversation:
 
-New Enquiry Has Been Submitted
+New Form Has Been Submitted
 
 Date : ${currentDate}
 1) Name: [Extract from conversation or from the number that the user texted]
@@ -954,6 +966,50 @@ Date : ${currentDate}
 6) Which intake you want to join: [Extract from conversation]
 7) Do you have any English proficiency certificate such as TOEFL / IELTS?: [Extract from conversation]
 8) Do you have a valid passport?: [Extract from conversation]
+
+Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. Do not change the Date field.`;
+
+        var response = await openai.beta.threads.messages.create(threadID, {
+            role: "user",
+            content: reportInstruction
+        });
+
+        var assistantResponse = await openai.beta.threads.runs.create(threadID, {
+            assistant_id: assistantId
+        });
+
+        // Wait for the assistant to complete the task
+        let runStatus;
+        do {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+            runStatus = await openai.beta.threads.runs.retrieve(threadID, assistantResponse.id);
+        } while (runStatus.status !== 'completed');
+
+        // Retrieve the assistant's response
+        var messages = await openai.beta.threads.messages.list(threadID);
+        var reportMessage = messages.data[0].content[0].text.value;
+
+        var contactInfo = extractContactInfo(reportMessage);
+
+
+        return { reportMessage, contactInfo };
+    } catch (error) {
+        console.error('Error generating special report:', error);
+        return 'Error generating report';
+    }
+}
+
+async function generateSpecialReport2(threadID, assistantId) {
+    try {
+        var currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        var reportInstruction = `Please generate a enquiry notification in the following format based on our conversation:
+
+New Enquiry Has Been Submitted
+
+Date : ${currentDate}
+1) Name: [Extract from conversation or from the number that the user texted]
+2) Phone Number: [Extract from from the number that the user texted]
+2) Enquiry: [Extract from conversation]
 
 Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. Do not change the Date field.`;
 
