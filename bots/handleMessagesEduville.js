@@ -879,12 +879,6 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
 
-                                try {
-                                    await updateGoogleSheet(report);
-                                    console.log('Google Sheet updated successfully');
-                                } catch (error) {
-                                    console.error('Error updating Google Sheet:', error);
-                                }
                             }
                             
                         }
@@ -957,7 +951,8 @@ async function generateSpecialReport(threadID, assistantId) {
 New Enquiry Has Been Submitted
 
 Date : ${currentDate}
-1) Name: [Extract from conversation]
+1) Name: [Extract from conversation or from the number that the user texted]
+2) Phone Number: [Extract from from the number that the user texted]
 2) Country: [Extract from conversation]
 3) Nationality: [Extract from conversation]
 4) Your highest educational qualification: [Extract from conversation]
