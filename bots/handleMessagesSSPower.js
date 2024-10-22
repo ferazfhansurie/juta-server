@@ -973,7 +973,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                                 await addtagbookedFirebase(extractedNumber, 'Trade-In', idSubstring);
                                 console.log('Added tag: Trade-In');
                             }
-                            if (check.includes('Saya Bakri')) {
+                            if (check.includes('kereta yang minat')) {
                                 await addtagbookedFirebase(extractedNumber, 'Onboarding', idSubstring);
                                 console.log('Added tag: Onboarding');
                             }
