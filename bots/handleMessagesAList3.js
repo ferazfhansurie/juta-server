@@ -3578,7 +3578,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
             type: "function",
             function: {
                 name: "checkAvailableTimeSlots",
-                description: "Check for available time slots in Google Calendar for the next specified number of days. Always call getCurrentDateTime first to get the current date and time as a reference before checking for available time slots. Returns all available time slots, but only provides three at a time, each with a duration of 1 hour, and only suggests slots that are after the current time.",                parameters: {
+                description: "Check for available time slots in Google Calendar for the next specified number of days return back the name of date and time. Always call getCurrentDateTime first to get the current date and time as a reference before checking for available time slots. Returns all available time slots, but only provides three at a time, each with a duration of 1 hour, and only suggests slots that are 2 days after the current time.",                               parameters: {
                     type: "object",
                     properties: {},
                     required: [],
