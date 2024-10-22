@@ -871,7 +871,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
 
                                 await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
                                 await addtagbookedFirebase(extractedNumber, 'stop bot', idSubstring);
-                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
+                                await assignNewContactToEmployee(extractedNumber, idSubstring, client);
 
                             }
                             if (part.includes('check with the team')) {
@@ -883,7 +883,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 await addMessagetoFirebase(sentMessage2,idSubstring,'+120363325228671809')
 
                                 await addtagbookedFirebase(extractedNumber, 'stop bot', idSubstring);
-                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
+                                await assignNewContactToEmployee(extractedNumber, idSubstring, client);
 
                             }
                             
@@ -959,13 +959,13 @@ New Form Has Been Submitted
 Date : ${currentDate}
 1) Name: [Extract from conversation or from the number that the user texted]
 2) Phone Number: [Extract from from the number that the user texted]
-2) Country: [Extract from conversation]
-3) Nationality: [Extract from conversation]
-4) Your highest educational qualification: [Extract from conversation]
-5) What program do you want to study: [Extract from conversation]
-6) Which intake you want to join: [Extract from conversation]
-7) Do you have any English proficiency certificate such as TOEFL / IELTS?: [Extract from conversation]
-8) Do you have a valid passport?: [Extract from conversation]
+3) Country: [Extract from conversation]
+4) Nationality: [Extract from conversation]
+5) Your highest educational qualification: [Extract from conversation]
+6) What program do you want to study: [Extract from conversation]
+7) Which intake you want to join: [Extract from conversation]
+8) Do you have any English proficiency certificate such as TOEFL / IELTS?: [Extract from conversation]
+9) Do you have a valid passport?: [Extract from conversation]
 
 Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. Do not change the Date field.`;
 
@@ -1009,7 +1009,7 @@ New Enquiry Has Been Submitted
 Date : ${currentDate}
 1) Name: [Extract from conversation or from the number that the user texted]
 2) Phone Number: [Extract from from the number that the user texted]
-2) Enquiry: [Extract from conversation]
+3) Enquiry: [Extract from conversation]
 
 Fill in the information in square brackets with the relevant details from our conversation. If any information is not available, leave it blank. Do not change the Date field.`;
 
@@ -1051,20 +1051,20 @@ function extractContactInfo(report) {
         if (line.startsWith('1) Name:')) {  
             contactInfo.name = line.split(':')[1].trim();
         } 
-        else if (line.startsWith('2) Country:')) {
+        else if (line.startsWith('3) Country:')) {
             contactInfo.country = line.split(':')[1].trim();
-        } else if (line.startsWith('3) Your highest educational qualification:')) {
+        }else if (line.startsWith('4) Nationality:')) {
+            contactInfo.country = line.split(':')[1].trim();
+        } else if (line.startsWith('5) Your highest educational qualification:')) {
             contactInfo.highestEducation = line.split(':')[1].trim();
-        } else if (line.startsWith('4) What program do you want to study:')) {
+        } else if (line.startsWith('6) What program do you want to study:')) {
             contactInfo.programOfStudy = line.split(':')[1].trim();
-        } else if (line.startsWith('5) Which intake you want to join:')) {
+        } else if (line.startsWith('7) Which intake you want to join:')) {
             contactInfo.intakePreference = line.split(':')[1].trim();
-        } else if (line.startsWith('6) Do you have any English proficiency certificate')) {
+        } else if (line.startsWith('8) Do you have any English proficiency certificate')) {
             contactInfo.englishProficiency = line.split(':')[1].trim();
-        } else if (line.startsWith('8) Do you have a valid passport?:')) {
+        } else if (line.startsWith('9) Do you have a valid passport?:')) {
             contactInfo.passport = line.split(':')[1].trim();
-        } else if (line.startsWith('7) Nationality:')) {
-            contactInfo.nationality = line.split(':')[1].trim();
         } 
     }
 
