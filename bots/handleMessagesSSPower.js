@@ -957,28 +957,23 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                                 await addMessagetoFirebase(imageMessage, idSubstring, extractedNumber, contactName);
                             }
                             if (check.includes('team kami akan contact')) {
-                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 await addtagbookedFirebase(contactID, 'Complete Details', idSubstring);
                                 await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
 
                             }
                             if (check.includes('maklumkan team')) {
-                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 await addtagbookedFirebase(contactID, 'Pending Video', idSubstring);
                             }
 
                             if (check.includes('boleh tolong isikan details')) {
-                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 await addtagbookedFirebase(contactID, 'Complete Document', idSubstring);
                             }
                         
                             if (check.includes('semak dengan team')) {
-                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 await addtagbookedFirebase(contactID, 'Trade-In', idSubstring);
                             }
 
                             if (check.includes('Saya Bakri')) {
-                                await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
                                 await addtagbookedFirebase(contactID, 'Onboarding', idSubstring);
                             }
                         }
