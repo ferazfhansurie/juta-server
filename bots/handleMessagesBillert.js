@@ -712,15 +712,6 @@ async function handleNewMessagesBillert(client, msg, botName, phoneIndex) {
                 console.log("userImageUrl: "+userImageUrl);
                 console.log("userNotes: "+userNotes);
 
-                // Capitalize the first letter of the assigned name
-
-               const message = `Hi Terima Kasih kerana berminat untuk semak kelayakan dengan Zara. 😃\n\n` +
-               `Team zara akan bantu Tuan/Puan/Cik untuk buat semakan dengan lebih lanjut.\n\n` +
-               `Sebentar lagi team zara nama dia _*${assigned.toUpperCase()}*_ akan whatsapp cik, atau cik boleh terus whatsapp ${assigned} dengan segera di nombor *${number.split('@')[0]}* 👩🏻‍💼`;
-
-               const msg = await client.sendMessage(sender.to, message);
-               await addMessagetoFirebase(msg, idSubstring, extractedNumber, contactName);
-
                // Send user's image if available
                 if (userImageUrl) {
                     const media = await MessageMedia.fromUrl(userImageUrl);
