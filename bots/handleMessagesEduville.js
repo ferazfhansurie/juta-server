@@ -88,32 +88,26 @@ async function loadAssignmentState(idSubstring) {
     }
 }
 async function addtagbookedFirebase(contactID, tag, idSubstring) {
-    console.log('Adding tag to Firebase:', tag);
+    console.log(`Adding tag "${tag}" to Firebase for contact ${contactID}`);
     const docPath = `companies/${idSubstring}/contacts/${contactID}`;
     const contactRef = db.doc(docPath);
 
     try {
-        // Get the current document
-        const doc = await contactRef.get();
-        let currentTags = [];
+        await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(contactRef);
+            if (!doc.exists) {
+                throw new Error("Contact document does not exist!");
+            }
 
-        if (doc.exists) {
-            currentTags = doc.data().tags || [];
-        }
-
-        // Add the new tag if it doesn't already exist
-        if (!currentTags.includes(tag)) {
-            currentTags.push(tag);
-
-            // Update the document with the new tags
-            await contactRef.set({
-                tags: currentTags
-            }, { merge: true });
-
-            console.log(`Tag "${tag}" added to contact ${contactID} in Firebase`);
-        } else {
-            console.log(`Tag "${tag}" already exists for contact ${contactID} in Firebase`);
-        }
+            let currentTags = doc.data().tags || [];
+            if (!currentTags.includes(tag)) {
+                currentTags.push(tag);
+                transaction.update(contactRef, { tags: currentTags });
+                console.log(`Tag "${tag}" added successfully to contact ${contactID}`);
+            } else {
+                console.log(`Tag "${tag}" already exists for contact ${contactID}`);
+            }
+        });
     } catch (error) {
         console.error('Error adding tag to Firebase:', error);
     }
@@ -876,7 +870,7 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
                                 };
 
                                 await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true});    
-                                await addtagbookedFirebase(contactID, 'stop bot', idSubstring);
+                                await addtagbookedFirebase(extractedNumber, 'stop bot', idSubstring);
                                 await assignNewContactToEmployee(idSubstring, extractedNumber, threadID);
 
                             }
