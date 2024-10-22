@@ -1117,7 +1117,7 @@ async function removeScheduledMessages(chatId, idSubstring) {
         console.error('Error removing scheduled messages:', error);
     }
 }
-const MESSAGE_BUFFER_TIME = 5000; // 1 minute in milliseconds
+const MESSAGE_BUFFER_TIME = 10000; // 1 minute in milliseconds
 const messageBuffers = new Map();
 
 async function handleNewMessagesAlist3(client, msg, botName, phoneIndex) {
@@ -3589,7 +3589,7 @@ async function handleOpenAIAssistant(message, threadID, tags, phoneNumber, idSub
                 parameters: {
                     type: "object",
                     properties: {
-                        summary: { type: "string", description: "Title of the event" },
+                        summary: { type: "string", description: `Title of the event include the word "Phone Azri"` },
                         description: { type: "string", description: "Description of the event" },
                         startDateTime: { type: "string", description: "Start date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
                         endDateTime: { type: "string", description: "End date and time in ISO 8601 format in Asia/Kuala Lumpur Timezone" },
