@@ -2316,7 +2316,7 @@ async function checkAvailableTimeSlots(daysAhead = 7) {
     });
     const calendar = google.calendar({ version: 'v3', auth });
     // Loop through the next 'daysAhead' days
-    for (let dayOffset = 0; dayOffset <= daysAhead; dayOffset++) {
+    for (let dayOffset = 2; dayOffset <= daysAhead; dayOffset++) {
         const dateToCheck = moment(today).add(dayOffset, 'days').format('YYYY-MM-DD');
         const startOfDay = moment(dateToCheck).startOf('day').toISOString();
         const endOfDay = moment(dateToCheck).endOf('day').toISOString();
