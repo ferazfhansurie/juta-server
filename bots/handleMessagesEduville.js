@@ -1054,7 +1054,7 @@ function extractContactInfo(report) {
         else if (line.startsWith('3) Country:')) {
             contactInfo.country = line.split(':')[1].trim();
         }else if (line.startsWith('4) Nationality:')) {
-            contactInfo.country = line.split(':')[1].trim();
+            contactInfo.nationality = line.split(':')[1].trim();
         } else if (line.startsWith('5) Your highest educational qualification:')) {
             contactInfo.highestEducation = line.split(':')[1].trim();
         } else if (line.startsWith('6) What program do you want to study:')) {
