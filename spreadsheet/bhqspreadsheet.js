@@ -211,6 +211,12 @@ class bhqSpreadsheet {
       console.log(`Found column for ${currentDateMalay} (${currentDate}) at index ${dayIndex}`);
       console.log(`Processing rows starting from index 5`);
 
+      // Add this new section for end of Sunday reports
+      if (currentDate === 'SUNDAY' && currentTime.hour() === 23 && currentTime.minute() >= 30) {
+        console.log('Processing end-of-Sunday teacher reports...');
+        await this.sendTeacherReports(rows);
+      }
+
       for (let i = 5; i < rows.length; i++) {
         const timeSlot = rows[i][0];
         if (!timeSlot) {
@@ -262,6 +268,92 @@ class bhqSpreadsheet {
       console.error('Error processing timetable:', error);
     }
   }
+
+  async sendTeacherReports(rows) {
+    try {
+        const teacherStats = {};
+
+        // Process each day's columns
+        const days = ['Ahad', 'Isnin', 'Selasa', 'Rabu', 'Khamis', 'Jumaat', 'Sabtu'];
+        
+        // Find column indices for each day
+        const dayIndices = days.map(day => 
+            rows[3].findIndex(col => col.trim().toLowerCase() === day.toLowerCase())
+        );
+
+        // Process each row starting from index 5
+        for (let i = 5; i < rows.length; i++) {
+            const timeSlot = rows[i][0];
+            if (!timeSlot) continue;
+
+            // Calculate class duration (assuming 1 hour per slot - adjust as needed)
+            const classHours = 1;
+
+            // Check each day's columns
+            dayIndices.forEach((dayIndex, idx) => {
+                if (dayIndex === -1) return;
+
+                const teacherName = rows[i][dayIndex + 2]; // Assuming teacher name is 2 columns after day
+                const teacherPhone = rows[i][dayIndex + 3]; // Assuming teacher phone is 3 columns after day
+                const attendanceCol = dayIndex + 7; // Assuming attendance is 7 columns after day
+                const attended = rows[i][attendanceCol]?.toLowerCase() === 'true';
+
+                if (teacherName && teacherPhone) {
+                    if (!teacherStats[teacherPhone]) {
+                        teacherStats[teacherPhone] = {
+                            name: teacherName,
+                            totalHours: 0,
+                            attendedHours: 0,
+                            dayBreakdown: {}
+                        };
+                    }
+
+                    if (!teacherStats[teacherPhone].dayBreakdown[days[idx]]) {
+                        teacherStats[teacherPhone].dayBreakdown[days[idx]] = {
+                            total: 0,
+                            attended: 0
+                        };
+                    }
+
+                    teacherStats[teacherPhone].totalHours += classHours;
+                    teacherStats[teacherPhone].dayBreakdown[days[idx]].total += classHours;
+
+                    if (attended) {
+                        teacherStats[teacherPhone].attendedHours += classHours;
+                        teacherStats[teacherPhone].dayBreakdown[days[idx]].attended += classHours;
+                    }
+                }
+            });
+        }
+        
+        // Send reports to each teacher
+        for (const [phone, stats] of Object.entries(teacherStats)) {
+          const dayBreakdownText = Object.entries(stats.dayBreakdown)
+              .map(([day, hours]) => 
+                  `${day}: ${hours.attended}/${hours.total} jam`)
+              .join('\n');
+
+          const message = `Assalamualaikum ${stats.name},
+
+Laporan Mingguan Kelas:
+
+Total Jam Mengajar: ${stats.attendedHours}/${stats.totalHours} jam
+
+Pecahan mengikut hari:
+${dayBreakdownText}
+
+Terima kasih atas dedikasi anda minggu ini!`;
+
+          await this.sendReminderToTeacher(stats.name, phone, message);
+      }
+
+      console.log('Teacher reports sent successfully');
+
+  } catch (error) {
+      console.error('Error sending teacher reports:', error);
+  }
+}
+
   async addMessagetoFirebase(msg, idSubstring, extractedNumber){
     console.log('Adding message to Firebase');
     console.log('idSubstring:', idSubstring);
@@ -803,6 +895,13 @@ async saveThreadIDFirebase(contactID, threadID, idSubstring) {
       this.sendWeeklyReport();
     }, {
       timezone: "Asia/Kuala_Lumpur" // Adjust this to your local timezone
+    });
+
+    // Schedule weekly reports for 11:30 PM on Sundays
+    cron.schedule('30 23 * * 0', () => {
+        this.refreshAndProcessTimetable();
+    }, {
+        timezone: "Asia/Kuala_Lumpur"
     });
 
     // Clear old reminders once a day
