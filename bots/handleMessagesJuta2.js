@@ -1466,29 +1466,64 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
             client.sendMessage(msg.from, 'tested.');
             try {
                 // Read the image file
-                const imageBuffer = fs.readFileSync('./media/newtown/Newtowngases.png');
-                const base64Image = imageBuffer.toString('base64');
-        
-                // Create a Product object
-                const product = new MessageMedia('image/png', base64Image, 'Newtowngases.png');
-        
-                // Create a Message object and attach the Product
-                const message = new MessageMedia({
-                    productMessage: {
-                        businessOwnerJid: '60189688525@s.whatsapp.net',
-                        product: product,
-                        title: 'Newtown Gases',
-                        description: 'Various gas cylinder sizes and bulk tank solutions',
-                        currencyCode: 'MYR',
-                        priceAmount1000: 5000000,  // Represents 5000 MYR
-                        productImageCount: 1,
-                        productImageCaption: 'Newtown Gases - Cylinder and Bulk Tank Options'
-                    }
-                });
-        
-                // Send the Message to the user
-                await client.sendMessage(msg.from, message);
-        
+               // Create a product message based on the received data
+        const productMessage = {
+            _data: {
+                body: msg._data.body,  // This contains the base64 image data
+                type: 'product',
+                title: 'AI Automation System',
+                description: 'Automate Your Business Using A.I On WhatsApp\n\n' +
+                    'Custom Automations Integrations\n' +
+                    'Automated Texts (WhatsApp, SMS)\n' +
+                    'Automated Appointment Setter\n' +
+                    'Automated Social Media Messaging\n' +
+                    'Analytics Tools\n' +
+                    'Mobile App Version',
+                businessOwnerJid: '60189688525@s.whatsapp.net',
+                productId: '24571882625791055',
+                currencyCode: 'MYR',
+                priceAmount1000: 5000000,
+                url: 'https://jutasoftware.co/',
+                productImageCount: 1,
+            },
+            id: {
+                fromMe: true,
+                remote: msg.from,
+                id: Date.now().toString(),
+                _serialized: `true_${msg.from}_${Date.now()}`
+            },
+            ack: 0,
+            hasMedia: true,
+            body: '',
+            type: 'product',
+            timestamp: Date.now(),
+            from: msg.to,
+            to: msg.from,
+            author: undefined,
+            deviceType: 'android',
+            isForwarded: false,
+            forwardingScore: 0,
+            isStatus: false,
+            isStarred: false,
+            fromMe: true,
+            hasQuotedMsg: false,
+            hasReaction: false,
+            duration: undefined,
+            location: undefined,
+            vCards: [],
+            inviteV4: undefined,
+            mentionedIds: [],
+            groupMentions: [],
+            orderId: undefined,
+            token: undefined,
+            isGif: false,
+            isEphemeral: undefined,
+            links: []
+        };
+
+        // Send the product message
+        await client.sendMessage(msg.from, productMessage);
+
                 console.log('Product message sent successfully');
             } catch (error) {
                 console.error('Error sending product message:', error);
