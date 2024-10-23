@@ -807,8 +807,6 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring,phoneIndex);
 
-        // Set up the daily report schedule
-        await checkAndScheduleDailyReport(client, idSubstring);
 
         const sender = {
             to: msg.from,

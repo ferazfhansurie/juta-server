@@ -156,7 +156,14 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     const tags = [assignedEmployee.name, assignedEmployee.phoneNumber];
     const employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
     console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
-    await client.sendMessage(employeeID, 'You have been assigned to ' + contactID);
+    
+    // Ensure contactID is not empty or undefined
+    if (!contactID || contactID.trim() === '') {
+        console.error('Invalid contactID:', contactID);
+        return tags;
+    }
+
+    await client.sendMessage(employeeID, `You have been assigned to ${contactID}`);
     await addtagbookedFirebase(contactID, assignedEmployee.name, idSubstring);
 
     // Fetch sales employees based on the assigned employee's group
@@ -860,6 +867,8 @@ async function processBufferedMessages(client, chatId, botName, phoneIndex) {
     await processMessage(client, messages[0], botName, phoneIndex, combinedMessage);
 }
 
+const RATE_LIMIT_DELAY = 1000; // Define the rate limit delay in milliseconds
+
 async function processMessage(client, msg, botName, phoneIndex, combinedMessage) {
     console.log('Processing buffered messages for '+botName);
 
@@ -992,6 +1001,12 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
 
 
 async function addtagbookedFirebase(contactID, tag, idSubstring) {
+    // Ensure all parameters are valid
+    if (!contactID || !tag || !idSubstring) {
+        console.error('Invalid parameters for addtagbookedFirebase:', { contactID, tag, idSubstring });
+        return;
+    }
+
     const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(contactID);
     try {
         const contactDoc = await contactRef.get();
@@ -1352,3 +1367,4 @@ async function fetchConfigFromDatabase(idSubstring) {
 }
 
 module.exports = { handleNewMessagesMuhibbah };
+
