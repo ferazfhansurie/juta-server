@@ -1464,26 +1464,36 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
         //test bot command
         if (msg.body.includes('/hello')) {
             client.sendMessage(msg.from, 'tested.');
-            const product = new MessageMedia('image/jpeg', msg._data.body, 'product.jpg');
-
-            // Create a Message object and attach the Product
-            const message = new MessageMedia({
-                productMessage: {
+            try {
+                // Read the image file
+                const imageBuffer = fs.readFileSync('./media/newtown/Newtowngases.png');
+                const base64Image = imageBuffer.toString('base64');
+        
+                // Create a MessageMedia instance for the product image
+                const product = new MessageMedia('image/jpeg', base64Image, 'product.jpg');
+        
+                // Send the product message
+                await client.sendMessage(msg.from, product, {
+                    caption: 'AI Automation System\n\nAutomate Your Business Using A.I On WhatsApp\n\nCustom Automations Integrations\nAutomated Texts (WhatsApp, SMS)\nAutomated Appointment Setter\nAutomated Social Media Messaging\nAnalytics Tools\nMobile App Version\n\nPrice: MYR 5000\n\nFor more info: https://jutasoftware.co/',
+                    sendMediaAsSticker: false,
+                    sendAudioAsVoice: false,
+                    sendVideoAsGif: false,
+                    isViewOnce: false,
+                    productId: '24571882625791055',
                     businessOwnerJid: '60189688525@s.whatsapp.net',
-                    product: product,
                     title: 'AI Automation System',
-                    description: 'Automate Your Business Using A.I On WhatsApp\n\nCustom Automations Integrations\nAutomated Texts (WhatsApp, SMS)\nAutomated Appointment Setter\nAutomated Social Media Messaging\nAnalytics Tools\nMobile App Version',
+                    description: 'Automate Your Business Using A.I On WhatsApp',
                     currencyCode: 'MYR',
                     priceAmount1000: 5000000,
                     productImageCount: 1,
-                    url: 'https://jutasoftware.co/',
-                }
-            });
-    
-            // Send the Message to the user
-          var test =  await client.sendMessage(msg.from, message);
-    
-            console.log(test);
+                    url: 'https://jutasoftware.co/'
+                });
+        
+                console.log('Product message sent successfully');
+            } catch (error) {
+                console.error('Error sending product message:', error);
+            }
+        
             return;
         }
         if(ghlConfig.stopbot){
