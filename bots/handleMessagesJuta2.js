@@ -1466,64 +1466,29 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
             client.sendMessage(msg.from, 'tested.');
             try {
                 // Read the image file
-               // Create a product message based on the received data
-        const productMessage = {
-            _data: {
-                body: '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',  // This contains the base64 image data
-                type: 'product',
-                title: 'AI Automation System',
-                description: 'Automate Your Business Using A.I On WhatsApp\n\n' +
-                    'Custom Automations Integrations\n' +
-                    'Automated Texts (WhatsApp, SMS)\n' +
-                    'Automated Appointment Setter\n' +
-                    'Automated Social Media Messaging\n' +
-                    'Analytics Tools\n' +
-                    'Mobile App Version',
-                businessOwnerJid: '60189688525@s.whatsapp.net',
-                productId: '24571882625791055',
-                currencyCode: 'MYR',
-                priceAmount1000: 5000000,
-                url: 'https://jutasoftware.co/',
-                productImageCount: 1,
-            },
-            id: {
-                fromMe: true,
-                remote: msg.from,
-                id: Date.now().toString(),
-                _serialized: `true_${msg.from}_${Date.now()}`
-            },
-            ack: 0,
-            hasMedia: true,
-            body: '',
-            type: 'product',
-            timestamp: Date.now(),
-            from: msg.to,
-            to: msg.from,
-            author: undefined,
-            deviceType: 'android',
-            isForwarded: false,
-            forwardingScore: 0,
-            isStatus: false,
-            isStarred: false,
-            fromMe: true,
-            hasQuotedMsg: false,
-            hasReaction: false,
-            duration: undefined,
-            location: undefined,
-            vCards: [],
-            inviteV4: undefined,
-            mentionedIds: [],
-            groupMentions: [],
-            orderId: undefined,
-            token: undefined,
-            isGif: false,
-            isEphemeral: undefined,
-            links: []
-        };
-
-        // Send the product message
-        await client.sendMessage(msg.from, productMessage);
-
+                const imageBuffer = fs.readFileSync('./media/juta/juta.png');
+                const base64Image = imageBuffer.toString('base64');
+        
+                // Create a MessageMedia instance for the product image
+                const product = new MessageMedia('image/jpeg', base64Image, 'product.jpg');
+        
+                // Send the product message
+                await client.sendMessage(msg.from, product, {
+                    caption: 'View this item on WhatsApp: https://wa.me/p/24571882625791055/60189688525\n\nAI Automation System\n\nAutomate Your Business Using A.I On WhatsApp\n\nCustom Automations Integrations\nAutomated Texts (WhatsApp, SMS)\nAutomated Appointment Setter\nAutomated Social Media Messaging\nAnalytics Tools\nMobile App Version\n\nPrice: MYR 688/month\n\nFor more info: https://jutasoftware.co/',
+                    sendMediaAsSticker: false,
+                    sendAudioAsVoice: false,
+                    sendVideoAsGif: false,
+                    isViewOnce: false,
+                    productId: '24571882625791055',
+                    businessOwnerJid: '60189688525@s.whatsapp.net',
+                    title: 'AI Automation System',
+                    description: 'Automate Your Business Using A.I On WhatsApp',
+                    currencyCode: 'MYR',
+                    priceAmount1000: 5000000,
+                    productImageCount: 1,
+                    url: 'https://jutasoftware.co/'
+                });
+        
                 console.log('Product message sent successfully');
             } catch (error) {
                 console.error('Error sending product message:', error);
