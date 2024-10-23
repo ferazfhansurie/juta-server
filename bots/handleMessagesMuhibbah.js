@@ -132,7 +132,7 @@ async function storeAssignmentState(idSubstring) {
     console.log('Assignment state stored in Firebase:', stateToStore);
 }
 
-async function assignNewContactToEmployee(contactID, idSubstring, client) {
+async function assignNewContactToEmployee(extractedNumber, idSubstring, client) {
     if (employees.length === 0) {
         await fetchEmployeesFromFirebase(idSubstring);
     }
@@ -155,16 +155,17 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
 
     const tags = [assignedEmployee.name, assignedEmployee.phoneNumber];
     const employeeID = assignedEmployee.phoneNumber.split('+')[1] + '@c.us';
-    console.log(`Contact ${contactID} assigned to ${assignedEmployee.name}`);
+    console.log(`Contact ${extractedNumber} assigned to ${assignedEmployee.name}`);
     
-    // Ensure contactID is not empty or undefined
-    if (!contactID || contactID.trim() === '') {
-        console.error('Invalid contactID:', contactID);
+    // Ensure extractedNumber is not empty or undefined
+    if (!extractedNumber || extractedNumber.trim() === '') {
+        console.error('Invalid extractedNumber:', extractedNumber);
         return tags;
     }
 
-    await client.sendMessage(employeeID, `You have been assigned to ${contactID}`);
-    await addtagbookedFirebase(contactID, assignedEmployee.name, idSubstring);
+    await client.sendMessage(employeeID, `You have been assigned to ${extractedNumber}`);
+    await addtagbookedFirebase(extractedNumber, assignedEmployee.name, idSubstring);
+    await addtagbookedFirebase(extractedNumber, 'stop bot', idSubstring);
 
     // Fetch sales employees based on the assigned employee's group
     if(assignedEmployee.group){
@@ -219,10 +220,10 @@ async function assignNewContactToEmployee(contactID, idSubstring, client) {
     }
 
     console.log(`Assigned sales: ${assignedSales.name}`);
-    await addtagbookedFirebase(contactID, assignedSales.name, idSubstring);
+    await addtagbookedFirebase(extractedNumber, assignedSales.name, idSubstring);
     const salesID = assignedSales.phoneNumber.replace(/\s+/g, '').split('+')[1] + '@c.us';
 
-    await client.sendMessage(salesID, 'You have been assigned to ' + contactID);
+    await client.sendMessage(salesID, 'You have been assigned to ' + extractedNumber);
 
     // Add the assigned sales employee to the tags
     tags.push(assignedSales.name, assignedSales.phoneNumber);
