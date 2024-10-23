@@ -1469,25 +1469,25 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
                 const imageBuffer = fs.readFileSync('./media/newtown/Newtowngases.png');
                 const base64Image = imageBuffer.toString('base64');
         
-                // Create a MessageMedia instance for the product image
-                const product = new MessageMedia('image/jpeg', base64Image, 'product.jpg');
+                // Create a Product object
+                const product = new MessageMedia('image/png', base64Image, 'Newtowngases.png');
         
-                // Send the product message
-                await client.sendMessage(msg.from, product, {
-                    caption: 'AI Automation System\n\nAutomate Your Business Using A.I On WhatsApp\n\nCustom Automations Integrations\nAutomated Texts (WhatsApp, SMS)\nAutomated Appointment Setter\nAutomated Social Media Messaging\nAnalytics Tools\nMobile App Version\n\nPrice: MYR 5000\n\nFor more info: https://jutasoftware.co/',
-                    sendMediaAsSticker: false,
-                    sendAudioAsVoice: false,
-                    sendVideoAsGif: false,
-                    isViewOnce: false,
-                    productId: '24571882625791055',
-                    businessOwnerJid: '60189688525@s.whatsapp.net',
-                    title: 'AI Automation System',
-                    description: 'Automate Your Business Using A.I On WhatsApp',
-                    currencyCode: 'MYR',
-                    priceAmount1000: 5000000,
-                    productImageCount: 1,
-                    url: 'https://jutasoftware.co/'
+                // Create a Message object and attach the Product
+                const message = new MessageMedia({
+                    productMessage: {
+                        businessOwnerJid: '60189688525@s.whatsapp.net',
+                        product: product,
+                        title: 'Newtown Gases',
+                        description: 'Various gas cylinder sizes and bulk tank solutions',
+                        currencyCode: 'MYR',
+                        priceAmount1000: 5000000,  // Represents 5000 MYR
+                        productImageCount: 1,
+                        productImageCaption: 'Newtown Gases - Cylinder and Bulk Tank Options'
+                    }
                 });
+        
+                // Send the Message to the user
+                await client.sendMessage(msg.from, message);
         
                 console.log('Product message sent successfully');
             } catch (error) {
