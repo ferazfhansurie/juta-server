@@ -1033,7 +1033,7 @@ Fill in the information in square brackets with the relevant details from our co
         var messages = await openai.beta.threads.messages.list(threadID);
         var reportMessage = messages.data[0].content[0].text.value;
 
-        var contactInfo = extractContactInfo(reportMessage);
+        var contactInfo = extractContactInfo2(reportMessage);
 
 
         return { reportMessage, contactInfo };
@@ -1066,6 +1066,22 @@ function extractContactInfo(report) {
         } else if (line.startsWith('9) Do you have a valid passport?:')) {
             contactInfo.passport = line.split(':')[1].trim();
         } 
+    }
+
+    return contactInfo;
+}
+
+function extractContactInfo2(report) {
+    var lines = report.split('\n');
+    var contactInfo = {};
+
+    for (var line of lines) {
+        if (line.startsWith('1) Name:')) {  
+            contactInfo.name = line.split(':')[1].trim();
+        }
+        else if (line.startsWith('3) Enquiry:')) {
+            contactInfo.enquiry = line.split(':')[1].trim();
+        }
     }
 
     return contactInfo;
