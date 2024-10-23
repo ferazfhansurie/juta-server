@@ -1464,30 +1464,25 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
         //test bot command
         if (msg.body.includes('/hello')) {
             client.sendMessage(msg.from, 'tested.');
-            const product = {
-                id: '24571882625791055',
-                title: 'AI Automation System',
-                description: 'Automate Your Business Using A.I On WhatsApp\n\nCustom Automations Integrations\nAutomated Texts (WhatsApp, SMS)\nAutomated Appointment Setter\nAutomated Social Media Messaging\nAnalytics Tools\nMobile App Version',
-                retailerId: undefined,
-                url: 'https://jutasoftware.co/',
-                productImageCount: 1,
-                salePriceAmount1000: 5000000,
-                salePriceCurrency: 'MYR',
-                businessOwnerJid: '60189688525@s.whatsapp.net',
-            };
-        console.log(product);
-            // Send the product message
-         var test =   await client.sendMessage(msg.from, new MessageMedia('image/jpeg', msg._data.body, 'product.jpg'), {
-                caption: product.description,
-                productId: product.id,
-                businessOwnerJid: product.businessOwnerJid,
-                title: product.title,
-                description: product.description,
-                currencyCode: product.salePriceCurrency,
-                priceAmount1000: product.salePriceAmount1000,
-                productImageCount: product.productImageCount,
-                url: product.url,
+            const product = new MessageMedia('image/jpeg', msg._data.body, 'product.jpg');
+
+            // Create a Message object and attach the Product
+            const message = new MessageMedia({
+                productMessage: {
+                    businessOwnerJid: '60189688525@s.whatsapp.net',
+                    product: product,
+                    title: 'AI Automation System',
+                    description: 'Automate Your Business Using A.I On WhatsApp\n\nCustom Automations Integrations\nAutomated Texts (WhatsApp, SMS)\nAutomated Appointment Setter\nAutomated Social Media Messaging\nAnalytics Tools\nMobile App Version',
+                    currencyCode: 'MYR',
+                    priceAmount1000: 5000000,
+                    productImageCount: 1,
+                    url: 'https://jutasoftware.co/',
+                }
             });
+    
+            // Send the Message to the user
+          var test =  await client.sendMessage(msg.from, message);
+    
             console.log(test);
             return;
         }
