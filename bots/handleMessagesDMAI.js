@@ -705,327 +705,329 @@ async function handleNewMessagesDMAI(client, msg, botName, phoneIndex) {
 async function processImmediateActions(client, msg, botName, phoneIndex) {
     const idSubstring = botName;
     const chatId = msg.from;
-   console.log('processImmediateActions');
+    console.log('processImmediateActions');
 
     try {
-         // Initial fetch of config
-         await fetchConfigFromDatabase(idSubstring,phoneIndex);
-         const sender = {
-             to: msg.from,
-             name: msg.notifyName,
-         };
- 
-         const extractedNumber = '+'+(sender.to).split('@')[0];
- 
-         if (msg.fromMe){
-             console.log(msg);
-             return;
-         }
-             
-         let contactID;
-         let contactName;
-         let threadID;
-         let query;
-         let answer;
-         let parts;
-         let currentStep;
-         const chat = await msg.getChat();
-         const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
-         let unreadCount = 0;
-         let stopTag = contactData?.tags || [];
-         const contact = await chat.getContact();
- 
-         console.log(contactData);
-         if (contactData !== null) {
-             if(contactData.tags){
-                 stopTag = contactData.tags;
-                 console.log(stopTag);
-                 unreadCount = contactData.unreadCount ?? 0;
-                 contactID = extractedNumber;
-                 contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
-             
-                 if (contactData.threadid) {
-                     threadID = contactData.threadid;
-                 } else {
-                     const thread = await createThread();
-                     threadID = thread.id;
-                     await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                 }
-             } else {
-                 contactID = extractedNumber;
-                 contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
-                 if (contactData.threadid) {
-                     threadID = contactData.threadid;
-                 } else {
-                     const thread = await createThread();
-                     threadID = thread.id;
-                     await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                 } 
-             }
-         } else {
-             await customWait(2500); 
- 
-             contactID = extractedNumber;
-             contactName = contact.pushname || contact.name || extractedNumber;
- 
-             const thread = await createThread();
-             threadID = thread.id;
-             console.log(threadID);
-             await saveThreadIDFirebase(contactID, threadID, idSubstring)
-             console.log('sent new contact to create new contact');
-         }   
- 
-         let firebaseTags = ['']
-         if (contactData) {
-             firebaseTags = contactData.tags ?? [];
-             // Remove 'snooze' tag if present
-             if(firebaseTags.includes('snooze')){
-                 firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
-             }
-         } else {
-             if ((sender.to).includes('@g.us')) {
-                 firebaseTags = ['stop bot']
-             }
-         }
- 
-         if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
-             // Schedule removal of 'replied' tag after 1 hour
-             // scheduleRepliedTagRemoval(idSubstring, extractedNumber, msg.from);
-         }
- 
-         let type = 'text';
-         if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
-             return;
-         } else if (msg.type != 'chat') {
-             type = msg.type;
-         }
-             
-         if(extractedNumber.includes('status')){
-             return;
-         }
- 
-         // Use combinedMessage instead of looping through messages
-         let messageBody = msg.body;
-         let audioData = null;
- 
-         const data = {
-             additionalEmails: [],
-             address1: null,
-             assignedTo: null,
-             businessId: null,
-             phone: extractedNumber,
-             tags: firebaseTags,
-             chat: {
-                 contact_id: extractedNumber,
-                 id: msg.from,
-                 name: contactName || contact.name || contact.pushname || extractedNumber,
-                 not_spam: true,
-                 tags: firebaseTags,
-                 timestamp: chat.timestamp || Date.now(),
-                 type: 'contact',
-                 unreadCount: 0,
-                 last_message: {
-                     chat_id: msg.from,
-                     from: msg.from ?? "",
-                     from_me: msg.fromMe ?? false,
-                     id: msg.id._serialized ?? "",
-                     source: chat.deviceType ?? "",
-                     status: "delivered",
-                     text: {
-                         body: messageBody ?? ""
-                     },
-                     timestamp: msg.timestamp ?? 0,
-                     type: type,
-                 },
-             },
-             chat_id: msg.from,
-             city: null,
-             companyName: contact.companyName || null,
-             contactName: contactName || contact.name || contact.pushname || extractedNumber,
-             unreadCount: unreadCount + 1,
-             threadid: threadID ?? "",
-             phoneIndex: phoneIndex,
-             last_message: {
-                 chat_id: msg.from,
-                 from: msg.from ?? "",
-                 from_me: msg.fromMe ?? false,
-                 id: msg.id._serialized ?? "",
-                 source: chat.deviceType ?? "",
-                 status: "delivered",
-                 text: {
-                     body: messageBody ?? ""
-                 },
-                 timestamp: msg.timestamp ?? 0,
-                 type: type,
-             },
-         };
- 
-         // Only add createdAt if it's a new contact
-         if (!contactData) {
-             data.createdAt = admin.firestore.Timestamp.now();
-         }
- 
-         let profilePicUrl = "";
-         if (contact.getProfilePicUrl()) {
-             try {
-                 profilePicUrl = await contact.getProfilePicUrl() || "";
-             } catch (error) {
-                 console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
-             }
-         }
-         data.profilePicUrl = profilePicUrl;
- 
-         const messageData = {
-             chat_id: msg.from,
-             from: msg.from ?? "",
-             from_me: msg.fromMe ?? false,
-             id: msg.id._serialized ?? "",
-             source: chat.deviceType ?? "",
-             status: "delivered",
-             text: {
-                 body: messageBody ?? ""
-             },
-             timestamp: msg.timestamp ?? 0,
-             type: type,
-             phoneIndex: phoneIndex,
-         };
- 
-         if(msg.hasQuotedMsg){
-           const quotedMsg = await msg.getQuotedMessage();
-           // Initialize the context and quoted_content structure
-           messageData.text.context = {
-             quoted_content: {
-               body: quotedMsg.body
-             }
-           };
-           const authorNumber = '+'+(quotedMsg.from).split('@')[0];
-           const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-           messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
-       }
-             
-         if((sender.to).includes('@g.us')){
-             const authorNumber = '+'+(msg.author).split('@')[0];
- 
-             const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
-             if(authorData){
-                 messageData.author = authorData.contactName;
-             }else{
-                 messageData.author = authorNumber;
-             }
-         }
-         if (msg.type === 'audio' || msg.type === 'ptt') {
-             messageData.audio = {
-                 mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
-                 data: audioData // This is the base64 encoded audio data
-             };
-         }
- 
-         if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
-           try {
-               const media = await msg.downloadMedia();
-               if (media) {
-                 if (msg.type === 'image') {
-                   messageData.image = {
-                       mimetype: media.mimetype,
-                       data: media.data,  // This is the base64-encoded data
-                       filename: msg._data.filename || "",
-                       caption: msg._data.caption || "",
-                   };
-                   // Add width and height if available
-                   if (msg._data.width) messageData.image.width = msg._data.width;
-                   if (msg._data.height) messageData.image.height = msg._data.height;
-                 } else if (msg.type === 'document') {
-                     messageData.document = {
-                         mimetype: media.mimetype,
-                         data: media.data,  // This is the base64-encoded data
-                         filename: msg._data.filename || "",
-                         caption: msg._data.caption || "",
-                         pageCount: msg._data.pageCount,
-                         fileSize: msg._data.size,
-                     };
-                 }else if (msg.type === 'video') {
-                       messageData.video = {
-                           mimetype: media.mimetype,
-                           filename: msg._data.filename || "",
-                           caption: msg._data.caption || "",
-                       };
-                       // Store video data separately or use a cloud storage solution
-                       const videoUrl = await storeVideoData(media.data, msg._data.filename);
-                       messageData.video.link = videoUrl;
-                 } else {
-                     messageData[msg.type] = {
-                         mimetype: media.mimetype,
-                         data: media.data,
-                         filename: msg._data.filename || "",
-                         caption: msg._data.caption || "",
-                     };
-                 }
-     
-                 // Add thumbnail information if available
-                 if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
-                     messageData[msg.type].thumbnail = {
-                         height: msg._data.thumbnailHeight,
-                         width: msg._data.thumbnailWidth,
-                     };
-                 }
-     
-                 // Add media key if available
-                 if (msg.mediaKey) {
-                     messageData[msg.type].mediaKey = msg.mediaKey;
-                 }
- 
-                 
-               } else {
-                   console.log(`Failed to download media for message: ${msg.id._serialized}`);
-                   messageData.text = { body: "Media not available" };
-               }
-           } catch (error) {
-               console.error(`Error handling media for message ${msg.id._serialized}:`, error);
-               messageData.text = { body: "Error handling media" };
-           }
-       }
- 
-         const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-         const messagesRef = contactRef.collection('messages');
- 
-         const messageDoc = messagesRef.doc(msg.id._serialized);
-         await messageDoc.set(messageData, { merge: true });
-         console.log(msg);
-         await addNotificationToUser(idSubstring, messageData, contactName);
-        
-        // Add the data to Firestore
-        await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true}); 
-          //reset bot command
-          if (msg.body.includes('/resetbot')) {
+        // Initial fetch of config
+        await fetchConfigFromDatabase(idSubstring, phoneIndex);
+        const sender = {
+            to: msg.from,
+            name: msg.notifyName,
+        };
+
+        const extractedNumber = '+'+(sender.to).split('@')[0];
+
+        if (msg.fromMe) {
+            console.log(msg);
+            return;
+        }
+            
+        let contactID;
+        let contactName;
+        let threadID;
+        let query;
+        let answer;
+        let parts;
+        let currentStep;
+        const chat = await msg.getChat();
+        const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
+        let unreadCount = 0;
+        let stopTag = contactData?.tags || [];
+        const contact = await chat.getContact();
+
+        console.log(contactData);
+        if (contactData !== null) {
+            if(contactData.tags){
+                stopTag = contactData.tags;
+                console.log(stopTag);
+                unreadCount = contactData.unreadCount ?? 0;
+                contactID = extractedNumber;
+                contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
+            
+                if (contactData.threadid) {
+                    threadID = contactData.threadid;
+                } else {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                }
+            } else {
+                contactID = extractedNumber;
+                contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
+                if (contactData.threadid) {
+                    threadID = contactData.threadid;
+                } else {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                } 
+            }
+        } else {
+            await customWait(2500); 
+
+            contactID = extractedNumber;
+            contactName = contact.pushname || contact.name || extractedNumber;
+
             const thread = await createThread();
             threadID = thread.id;
+            console.log(threadID);
             await saveThreadIDFirebase(contactID, threadID, idSubstring)
-            client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
+            console.log('sent new contact to create new contact');
+        }   
+
+        let firebaseTags = ['']
+        if (contactData) {
+            firebaseTags = contactData.tags ?? [];
+            // Remove 'snooze' tag if present
+            if(firebaseTags.includes('snooze')){
+                firebaseTags = firebaseTags.filter(tag => tag !== 'snooze');
+            }
+        } else {
+            if ((sender.to).includes('@g.us')) {
+                firebaseTags = ['stop bot']
+            }
+        }
+
+        if(firebaseTags.includes('replied') && firebaseTags.includes('fb')){
+            // Schedule removal of 'replied' tag after 1 hour
+            // scheduleRepliedTagRemoval(idSubstring, extractedNumber, msg.from);
+        }
+
+        let type = 'text';
+        if(msg.type == 'e2e_notification' || msg.type == 'notification_template'){
+            return;
+        } else if (msg.type != 'chat') {
+            type = msg.type;
+        }
+            
+        if(extractedNumber.includes('status')){
             return;
         }
 
-        //test bot command
-        if (msg.body.includes('/hello')) {
-            client.sendMessage(msg.from, 'tested.');
+        // Use combinedMessage instead of looping through messages
+        let messageBody = msg.body;
+        let audioData = null;
+
+        const data = {
+            additionalEmails: [],
+            address1: null,
+            assignedTo: null,
+            businessId: null,
+            phone: extractedNumber,
+            tags: firebaseTags,
+            chat: {
+                contact_id: extractedNumber,
+                id: msg.from,
+                name: contactName || contact.name || contact.pushname || extractedNumber,
+                not_spam: true,
+                tags: firebaseTags,
+                timestamp: chat.timestamp || Date.now(),
+                type: 'contact',
+                unreadCount: 0,
+                last_message: {
+                    chat_id: msg.from,
+                    from: msg.from ?? "",
+                    from_me: msg.fromMe ?? false,
+                    id: msg.id._serialized ?? "",
+                    source: chat.deviceType ?? "",
+                    status: "delivered",
+                    text: {
+                        body: messageBody ?? ""
+                    },
+                    timestamp: msg.timestamp ?? 0,
+                    type: type,
+                },
+            },
+            chat_id: msg.from,
+            city: null,
+            companyName: contact.companyName || null,
+            contactName: contactName || contact.name || contact.pushname || extractedNumber,
+            unreadCount: unreadCount + 1,
+            threadid: threadID ?? "",
+            phoneIndex: phoneIndex,
+            last_message: {
+                chat_id: msg.from,
+                from: msg.from ?? "",
+                from_me: msg.fromMe ?? false,
+                id: msg.id._serialized ?? "",
+                source: chat.deviceType ?? "",
+                status: "delivered",
+                text: {
+                    body: messageBody ?? ""
+                },
+                timestamp: msg.timestamp ?? 0,
+                type: type,
+            },
+        };
+
+        // Only add createdAt if it's a new contact
+        if (!contactData) {
+            data.createdAt = admin.firestore.Timestamp.now();
+        }
+
+        let profilePicUrl = "";
+        if (contact.getProfilePicUrl()) {
+            try {
+                profilePicUrl = await contact.getProfilePicUrl() || "";
+            } catch (error) {
+                console.error(`Error getting profile picture URL for ${contact.id.user}:`, error);
+            }
+        }
+        data.profilePicUrl = profilePicUrl;
+
+        const messageData = {
+            chat_id: msg.from,
+            from: msg.from ?? "",
+            from_me: msg.fromMe ?? false,
+            id: msg.id._serialized ?? "",
+            source: chat.deviceType ?? "",
+            status: "delivered",
+            text: {
+                body: messageBody ?? ""
+            },
+            timestamp: msg.timestamp ?? 0,
+            type: type,
+            phoneIndex: phoneIndex,
+        };
+
+        if(msg.hasQuotedMsg){
+          const quotedMsg = await msg.getQuotedMessage();
+          // Initialize the context and quoted_content structure
+          messageData.text.context = {
+            quoted_content: {
+              body: quotedMsg.body
+            }
+          };
+          const authorNumber = '+'+(quotedMsg.from).split('@')[0];
+          const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+          messageData.text.context.quoted_author = authorData ? authorData.contactName : authorNumber;
+      }
+            
+        if((sender.to).includes('@g.us')){
+            const authorNumber = '+'+(msg.author).split('@')[0];
+
+            const authorData = await getContactDataFromDatabaseByPhone(authorNumber, idSubstring);
+            if(authorData){
+                messageData.author = authorData.contactName;
+            }else{
+                messageData.author = authorNumber;
+            }
+        }
+        if (msg.type === 'audio' || msg.type === 'ptt') {
+            messageData.audio = {
+                mimetype: 'audio/ogg; codecs=opus', // Default mimetype for WhatsApp voice messages
+                data: audioData // This is the base64 encoded audio data
+            };
+        }
+
+        if (msg.hasMedia &&  (msg.type !== 'audio' || msg.type !== 'ptt')) {
+          try {
+              const media = await msg.downloadMedia();
+              if (media) {
+                if (msg.type === 'image') {
+                  messageData.image = {
+                      mimetype: media.mimetype,
+                      data: media.data,  // This is the base64-encoded data
+                      filename: msg._data.filename || "",
+                      caption: msg._data.caption || "",
+                  };
+                  // Add width and height if available
+                  if (msg._data.width) messageData.image.width = msg._data.width;
+                  if (msg._data.height) messageData.image.height = msg._data.height;
+                } else if (msg.type === 'document') {
+                    messageData.document = {
+                        mimetype: media.mimetype,
+                        data: media.data,  // This is the base64-encoded data
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
+                        pageCount: msg._data.pageCount,
+                        fileSize: msg._data.size,
+                    };
+                }else if (msg.type === 'video') {
+                      messageData.video = {
+                          mimetype: media.mimetype,
+                          filename: msg._data.filename || "",
+                          caption: msg._data.caption || "",
+                      };
+                      // Store video data separately or use a cloud storage solution
+                      const videoUrl = await storeVideoData(media.data, msg._data.filename);
+                      messageData.video.link = videoUrl;
+                } else {
+                    messageData[msg.type] = {
+                        mimetype: media.mimetype,
+                        data: media.data,
+                        filename: msg._data.filename || "",
+                        caption: msg._data.caption || "",
+                    };
+                }
+    
+                // Add thumbnail information if available
+                if (msg._data.thumbnailHeight && msg._data.thumbnailWidth) {
+                    messageData[msg.type].thumbnail = {
+                        height: msg._data.thumbnailHeight,
+                        width: msg._data.thumbnailWidth,
+                    };
+                }
+    
+                // Add media key if available
+                if (msg.mediaKey) {
+                    messageData[msg.type].mediaKey = msg.mediaKey;
+                }
+
+                
+              } else {
+                  console.log(`Failed to download media for message: ${msg.id._serialized}`);
+                  messageData.text = { body: "Media not available" };
+              }
+          } catch (error) {
+              console.error(`Error handling media for message ${msg.id._serialized}:`, error);
+              messageData.text = { body: "Error handling media" };
+          }
+      }
+
+      const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+      const messagesRef = contactRef.collection('messages');
+
+      const messageDoc = messagesRef.doc(msg.id._serialized);
+      await messageDoc.set(messageData, { merge: true });
+      console.log(msg);
+      await addNotificationToUser(idSubstring, messageData, contactName);
+      
+      // Add the data to Firestore
+      await db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber).set(data, {merge: true}); 
+
+      //reset bot command
+      if (msg.body.includes('/resetbot')) {
+        const thread = await createThread();
+        threadID = thread.id;
+        await saveThreadIDFirebase(contactID, threadID, idSubstring)
+        client.sendMessage(msg.from, 'Bot is now restarting with new thread.');
+        return;
+    }
+
+    //test bot command
+    if (msg.body.includes('/hello')) {
+        client.sendMessage(msg.from, 'tested.');
+        return;
+    }
+    if(ghlConfig.stopbot){
+        if(ghlConfig.stopbot == true){
+            console.log('bot stop all');
             return;
         }
-        if(ghlConfig.stopbot){
-            if(ghlConfig.stopbot == true){
-                console.log('bot stop all');
-                return;
-            }
+    }
+    if(firebaseTags !== undefined){
+        if(firebaseTags.includes('stop bot')){
+            console.log('bot stop');
+            return;
         }
-        if(firebaseTags !== undefined){
-            if(firebaseTags.includes('stop bot')){
-                console.log('bot stop');
-                return;
-            }
-        }   
-        console.log('Message processed immediately:', msg.id._serialized);
+    }   
+    console.log('Message processed immediately:', msg.id._serialized);
     } catch (error) {
         console.error('Error in immediate processing:', error);
     }
 }
+
 async function processBufferedMessages(client, chatId, botName, phoneIndex) {
     const buffer = messageBuffers.get(chatId);
     if (!buffer || buffer.messages.length === 0) return;

@@ -507,72 +507,74 @@ async function handleNewMessagesEduVille(client, msg, botName, phoneIndex) {
 async function processImmediateActions(client, msg, botName, phoneIndex) {
     const idSubstring = botName;
     const chatId = msg.from;
-   console.log('processImmediateActions');
+    console.log('processImmediateActions');
 
     try {
-         // Initial fetch of config
-         await fetchConfigFromDatabase(idSubstring,phoneIndex);
-         const sender = {
-             to: msg.from,
-             name: msg.notifyName,
-         };
+        // Initial fetch of config
+        await fetchConfigFromDatabase(idSubstring,phoneIndex);
+        const sender = {
+            to: msg.from,
+            name: msg.notifyName,
+        };
  
-         const extractedNumber = '+'+(sender.to).split('@')[0];
+        const extractedNumber = '+'+(sender.to).split('@')[0];
  
-       
-       
-         let contactID;
-         let contactName;
-         let threadID;
-         let query;
-         let answer;
-         let parts;
-         let currentStep;
-         const chat = await msg.getChat();
-         const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
-         let unreadCount = 0;
-         let stopTag = contactData?.tags || [];
-         const contact = await chat.getContact();
+        // Define contactRef and messagesRef
+        const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+        const messagesRef = contactRef.collection('messages');
  
-         console.log(contactData);
-         if (contactData !== null) {
-             if(contactData.tags){
-                 stopTag = contactData.tags;
-                 console.log(stopTag);
-                 unreadCount = contactData.unreadCount ?? 0;
-                 contactID = extractedNumber;
-                 contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
-             
-                 if (contactData.threadid) {
-                     threadID = contactData.threadid;
-                 } else {
-                     const thread = await createThread();
-                     threadID = thread.id;
-                     await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                 }
-             } else {
-                 contactID = extractedNumber;
-                 contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
-                 if (contactData.threadid) {
-                     threadID = contactData.threadid;
-                 } else {
-                     const thread = await createThread();
-                     threadID = thread.id;
-                     await saveThreadIDFirebase(contactID, threadID, idSubstring)
-                 } 
-             }
-         } else {
-             await customWait(2500); 
+        let contactID;
+        let contactName;
+        let threadID;
+        let query;
+        let answer;
+        let parts;
+        let currentStep;
+        const chat = await msg.getChat();
+        const contactData = await getContactDataFromDatabaseByPhone(extractedNumber, idSubstring);
+        let unreadCount = 0;
+        let stopTag = contactData?.tags || [];
+        const contact = await chat.getContact();
  
-             contactID = extractedNumber;
-             contactName = contact.pushname || contact.name || extractedNumber;
+        console.log(contactData);
+        if (contactData !== null) {
+            if(contactData.tags){
+                stopTag = contactData.tags;
+                console.log(stopTag);
+                unreadCount = contactData.unreadCount ?? 0;
+                contactID = extractedNumber;
+                contactName = contactData.contactName ?? contact.pushname ?? extractedNumber;
+            
+                if (contactData.threadid) {
+                    threadID = contactData.threadid;
+                } else {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                }
+            } else {
+                contactID = extractedNumber;
+                contactName = contactData.contactName ?? msg.pushname ?? extractedNumber;
+                if (contactData.threadid) {
+                    threadID = contactData.threadid;
+                } else {
+                    const thread = await createThread();
+                    threadID = thread.id;
+                    await saveThreadIDFirebase(contactID, threadID, idSubstring)
+                } 
+            }
+        } else {
+            await customWait(2500); 
  
-             const thread = await createThread();
-             threadID = thread.id;
-             console.log(threadID);
-             await saveThreadIDFirebase(contactID, threadID, idSubstring)
-             console.log('sent new contact to create new contact');
-         }   
+            contactID = extractedNumber;
+            contactName = contact.pushname || contact.name || extractedNumber;
+ 
+            const thread = await createThread();
+            threadID = thread.id;
+            console.log(threadID);
+            await saveThreadIDFirebase(contactID, threadID, idSubstring)
+            console.log('sent new contact to create new contact');
+        }   
        /*  if (msg.fromMe){
             await handleOpenAIMyMessage(msg.body,threadID);
             return;
@@ -787,9 +789,7 @@ async function processImmediateActions(client, msg, botName, phoneIndex) {
            }
        }
  
-         const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-         const messagesRef = contactRef.collection('messages');
- 
+         // Use messagesRef when saving the message
          const messageDoc = messagesRef.doc(msg.id._serialized);
          await messageDoc.set(messageData, { merge: true });
          console.log(msg);

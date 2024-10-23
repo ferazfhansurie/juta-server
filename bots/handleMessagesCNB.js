@@ -562,7 +562,9 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
         };
 
         const extractedNumber = '+'+(sender.to).split('@')[0];
+        const lockKey = `thread_${message.chat_id}`;
 
+        
         if (msg.fromMe){
             console.log(msg);
             return;
@@ -698,6 +700,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                     for (let i = 0; i < parts.length; i++) {
                         const part = parts[i].trim();   
                         const check = part.toLowerCase();
+                        const carpetCheck = check.replace(/\s+/g, '');             
                         if (part) {
                             const sentMessage = await client.sendMessage(msg.from, part);
 
@@ -719,7 +722,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
 
                             const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
                             const messagesRef = contactRef.collection('messages');
-                    
+
                             const messageDoc = messagesRef.doc(sentMessage.id._serialized);
 
                             await messageDoc.set(sentMessageData, { merge: true });
