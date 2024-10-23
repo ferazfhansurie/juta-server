@@ -553,18 +553,15 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring,phoneIndex);
 
-        // Set up the daily report schedule
-        //await checkAndScheduleDailyReport(client, idSubstring);
-
         const sender = {
             to: msg.from,
             name: msg.notifyName,
         };
 
         const extractedNumber = '+'+(sender.to).split('@')[0];
-        const lockKey = `thread_${message.chat_id}`;
+        // Remove this line as 'message' is not defined
+        // const lockKey = `thread_${message.chat_id}`;
 
-        
         if (msg.fromMe){
             console.log(msg);
             return;
@@ -740,7 +737,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                                     console.log(`${key} sending file`);
                                     const media = await MessageMedia.fromUrl(filePath, { unsafeMime: true, filename: `${await extractProductName(key)}.pdf` });
                                     const sentMessage = await client.sendMessage(msg.from, media);
-                                    // 3. Save the message to Firebase
+                                    // Save the message to Firebase
                                     const messageData = {
                                         chat_id: sentMessage.from,
                                         from: sentMessage.from ?? "",
@@ -749,10 +746,10 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                                         source: sentMessage.deviceType ?? "",
                                         status: "delivered",
                                         document: {
-                                        mimetype: media.mimetype,
-                                        url: filePath,
-                                        filename: `${await extractProductName(key)}.pdf`,
-                                        caption: "",
+                                            mimetype: media.mimetype,
+                                            url: filePath,
+                                            filename: `${await extractProductName(key)}.pdf`,
+                                            caption: "",
                                         },
                                         timestamp: sentMessage.timestamp ?? 0,
                                         type: 'document',
@@ -761,7 +758,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
 
                                     const messageDoc = messagesRef.doc(sentMessage.id._serialized);
 
-                                    await messageDoc.set(sentMessageData, { merge: true });
+                                    await messageDoc.set(messageData, { merge: true });
                                 }
                             }
                         }

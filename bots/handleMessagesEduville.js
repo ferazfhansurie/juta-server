@@ -862,6 +862,10 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
 
         const extractedNumber = '+'+(sender.to).split('@')[0];
 
+        // Define contactRef and messagesRef
+        const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
+        const messagesRef = contactRef.collection('messages');
+
         if (msg.fromMe){
             console.log(msg);
             return;
