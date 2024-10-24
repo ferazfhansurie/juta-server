@@ -671,7 +671,7 @@ async function getTotalContacts(idSubstring) {
     }
 }
 
-const MESSAGE_BUFFER_TIME = 60000; // 1 minute in milliseconds
+const MESSAGE_BUFFER_TIME = 1000; 
 const messageBuffers = new Map();
 
 async function handleNewMessagesDMAI(client, msg, botName, phoneIndex) {
