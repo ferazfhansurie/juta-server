@@ -237,7 +237,7 @@ async function addNotificationToUser(companyId, message, contactName) {
         );
 
         // Add sender information to cleanMessage
-        cleanMessage.senderName = contactName;
+        cleanMessage.senderName = contactName || 'Unknown'; // Ensure contactName is defined
      // Filter out undefined values from the message object
      const cleanMessage2 = Object.fromEntries(
         Object.entries(message).filter(([_, value]) => value !== undefined)
@@ -673,6 +673,9 @@ async function getTotalContacts(idSubstring) {
 
 const MESSAGE_BUFFER_TIME = 1000; 
 const messageBuffers = new Map();
+
+// Define RATE_LIMIT_DELAY at the top of your file or function
+const RATE_LIMIT_DELAY = 1000; // Define the delay in milliseconds
 
 async function handleNewMessagesDMAI(client, msg, botName, phoneIndex) {
     console.log('Handling new Messages '+botName);
@@ -1123,7 +1126,6 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
         userState.set(sender.to, steps.START);
 
         // Implement rate limiting
-        const RATE_LIMIT_DELAY = 1000; // Define the delay in milliseconds
         await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
     } catch (e) {
         console.error('Error:', e.message);
