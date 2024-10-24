@@ -174,7 +174,7 @@ const { handleNewMessagesAlist } = require('./bots/handleMessagesAList.js');
 const { handleNewMessagesAlist2 } = require('./bots/handleMessagesAList2.js');
 const { handleNewMessagesAlist3 } = require('./bots/handleMessagesAList3.js');
 const { handleNewMessagesSSPower} = require('./bots/handleMessagesSSPower.js');
-
+const { handleNewMessagesRasniaga} = require('./bots/handleMessagesRasniaga.js');
 
 
 
@@ -284,6 +284,7 @@ const customHandlers = {
   '093': handleNewMessagesEdward,
   '095': handleNewMessagesEduVille,
   '0100': handleNewMessagesSSPower,
+  '0102': handleNewMessagesRasniaga,
 };
 
 
