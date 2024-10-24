@@ -961,8 +961,8 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                                 // Update the data object with the extracted contact info
                                 data = {
                                     ...data,
-                                    name: contactInfo.name || data.name,
-                                    country: contactInfo.country || data.country,
+                                    name: contactInfo.name,
+                                    country: contactInfo.country,
                                     highestEducation: contactInfo.highestEducation,
                                     programOfStudy: contactInfo.programOfStudy,
                                     intakePreference: contactInfo.intakePreference,
