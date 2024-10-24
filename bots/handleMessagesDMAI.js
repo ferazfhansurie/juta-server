@@ -261,7 +261,7 @@ async function addNotificationToUser(companyId, message, contactName) {
         const promises = querySnapshot.docs.map(async (doc) => {
             const userRef = doc.ref;
             const notificationsRef = userRef.collection('notifications');
-            const updatedMessage = { ...cleanMessage2, read: false, from: contactName };
+            const updatedMessage = { ...cleanMessage2, read: false, from: contactName || 'Unknown' };
         
             await notificationsRef.add(updatedMessage);
             console.log(`Notification added to Firestore for user with companyId: ${companyId}`);
@@ -1123,6 +1123,7 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
         userState.set(sender.to, steps.START);
 
         // Implement rate limiting
+        const RATE_LIMIT_DELAY = 1000; // Define the delay in milliseconds
         await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
     } catch (e) {
         console.error('Error:', e.message);
