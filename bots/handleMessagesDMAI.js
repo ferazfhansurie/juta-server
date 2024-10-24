@@ -1052,9 +1052,6 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
         // Initial fetch of config
         await fetchConfigFromDatabase(idSubstring,phoneIndex);
 
-        // Set up the daily report schedule
-        //await checkAndScheduleDailyReport(client, idSubstring);
-
         const sender = {
             to: msg.from,
             name: msg.notifyName,
@@ -1080,19 +1077,12 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
         let stopTag = contactData?.tags || [];
         const contact = await chat.getContact();
 
-
-   
-        if (msg.fromMe){
-            if(stopTag.includes('idle')){
-            }
-            return;
-        }
-        if(stopTag.includes('stop bot')){
+        if (msg.fromMe || stopTag.includes('stop bot')){
             console.log('Bot stopped for this message');
             return;
         }
 
-      
+        // Handle group messages
         if ((msg.from).includes('120363178065670386')) {
             console.log('detected message from group juta')
             console.log(combinedMessage)
@@ -1101,7 +1091,10 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
                 await handleConfirmedAppointment(client, msg);
                 return;
             }
-        } if (contactData.threadid) {
+        }
+
+        // Ensure we have a valid threadID
+        if (contactData.threadid) {
             threadID = contactData.threadid;
         } else {
             const thread = await createThread();
@@ -1110,82 +1103,36 @@ async function processMessage(client, msg, botName, phoneIndex, combinedMessage)
         }
 
         currentStep = userState.get(sender.to) || steps.START;
-        switch (currentStep) {
-            case steps.START:
-                var context = "";
-
-                query = `${combinedMessage}`;
-                if(!(sender.to.includes('@g.us')) || (combinedMessage.toLowerCase().startsWith('@juta') && phoneIndex == 0)){
-                    answer = await handleOpenAIAssistant(query, threadID, stopTag, extractedNumber, idSubstring, client);
-                    console.log(answer);
-                    parts = answer.split(/\s*\|\|\s*/);
-                    
-                    for (let i = 0; i < parts.length; i++) {
-                        const part = parts[i].trim();   
-                        const check = part.toLowerCase();
-                        if (part) {
-                            const sentMessage = await client.sendMessage(msg.from, part);
-
-                            // Save the message to Firebase
-                            const sentMessageData = {
-                                chat_id: sentMessage.from,
-                                from: sentMessage.from ?? "",
-                                from_me: true,
-                                id: sentMessage.id._serialized ?? "",
-                                source: sentMessage.deviceType ?? "",
-                                status: "delivered",
-                                text: {
-                                    body: part
-                                },
-                                timestamp: sentMessage.timestamp ?? 0,
-                                type: 'text',
-                                ack: sentMessage.ack ?? 0,
-                            };
-
-                            const contactRef = db.collection('companies').doc(idSubstring).collection('contacts').doc(extractedNumber);
-                            const messagesRef = contactRef.collection('messages');
-                    
-                            const messageDoc = messagesRef.doc(sentMessage.id._serialized);
-
-                            await messageDoc.set(sentMessageData, { merge: true });
-                            if (part) {
-                                let sentMessage = null;
-                                console.log(msg.type);
-                                
-                                
-                                    sentMessage = await client.sendMessage(msg.from, part);
-                                    
-                                    if (check.includes('patience')) {
-                                    } 
-                                    if(check.includes('get back to you as soon as possible')){
-                                        console.log('check includes');
-                                    
-                                    await callWebhook("https://hook.us1.make.com/qoq6221v2t26u0m6o37ftj1tnl0anyut",check,threadID);
-                                    }
         
-                                
-                                await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber, contactName);
-        
-                                
-                            }
-                        }
-                    }
+        // Process the message only if it's not from a group or if it's specifically for the bot
+        if(!(sender.to.includes('@g.us')) || (combinedMessage.toLowerCase().startsWith('@juta') && phoneIndex == 0)){
+            query = `${combinedMessage}`;
+            answer = await handleOpenAIAssistant(query, threadID, stopTag, extractedNumber, idSubstring, client);
+            console.log(answer);
+            parts = answer.split(/\s*\|\|\s*/);
+            
+            for (let i = 0; i < parts.length; i++) {
+                const part = parts[i].trim();   
+                if (part) {
+                    await sendMessageAndSaveToFirebase(client, msg.from, part, idSubstring, extractedNumber, contactName);
                 }
-                
-                console.log('Response sent.');
-                userState.set(sender.to, steps.START);
-                break;
-            default:
-                // Handle unrecognized step
-                console.error('Unrecognized step:', currentStep);
-                break;
+            }
         }
+        
+        console.log('Response sent.');
+        userState.set(sender.to, steps.START);
+
         // Implement rate limiting
         await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_DELAY));
     } catch (e) {
         console.error('Error:', e.message);
         return(e.message);
     }
+}
+
+async function sendMessageAndSaveToFirebase(client, to, message, idSubstring, extractedNumber, contactName) {
+    const sentMessage = await client.sendMessage(to, message);
+    await addMessagetoFirebase(sentMessage, idSubstring, extractedNumber, contactName);
 }
 
 async function generateAudioFromText(text) {
@@ -2199,19 +2146,40 @@ async function analyzeAndSetLeadTemperature(phoneNumber, threadId) {
     try {
         console.log('Analyzing chat history for lead temperature...', phoneNumber);
         const idSubstring = '063'
-        const chatHistory = await fetchRecentChatHistory(threadId);
+        let chatHistory;
+        try {
+            chatHistory = await fetchRecentChatHistory(threadId);
+        } catch (error) {
+            if (error.status === 404) {
+                console.log(`Thread not found for ${phoneNumber}. Creating a new thread.`);
+                const newThread = await createThread();
+                threadId = newThread.id;
+                await saveThreadIDFirebase(phoneNumber, threadId, idSubstring);
+                chatHistory = []; // Start with an empty chat history
+            } else {
+                throw error; // Re-throw if it's not a 404 error
+            }
+        }
+        
+        if (chatHistory.length === 0) {
+            console.log(`No chat history available for ${phoneNumber}. Skipping analysis.`);
+            return JSON.stringify({
+                success: false,
+                message: "No chat history available for analysis"
+            });
+        }
+
         const analysis = await analyzeChatsWithAI(chatHistory);
         const temperature = determineLeadTemperature(analysis);
         await setLeadTemperature(idSubstring, phoneNumber, temperature);
         
-        // Return a simple confirmation without details
         return JSON.stringify({
             success: true,
             message: "Lead temperature updated"
         });
     } catch (error) {
         console.error('Error in analyzeAndSetLeadTemperature:', error);
-        return JSON.stringify({ error: 'Internal process completed' });
+        return JSON.stringify({ error: 'Internal process completed with errors' });
     }
 }
 
